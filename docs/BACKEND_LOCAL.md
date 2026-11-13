@@ -2,7 +2,7 @@
 
 已实现：健康检查、匿名浏览器会话、审阅档案、背景版本、调查任务、状态查询、SSE 事件重放、取消与删除，以及 PDF 上传、后台分页提取、原件访问和原文引用。SQLite 保存数据，关闭服务后仍保留。
 
-已接入初步调查运行器。没有可用合同时进入 awaiting_input；有合同但未配置 Key 时返回 503 AGENT_NOT_CONNECTED。配置模型后运行真实调查，结果由 GET run 的 `report` 字段提供，GET review 的 `currentReport` 提供带页码解析的同款报告（含 `review` 语义复核结论）。补件续查（`resumeFromRunId`）已实现；宣传与条款对照（`comparisons`）已实现；正式前端 `materials.html` 已接入调查与续查，其余示例页仍为模板。
+已接入初步调查运行器。没有可用合同时进入 awaiting_input；有合同但未配置 Key 时返回 503 AGENT_NOT_CONNECTED。配置模型后运行真实调查，结果由 GET run 的 `report` 字段提供，GET review 的 `currentReport` 提供带页码解析的同款报告（含 `review` 语义复核结论）。补件续查（`resumeFromRunId`）已实现；宣传与条款对照（`comparisons`）与情景实验（`scenarios`，`kind=scenario`）已实现；正式前端 `materials.html` 已接入调查与续查，其余示例页仍为模板。
 
 ## 启动与检查
 
@@ -93,7 +93,7 @@ GET /api/reviews/:id/documents/:docId/content 返回原 PDF。目前提供完整
 | GET | /api/reviews/:id/documents/:docId/content | 受会话保护的原 PDF |
 | DELETE | /api/reviews/:id/documents/:docId | 删除原件、页与引用 |
 | GET | /api/reviews/:id/sources/:sourceId | 原文、版本和页码出处 |
-| POST | /api/reviews/:id/runs | expectedRevision + kind=investigate + goal，可选 resumeFromRunId；创建调查任务 |
+| POST | /api/reviews/:id/runs | expectedRevision + kind（investigate 或 scenario）+ goal，可选 resumeFromRunId；创建调查或情景任务 |
 | GET | /api/reviews/:id/runs/:runId | 查询状态 |
 | GET | /api/reviews/:id/runs/:runId/events | SSE；after 或 Last-Event-ID 重放 |
 | POST | /api/reviews/:id/runs/:runId/cancel | 取消任务，可重复调用 |
@@ -109,6 +109,9 @@ GET /api/reviews/:id/documents/:docId/content 返回原 PDF。目前提供完整
 
 `comparisons`：宣传与条款对照，可为空数组。当审阅里存在 `role=promotion` 的材料时，模型逐条提取宣传主张，并在合同/附表/批单原文里找对应条件，每条含 `relation`（`supported_with_conditions` 有条件下支持 / `apparent_conflict` 表面冲突 / `insufficient_basis` 材料不足以判断）、`marketingQuote`（宣传原文逐字摘录）、`contractQuote`（合同原文逐字摘录，`insufficient_basis` 且无对应条文时为空串）、`explanation`（一句解释，指出差在哪 / 缺什么）、以及两侧解析后的引用 `marketing[]` / `contract[]`（结构同 findings 的 `citations`，含 documentName、role、pageIndex、quote、status）。校验规则：两侧引用的 sourceId 必须来自本次运行的已观察来源，宣传侧只能是 `promotion`，合同侧只能是 `contract` / `schedule` / `endorsement`，两侧引文都必须是该来源原文的子串；任一侧无法核对的整条会被丢弃，不改写成结论，`droppedComparisons` 记录丢弃条数，前端提示「有 N 条对照因原文无法核对而未显示」。对照不判断条款是否合法、不判断是否赔付。
 
+`scenarios`：情景实验，可为空数组。`POST runs` 的 `kind=scenario` 会创建一个独立任务，goal 写用户想验证的假设（例如「情景測試：如果延誤 8 小時？」）。每条含 `question`（用户的问题）、`assumption`（假设的数值与单位）、`thresholdQuote`（门槛原文的逐字片段）、`ruleSourceIds`、`actualValue` / `actualUnit`（`minutes` / `hours` / `days`）、`status`、`detail`（一句差距说明）、`unknowns`（仍需确认的事项）、以及解析后的 `citations[]`（结构同 findings）。`status` 四值：`satisfied`（越过门槛）、`not_satisfied`（未达）、`boundary`（正好等于门槛，而原文用的是「超过」这类严格表述）、`insufficient_information`（门槛原文里没有可解析的时长，或单位无法识别）。
+
+比较由服务端确定性计算，不由模型推算：工具 `evaluateScenario` 只接受已读过的原文，`thresholdQuote` 必须是该原文的逐字子串，返回的 `status` / `thresholdMinutes` / `actualMinutes` / `marginMinutes` 由 `server/scenario.ts` 计算；模型只能照抄该 status。报告落盘前会再算一次，若模型声称的 status 与计算结果不一致，该条被拒绝；重试后仍不一致的整条丢弃并计入 `droppedScenarios`（不使任务失败）。`caveats` 固定提醒：只比较字面门槛、事件定义与起算时点/除外/证明仍需确认、上限与币种未计算。情景假设只属于该次任务，不会写回审阅背景。情景任务产出的报告同样包含 findings 与 requests，`currentReport` 取最近一次已发布报告。
 SSE 当前仅重放已保存事件；awaiting_input/cancelled 时关闭连接。消费端收到这种状态应主动关闭 EventSource，避免自动重连。接入持续运行的 Agent 时，再增加实时订阅和心跳。
 
 本阶段仅供单机本地开发，监听 127.0.0.1。对外部署前需要补充 HTTPS/安全 cookie、会话生命周期和速率/容量限制等配置。API 不开放跨域调用，前端联调时使用同源服务或开发代理。
@@ -116,7 +119,7 @@ SSE 当前仅重放已保存事件；awaiting_input/cancelled 时关闭连接。
 
 ## 第三阶段：DeepSeek 调查原型
 
-已接入 AI SDK ToolLoopAgent 与 DeepSeek provider。服务端工具为 listDocuments、searchSources、readSource；模型自主选择工具。每次运行保存不可变材料/背景快照，最多 10 轮和 24 次工具执行，120 秒活动超时。修改输入或取消后不可发布迟到结果。readSource 接受被缩短的 sourceId（如 `p2:b1`）并在找不到时返回可用列表，避免模型格式化失误导致材料看起来不可读。
+已接入 AI SDK ToolLoopAgent 与 DeepSeek provider。服务端工具为 listDocuments、searchSources、readSource、evaluateScenario；模型自主选择工具。每次运行保存不可变材料/背景快照，最多 10 轮和 24 次工具执行，120 秒活动超时。修改输入或取消后不可发布迟到结果。readSource 接受被缩短的 sourceId（如 `p2:b1`）并在找不到时返回可用列表，避免模型格式化失误导致材料看起来不可读。
 
 本机 .env 填写 DEEPSEEK_API_KEY，按实际端点配置 DEEPSEEK_BASE_URL 和 DEEPSEEK_MODEL，重启 npm run dev:api。不要把 Key 发到聊天或提交 Git。有可用合同但没有 Key 时返回 503；配置后 POST runs 返回 202，GET run 可查询状态和 report。真实调用会把本次材料和用户问题交给配置的模型平台处理。
 

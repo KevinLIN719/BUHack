@@ -19,7 +19,7 @@ const contextSchema = z.object({
 }).strict();
 const runSchema = z.object({
   expectedRevision: z.number().int().positive(),
-  kind: z.literal("investigate"),
+  kind: z.enum(["investigate", "scenario"]),
   goal: z.string().trim().min(1).max(2000),
   // Set to create a successor run that continues the report of an earlier run.
   resumeFromRunId: z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i).optional(),

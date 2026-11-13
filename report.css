@@ -41,3 +41,14 @@ blockquote{margin:0;padding:9px 12px;border-left:3px solid #d8d2c3;background:#f
 .side blockquote{margin:0}
 .muted{color:#8a8375;font-size:13.5px}
 .disclaimer{margin:0;color:#8a8375;font-size:12.5px;line-height:1.7}
+.scenario-actions{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin:4px 0 12px}
+.scenario-actions .analysis-goal{flex:1 1 260px;margin:0}
+.scenario-actions input{width:100%;padding:9px 11px;border:1px solid #d8d2c3;border-radius:6px;background:#fffdf7;font:inherit;color:inherit}
+.scenarios h3{font-size:15px;margin:0}
+.scenario{display:grid;gap:9px;justify-items:start;padding:14px 0;border-bottom:1px solid var(--line)}
+.scenario:last-of-type{border-bottom:0}
+.scenario .badge{border-color:#c3cdc9;background:#f1f6f4;color:#0f5f58}
+.scenario .badge.warn{border-color:#e7d3b4;background:#fbf5ea;color:#8a5a12}
+.scenario .badge.bad{border-color:#e3c4c0;background:#faf0ee;color:#8d3b34}
+.unknowns{margin:0;padding-left:18px;font-size:13px;line-height:1.75;color:#5a5347}
+.unknowns .side-label{list-style:none;margin-left:-18px;color:#8a8375}

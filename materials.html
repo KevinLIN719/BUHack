@@ -44,6 +44,10 @@
         <button type="button" id="resume" class="secondary" hidden>用新材料續查 ↗</button>
       </div>
       <p id="run-status" role="status" aria-live="polite">正在讀取材料狀態……</p>
+      <div class="scenario-actions" id="scenario-actions" hidden>
+        <label class="analysis-goal">情境假設<input id="scenario" type="text" placeholder="例如：如果延誤 8 小時" /></label>
+        <button type="button" id="scenario-run" class="secondary">測試情境 ↗</button>
+      </div>
       <div id="report" hidden></div>
     </section>
     <footer><p>文字提取可能受表格、分欄和字體影響，請對照原 PDF。</p><button type="button" id="delete-review" class="secondary">刪除本次所有材料</button></footer>

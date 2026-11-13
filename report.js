@@ -17,6 +17,9 @@
   const verdictTone = {supported:'ok',partial:'warn',unsupported:'bad',quote_mismatch:'bad'};
   const comparisonLabels = {supported_with_conditions:'有條件支持',apparent_conflict:'表面衝突',insufficient_basis:'材料不足以判斷'};
   const comparisonTone = {supported_with_conditions:'ok',apparent_conflict:'bad',insufficient_basis:'warn'};
+  const scenarioLabels = {satisfied:'符合門檻',not_satisfied:'未達門檻',boundary:'剛好等於門檻',insufficient_information:'條件不足，無法比較'};
+  const scenarioTone = {satisfied:'ok',not_satisfied:'warn',boundary:'warn',insufficient_information:'bad'};
+  const scenarioUnitLabels = {minutes:'分鐘',hours:'小時',days:'天'};
   const state = {reviewId:null, review:null, runId:null, busy:false};
 
   const node = (tag, text, className) => {
@@ -58,6 +61,8 @@
     $('start').disabled = value || !ready;
     $('resume').disabled = value;
     $('goal').disabled = value;
+    $('scenario').disabled = value;
+    $('scenario-run').disabled = value;
   }
 
   function citationButton(citation) {
@@ -146,6 +151,36 @@
       host.append(section);
     }
 
+    if (report.scenarios?.length || report.droppedScenarios) {
+      const section = node('section', undefined, 'compare scenarios');
+      section.append(node('h3', '情境實驗'));
+      section.append(node('p', '把你假設的條件放進條款原文的門檻比較；只算字面差距，不推算賠款。', 'muted'));
+      for (const item of report.scenarios ?? []) {
+        const card = node('article', undefined, 'scenario');
+        card.append(node('span', scenarioLabels[item.status] ?? item.status, `badge ${scenarioTone[item.status] ?? ''}`));
+        card.append(node('div', item.question, 'finding-text'));
+        const facts = node('p', `假設：${item.assumption}`, 'muted');
+        card.append(facts);
+        card.append(node('p', `與門檻比較：${item.actualValue} ${scenarioUnitLabels[item.actualUnit] ?? item.actualUnit}`, 'muted'));
+        for (const citation of item.citations ?? []) {
+          card.append(citationButton(citation));
+          if (citation.quote) card.append(node('blockquote', citation.quote));
+        }
+        if (item.detail) card.append(node('div', item.detail, 'finding-text'));
+        if (item.unknowns?.length) {
+          const list = node('ul', undefined, 'unknowns');
+          list.append(node('li', '仍需確認', 'side-label'));
+          for (const unknown of item.unknowns) list.append(node('li', unknown));
+          card.append(list);
+        }
+        section.append(card);
+      }
+      if (report.droppedScenarios) {
+        section.append(node('p', `有 ${report.droppedScenarios} 條情境因原文無法核對而未顯示。`, 'muted'));
+      }
+      host.append(section);
+    }
+
     if (report.requests?.length) {
       const section = node('section', undefined, 'asks');
       section.append(node('h3', '還需要你補充'));
@@ -186,6 +221,7 @@
     const hasNewInput = report && review.revision > report.inputRevision;
 
     $('resume').hidden = !hasNewInput;
+    $('scenario-actions').hidden = !report;
     if (report) {
       renderReport(report);
       status(pending ? '新材料仍在解析，完成後可續查。'
@@ -274,8 +310,39 @@
     }
   }
 
+  // A scenario run reuses the current material snapshot and only asks the deterministic tool to
+  // compare one assumption with one quoted threshold. It never writes user assumptions into the
+  // review's context: the assumption belongs to this run only.
+  async function startScenario() {
+    if (state.busy) return;
+    const review = state.review;
+    if (!review?.currentReport) { status('請先完成一次調查，再有情境可測試。'); return; }
+    const assumption = $('scenario').value.trim();
+    if (!assumption) { status('請先寫下想假設的情境，例如「如果延誤 8 小時」。'); $('scenario').focus(); return; }
+    state.busy = true;
+    lock(true);
+    status('正在比對情境與條款門檻……');
+    try {
+      const run = await api(`/reviews/${state.reviewId}/runs`, {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({expectedRevision: review.revision, kind: 'scenario', goal: `情景測試：${assumption}`})
+      });
+      state.runId = run.id;
+      rememberRun(run.id);
+      await poll();
+      $('scenario').value = '';
+    } catch (error) {
+      state.busy = false;
+      lock(false);
+      status(error.message);
+      if (error.status === 409) await load().catch(() => {});
+    }
+  }
+
   $('start').addEventListener('click', () => void start(false));
   $('resume').addEventListener('click', () => void start(true));
+  $('scenario-run').addEventListener('click', () => void startScenario());
+  $('scenario').addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); void startScenario(); } });
   document.addEventListener('policy-review-changed', () => { void load().catch(error => status(error.message)); });
   void load().catch(error => status(error.message));
 })();

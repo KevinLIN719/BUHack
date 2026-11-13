@@ -16,6 +16,9 @@ type StoredReport = {
   comparisons?: {relation: string; marketingQuote: string; contractQuote?: string; explanation: string;
     marketingSourceIds: string[]; contractSourceIds?: string[]}[];
   droppedComparisons?: number;
+  scenarios?: {question: string; assumption: string; thresholdQuote: string; ruleSourceIds: string[];
+    actualValue: number; actualUnit: string; status: string; detail: string; unknowns: string[]}[];
+  droppedScenarios?: number;
   sources?: {sourceId: string; documentId: string; pageIndex: number; quote: string; role: string}[];
   coverage?: {id: string; status: string; pageCount: number | null}[];
   verification?: string;
@@ -39,6 +42,8 @@ export type ReportView = {
   findings: (StoredReport["findings"][number] & {citations: ResolvedCitation[]})[];
   comparisons: (NonNullable<StoredReport["comparisons"]>[number] & {marketing: ResolvedCitation[]; contract: ResolvedCitation[]})[];
   droppedComparisons: number;
+  scenarios: (NonNullable<StoredReport["scenarios"]>[number] & {citations: ResolvedCitation[]})[];
+  droppedScenarios: number;
   openQuestions: string[];
   requests: {message: string; requestedRole: string}[];
   sources: ResolvedCitation[];
@@ -77,12 +82,14 @@ export function reportView(store: Store, reviewId: string): ReportView | null {
   const comparisons = (report.comparisons ?? []).map(comparison => ({...comparison,
     marketing: comparison.marketingSourceIds.map(resolve),
     contract: (comparison.contractSourceIds ?? []).map(resolve)}));
+  const scenarios = (report.scenarios ?? []).map(scenario => ({...scenario, citations: scenario.ruleSourceIds.map(resolve)}));
   // Keep the report's own source list (with order) but resolve each entry as well.
   const sources = (report.sources ?? []).map(source => resolve(source.sourceId));
   const missing = [...cited].filter(id => !lookup.has(id)).length;
   return {
     runId: run.runId, runStatus: run.status, inputRevision: run.inputRevision, createdAt: run.createdAt,
     findings, comparisons, droppedComparisons: report.droppedComparisons ?? 0,
+    scenarios, droppedScenarios: report.droppedScenarios ?? 0,
     openQuestions: report.openQuestions, requests: report.requests ?? [],
     sources, coverage: report.coverage ?? [], verification: report.verification ?? null,
     review: report.review ?? null,

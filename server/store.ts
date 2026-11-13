@@ -7,7 +7,7 @@ export type Review = {
   id: string; owner: string; revision: number; context: string; createdAt: string;
 };
 export type Run = {
-  id: string; reviewId: string; inputRevision: number; kind: "investigate";
+  id: string; reviewId: string; inputRevision: number; kind: "investigate" | "scenario";
   goal: string; status: "awaiting_input" | "cancelled" | "queued" | "running" | "partial" | "failed";
   idempotencyKey: string | null; requestHash: string; parentRunId: string | null;
   createdAt: string; updatedAt: string;

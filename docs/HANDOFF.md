@@ -76,9 +76,9 @@ npm run build
 
 1. ~~用团队实际 DeepSeek 账户完成最小真实联调~~ 已完成，见上文「Agent 的真实进度」。
 2. ~~完成 input_requests 持久化及补件 successor run~~ 已完成，用法见上文「补件续查」。
-3. resolveReference 与独立语义复核已完成：`GET /api/reviews/:id` 返回的 `currentReport` 每条结论带 `citations`（documentName / role / pageIndex / pageLabel / quote / status，材料被删后标 `missing`），并带 `review`（逐条 `supported` / `partial` / `unsupported` / `quote_mismatch` + 一句话依据；复核失败记 `unavailable` 不影响运行）。**材料页已接上一次调查**：`materials.html` 底部「條款調查」区块由 `report.js` / `report.css` 驱动，填问题 → 开始调查 → 轮询 run → 读 `currentReport` 渲染结论、原文引用（点击跳到逐页原文）、语义复核结论、补充请求与提问清单；有新加入的材料时出现「用新材料續查」，带 `resumeFromRunId` 走 successor run，不重复调查旧内容。仍未接的是 `experience.html` 主流程（示意聊天的二次入口）与 OCR／情景计算／经纪回复核验。
+3. resolveReference 与独立语义复核已完成：`GET /api/reviews/:id` 返回的 `currentReport` 每条结论带 `citations`（documentName / role / pageIndex / pageLabel / quote / status，材料被删后标 `missing`），并带 `review`（逐条 `supported` / `partial` / `unsupported` / `quote_mismatch` + 一句话依据；复核失败记 `unavailable` 不影响运行）。**材料页已接上一次调查**：`materials.html` 底部「條款調查」区块由 `report.js` / `report.css` 驱动，填问题 → 开始调查 → 轮询 run → 读 `currentReport` 渲染结论、原文引用（点击跳到逐页原文）、语义复核结论、补充请求与提问清单；有新加入的材料时出现「用新材料續查」，带 `resumeFromRunId` 走 successor run，不重复调查旧内容。仍未接的是 `experience.html` 主流程（示意聊天的二次入口）与 OCR／经纪回复核验。
 4. 宣传与条款对照已完成：上传 `role=promotion` 的宣传单后，`currentReport.comparisons` 给出每条宣传主张对合同原文的 `supported_with_conditions` / `apparent_conflict` / `insufficient_basis`，两侧引文均为逐字摘录并带页码解析，无法核对的整条丢弃并记 `droppedComparisons`；`materials.html` 的「條款調查」区块在结论之后渲染「宣傳與條款」。演示素材：`assets/demo-contract.pdf` + `assets/demo-promotion.pdf`（均为虚构测试材料）。
-5. OCR、情景计算和经纪回复核验逐项增加。
+5. 情景实验（`kind=scenario`）已完成：材料页出现「情境實驗」输入框，假设的时长与原文门槛由服务端确定性比较，结果带 status、差距和仍待确认项；不推算赔款。剩余：OCR、经纪回复核验逐项增加。
 
 ## 交接边界
 
