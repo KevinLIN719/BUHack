@@ -9,10 +9,8 @@
     <filter id="shadow" x="-10%" y="-10%" width="120%" height="125%"><feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#8a6f60" flood-opacity=".10"/></filter>
     <filter id="card-shadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="1" dy="4" stdDeviation="3" flood-color="#8a6f60" flood-opacity=".10"/></filter>
   </defs>
-  <!-- Upright A4 front sheet; two offset back sheets provide quiet depth. -->
+  <!-- Upright A4 front sheet. The page owns the two horizontal trailing sheets. -->
   <g transform="translate(34 28)">
-    <rect x="18" y="14" width="630" height="891" rx="9" transform="rotate(1.2 333 459.5)" fill="#f0ede7" stroke="#d8d2c8"/>
-    <rect x="9" y="7" width="630" height="891" rx="9" transform="rotate(-.65 324 452.5)" fill="#fbf9f4" stroke="#dcd6ce"/>
     <rect width="630" height="891" rx="9" fill="url(#paper)" stroke="#d6d2ca" stroke-width="1.2" filter="url(#shadow)"/>
     <g clip-path="url(#clip)">
       <rect width="630" height="891" fill="url(#ruling)" opacity=".48"/>
