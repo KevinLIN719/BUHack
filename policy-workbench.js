@@ -20,7 +20,7 @@
     const layout = doc.createElement('div'); layout.className = 'pw-layout';
     const deckHost = doc.createElement('div'); deckHost.className = 'pw-deck'; deckHost.dataset.policyDeckHost = '';
     const detail = doc.createElement('section'); detail.className = 'pw-detail'; detail.dataset.policyDetail = ''; detail.id = 'pw-detail-' + (++serial); detail.setAttribute('aria-label', '保單條款與閱讀筆記');
-    const placeholder = doc.createElement('p'); placeholder.className = 'pw-placeholder'; placeholder.textContent = '打開一份虛構保單，閱讀條款與相關筆記。';
+    const placeholder = doc.createElement('p'); placeholder.className = 'pw-placeholder'; placeholder.textContent = '打開保單查看筆記。';
     const overlay = doc.createElement('div'); overlay.className = 'pw-pull-overlay'; overlay.dataset.policyPullOverlay = ''; overlay.setAttribute('aria-hidden', 'true');
     const status = doc.createElement('p'); status.className = 'pw-status'; status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
     layout.append(deckHost, detail); root.append(layout, placeholder, status, overlay); host.append(root);
@@ -84,8 +84,8 @@
     }
     function confirmOpen() {
       root.dataset.pullState = 'idle';
-      if (open && byId.has(detailId)) status.textContent = byId.get(detailId).title + ' 的條款與筆記已展開。';
-      else if (selected) status.textContent = byId.get(selected).title + ' 已選擇，打開保單即可閱讀筆記。';
+      if (open && byId.has(detailId)) status.textContent = byId.get(detailId).title + ' · 已展開';
+      else if (selected) status.textContent = byId.get(selected).title + ' · 已選取';
     }
     function renderDetail(id, entrance = true) {
       const item = byId.get(id); if (!item) return;
@@ -93,7 +93,7 @@
       for (const node of [detail, ...detail.querySelectorAll('.pw-excerpt,.pw-reading-note,.pw-findings')]) surfaces?.cancel(node);
       detailId = id; detail.replaceChildren(); detail.dataset.policyId = id;
       const head = make('div', 'pw-detail-head');
-      const target = make('div', 'pw-detail-target'); target.dataset.policyPullTarget = ''; target.append(make('span', 'pw-detail-kicker', item.demo ? '虛構條款／閱讀筆記' : '保單條款／閱讀筆記'), make('h3', 'pw-detail-title', item.title));
+      const target = make('div', 'pw-detail-target'); target.dataset.policyPullTarget = ''; target.append(make('span', 'pw-detail-kicker', item.demo ? '虛構保單' : '保單條款'), make('h3', 'pw-detail-title', item.title));
       const close = make('button', 'pw-close', '關閉筆記'); close.type = 'button'; close.dataset.pwAction = 'close';
       head.append(target, close);
       const source = make('p', 'pw-source', item.sourceLabel);
@@ -103,7 +103,7 @@
       let cursor = 0;
       ranges.forEach(r => { if (r.start < cursor) return; excerpt.append(doc.createTextNode(item.excerpt.slice(cursor,r.start))); const mark = make('mark', 'pl-marker', r.finding.quote); mark.dataset.priority = r.finding.priority; mark.dataset.findingId = r.finding.id; excerpt.append(mark); cursor = r.end; });
       excerpt.append(doc.createTextNode(item.excerpt.slice(cursor)));
-      const note = make('p', 'pw-reading-note', item.demo ? '此介面使用虛構示例。優先級只用於整理問題，不代表已確認受保。' : '閱讀優先級只用於整理問題，不代表已確認受保。');
+      const note = make('p', 'pw-reading-note', '優先級用於整理問題，並非保障判定。');
       const findings = make('ol', 'pw-findings pl-ruled-list'); findings.dataset.policyFindings = id;
       item.findings.slice().sort((a,b) => a.priority - b.priority).forEach((f,index) => {
         const row = make('li', 'pw-finding'); row.dataset.findingId = f.id; row.dataset.priority = f.priority;
@@ -159,7 +159,7 @@
       const rows=Array.from(detail.querySelectorAll('.pw-finding'));
       rows.forEach(row=>row.style.setProperty('--pw-ink','0'));
       detail.setAttribute('aria-busy','true');
-      status.textContent = '正在將「' + byId.get(id).title + '」帶到閱讀筆記……';
+      status.textContent = '正在打開：' + byId.get(id).title;
       const sourceElement = Array.from(deckHost.querySelectorAll('[data-pd-paper]')).find(p => p.dataset.pdPaper === id), targetElement = detail.querySelector('[data-policy-pull-target]');
       pull.play({ id, sourceElement, targetElement, onLanding(progress) {
         if (dead || requestVersion !== version) return;
@@ -192,7 +192,7 @@
       // A cancelled arrival must not create a sharp exit snapshot of ink
       // which has not been revealed yet.
       if (wasArriving) { surfaces?.cancel(detail); detail.hidden = true; }
-      syncOpen(); root.dataset.pullState = 'idle'; status.textContent = '閱讀筆記已關閉。';
+      syncOpen(); root.dataset.pullState = 'idle'; status.textContent = '筆記已關閉。';
       const paper = Array.from(deckHost.querySelectorAll('[data-pd-paper]')).find(p => p.dataset.pdPaper === selected); paper?.focus({ preventScroll: true });
     }
     // Pointer-down may become a click (redirect) or a drag; neither should cut

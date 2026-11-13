@@ -60,9 +60,9 @@
   const sourceLegend = '<p class="sc-source-legend" aria-label="條款閱讀優先級">' +
     Object.entries(priorityLabels).map(([priority,label]) => '<span class="pl-priority" data-priority="' + priority + '">' + priority + ' · ' + label + '</span>').join('') + '</p>';
   const modes = Object.freeze({
-    explain: { label:'解釋條款', help:'用白話拆解條件、限制和所需證明。', placeholder:'例如：航班延誤要符合甚麼條件？', prompts:['航班延誤要符合甚麼條件？','行李延誤需要保留哪些收據？'] },
-    'what-if': { label:'假設情境', help:'寫下「如果……」，對照條款看哪些細節仍需確認。', placeholder:'例如：如果剛好延誤六小時呢？', prompts:['如果剛好延誤六小時呢？','如果因此錯過轉機航班呢？'] },
-    ask: { label:'怎樣問', help:'把疑問整理成可以直接向顧問確認的具體問題。', placeholder:'例如：航班延誤的限制，我應該怎樣問？', prompts:['航班延誤的限制，我應該怎樣問？','行李延誤需要向顧問確認甚麼？'] }
+    explain: { label:'解釋條款', help:'解釋條件、限制與所需證明。', placeholder:'航班延誤要符合甚麼條件？', prompts:['航班延誤要符合甚麼條件？','行李延誤需要保留哪些收據？'] },
+    'what-if': { label:'假設情境', help:'對照你的情況，找出待確認的細節。', placeholder:'如果剛好延誤六小時呢？', prompts:['如果剛好延誤六小時呢？','如果因此錯過轉機航班呢？'] },
+    ask: { label:'怎樣問', help:'整理成向顧問確認的問題。', placeholder:'航班延誤的限制，我應該怎樣問？', prompts:['航班延誤的限制，我應該怎樣問？','行李延誤需要向顧問確認甚麼？'] }
   });
   function mount(host, { onQuestion } = {}) {
     mounts.get(host)?.destroy();
@@ -84,7 +84,7 @@
       const selected = modes[mode];
       field.placeholder = selected.placeholder;
       const help = host.querySelector('[data-chat-mode-help]');
-      if (help) help.textContent = `${selected.label} · ${selected.help}`;
+      if (help) help.textContent = selected.help;
       const suggestions = stack.querySelector('[data-chat-starters]');
       if (suggestions) suggestions.innerHTML = selected.prompts.map(question => `<button type="button" data-chat-suggestion="${escape(question)}">${escape(question)}</button>`).join('');
     }
@@ -92,27 +92,21 @@
       sendButton.disabled = busy || !field.value.trim();
       form.setAttribute('aria-busy', String(busy));
       host.querySelectorAll('[data-chat-mode]').forEach(button => { button.setAttribute('aria-pressed', String(button.dataset.chatMode === mode)); button.disabled = busy; });
-      status.textContent = busy ? '正在準備本機示例回覆……' : '本機虛構示例 · Enter 送出 · Shift + Enter 換行';
+      status.textContent = busy ? '回覆中……' : 'Enter 送出 · Shift + Enter 換行';
     }
     function message(item) {
       const node = host.ownerDocument.createElement('article');
       node.className = `agent-message ${item.role}`;
       if (item.role === 'user') node.innerHTML = `<p>${escape(item.text)}</p>`;
       else {
-        node.innerHTML = `<span class="agent-response-label">虛構示例 · <span class="pl-marker" data-marker="${item.reply.grounded ? '12' : '7'}">${item.reply.grounded ? '已連結原文' : '未找到對應原文'}</span></span><h3>${escape(item.reply.title)}</h3>${item.reply.paragraphs.map(p => `<p>${escape(p)}</p>`).join('')}<div class="agent-evidence">${item.reply.sourceIds.map(id => `<button type="button" data-chat-source="${escape(id)}">閱讀示例原文</button>`).join('')}</div><div class="agent-followups">${item.reply.followUps.map(q => `<button type="button" data-chat-suggestion="${escape(q)}">${escape(q)}</button>`).join('')}</div><div class="agent-answer-actions"><button type="button" data-chat-save="${escape(item.question)}">保留這個問題</button></div>`;
-      }
-      if (item.role === 'assistant') {
-        const label = host.ownerDocument.createElement('p');
-        label.className = 'agent-mode-label';
-        label.textContent = modes[item.mode || 'explain'].label;
-        node.prepend(label);
+        node.innerHTML = `<p class="agent-mode-label">${modes[item.mode || 'explain'].label} · <span class="pl-marker" data-marker="${item.reply.grounded ? '12' : '7'}">${item.reply.grounded ? '附原文' : '未找到原文'}</span></p><h3>${escape(item.reply.title)}</h3>${item.reply.paragraphs.map(p => `<p>${escape(p)}</p>`).join('')}<div class="agent-evidence">${item.reply.sourceIds.map(id => `<button type="button" data-chat-source="${escape(id)}">查看原文</button>`).join('')}</div><div class="agent-followups">${item.reply.followUps.map(q => `<button type="button" data-chat-suggestion="${escape(q)}">${escape(q)}</button>`).join('')}</div><div class="agent-answer-actions"><button type="button" data-chat-save="${escape(item.question)}">保留這個問題</button></div>`;
       }
       stack.appendChild(node);
       return node;
     }
     function render() {
       stack.replaceChildren();
-      if (!transcript.length) stack.innerHTML = '<div class="agent-empty"><h3>從一條不清楚的條款開始。</h3><p>可以詢問虛構的航班延誤條款。回覆會連同原文保留，方便繼續問得更具體。</p><div class="agent-suggestions" data-chat-starters></div></div>';
+      if (!transcript.length) stack.innerHTML = '<div class="agent-empty"><p>可從這些問題開始：</p><div class="agent-suggestions" data-chat-starters></div></div>';
       else transcript.forEach(message);
       updateMode();
     }
@@ -120,12 +114,12 @@
       const source = window.PolicyDemo?.sources?.find(item => item.id === id);
       if (!source) return;
       sourceId = source.id;
-      evidence.innerHTML = `<p class="sc-eyebrow">晴日旅遊 · 虛構條款 · 第 ${escape(source.page)} 頁</p><h3>${escape(source.title)}</h3>${sourceLegend}<blockquote class="agent-desk-quote">${sourceWording(source)}</blockquote><p>請結合上下文閱讀條件；示例解釋不代表真實保障判定。</p>`;
+      evidence.innerHTML = `<p class="sc-eyebrow">晴日旅遊 · 第 ${escape(source.page)} 頁</p><h3>${escape(source.title)}</h3>${sourceLegend}<blockquote class="agent-desk-quote">${sourceWording(source)}</blockquote>`;
       motion?.transitionDesk(evidence);
       if (messageHost) {
         let inline = messageHost.querySelector('.sc-chat-inline-source');
         if (!inline) { inline = host.ownerDocument.createElement('div'); inline.className = 'sc-chat-inline-source'; messageHost.appendChild(inline); }
-        inline.innerHTML = `<p class="agent-response-label">虛構示例條款 · 第 ${escape(source.page)} 頁</p><h4>${escape(source.title)}</h4>${sourceLegend}<blockquote>${sourceWording(source)}</blockquote>`;
+        inline.innerHTML = `<p class="agent-response-label">條款原文 · 第 ${escape(source.page)} 頁</p><h4>${escape(source.title)}</h4>${sourceLegend}<blockquote>${sourceWording(source)}</blockquote>`;
         surfaces?.enter(inline, { distance:0 });
         if (inline.getClientRects().length) inline.scrollIntoView?.({ block: 'nearest' });
       }
@@ -150,7 +144,7 @@
       scenarioId = reply.grounded ? reply.scenarioIds?.[0] || null : null;
       if (sourceId) showSource(sourceId);
       else {
-        evidence.innerHTML = '<h3><span class="pl-marker" data-marker="7">未找到對應示例條款。</span></h3><p>這個問題在虛構示例中未有來源依據。請選取已連結的條款，重新開始原文討論。</p>';
+        evidence.innerHTML = '<h3><span class="pl-marker" data-marker="7">未找到相符條款。</span></h3><p>請選擇有原文依據的問題。</p>';
         motion?.transitionDesk(evidence);
       }
       field.value = draft = '';
@@ -201,7 +195,7 @@
       else if (button.dataset.chatSuggestion) submit(button.dataset.chatSuggestion);
       else if (button.dataset.chatSource) { scenarioId = null; showSource(button.dataset.chatSource, button.closest('.agent-message')); }
       else if (button.dataset.chatMode && !busy) { mode = button.dataset.chatMode; updateMode(); update(); }
-      else if (button.dataset.chatSave) { onQuestion?.(button.dataset.chatSave); status.textContent = '問題已保留在此頁筆記。'; }
+      else if (button.dataset.chatSave) { onQuestion?.(button.dataset.chatSave); status.textContent = '已保留至筆記。'; }
     }
     function keydown(event) {
       if (event.key === 'Escape' && !panel.hidden) { event.preventDefault(); close(); }

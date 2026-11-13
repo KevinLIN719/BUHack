@@ -67,8 +67,9 @@
 .oc-bottom > p:first-child { grid-column: 1 / span 4; }
 .oc-bottom > p:last-child { grid-column: 9 / span 4; text-align: right; }
 .oc-bottom > button { grid-column: 5 / span 4; justify-self: center; width: min(100%, 360px); }
+.oc-bottom > .oc-concept-link { grid-column: 9 / span 4; justify-self: end; width: auto; font-size: 13px; }
 
-.oc-note { grid-column: 1 / -1; z-index: 4; display: flex; justify-content: space-between; align-items: center; gap: 24px; padding: 18px 0 22px; border-top: 1px solid var(--border); font-size: 13px; line-height: 1.6; color: var(--muted); }
+.oc-note { grid-column: 1 / -1; z-index: 4; display: flex; justify-content: flex-end; align-items: center; gap: 24px; padding: 18px 0 22px; border-top: 1px solid var(--border); font-size: 13px; line-height: 1.6; color: var(--muted); }
 .oc-note p { max-width: 52ch; margin: 0; }
 
 @keyframes oc-paper-enter { from { opacity: 0; transform: translateX(clamp(20px, 3vw, 48px)); } to { opacity: 1; transform: none; } }
@@ -83,8 +84,9 @@
   .oc-cover {
     --oc-h: max(660px, var(--page-viewport-height, 100vh));
     --oc-type: clamp(64px, min(calc(100cqw / 6.35), calc(var(--oc-h) * .235)), 320px);
-    grid-template-rows: auto minmax(280px, 1fr) auto auto auto auto;
-    min-height: calc(var(--oc-h) + 144px);
+    /* Keep the headline below the readable upper half after copy is trimmed. */
+    grid-template-rows: auto minmax(304px, 1fr) auto auto auto auto;
+    min-height: calc(var(--oc-h) + 64px);
   }
   .oc-masthead { grid-row: 1; }
   .oc-masthead .oc-masthead-copy { grid-column: 5 / span 4; grid-row: 1; margin: 0; font-size: 13px; line-height: 1.7; }
@@ -121,6 +123,7 @@
   .oc-bottom, .oc-note { order: 2; }
   .oc-bottom { row-gap: 18px; margin: 26px 0 26px; font-size: 14px; }
   .oc-bottom > button { grid-column: 1 / -1; grid-row: 1; width: 100%; }
+  .oc-bottom > .oc-concept-link { grid-column: 1 / -1; grid-row: 2; justify-self: end; width: auto; font-size: 12px; }
   .oc-bottom > p:first-child { grid-column: 1 / span 6; grid-row: 2; }
   .oc-bottom > p:last-child { grid-column: 7 / span 6; grid-row: 2; }
   .oc-note { flex-direction: column; align-items: flex-start; gap: 10px; }
