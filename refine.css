@@ -37,18 +37,17 @@
 .oc-access { grid-column: 11 / span 2; justify-self: end; display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 700; line-height: 1.2; text-decoration: none; white-space: nowrap; }
 
 .oc-art { grid-column: 1 / -1; z-index: 1; pointer-events: none; }
-.oc-paper-stack { position: relative; isolation: isolate; aspect-ratio: 720 / 960; }
+.oc-paper-stack { position: relative; isolation: isolate; aspect-ratio: 720 / 960; transform: rotate(-14deg); transform-origin: 50% 50%; }
 .oc-art .oc-paper-front { position: relative; z-index: 2; display: block; animation: oc-paper-enter 740ms var(--ease-soft) backwards; }
 .oc-art img { display: block; width: 100%; height: auto; user-select: none; }
 .oc-paper-trail {
-  position: absolute; top: 2.916667%; left: 4.722222%; width: 87.5%; height: 92.8125%;
-  box-sizing: border-box; border: 1px solid #dcd6ce; border-radius: clamp(3px, .5vw, 9px);
-  background: #fbf9f4; pointer-events: none;
-  transform: translateX(var(--paper-shift)); opacity: var(--paper-opacity);
+  position: absolute; inset: 0; pointer-events: none;
+  transform-origin: 4.722222% 95.729167%;
+  transform: translateX(var(--paper-shift)) rotate(var(--paper-angle));
   animation: oc-paper-trail-enter var(--paper-duration) var(--ease-soft) var(--paper-delay) backwards;
 }
-.oc-paper-trail-near { z-index: 1; --paper-shift: 4.5%; --paper-opacity: .9; --paper-duration: 800ms; --paper-delay: 70ms; }
-.oc-paper-trail-far { z-index: 0; --paper-shift: 9%; --paper-opacity: .72; --paper-duration: 860ms; --paper-delay: 140ms; }
+.oc-paper-trail-near { z-index: 1; --paper-shift: 4%; --paper-angle: 3deg; --paper-duration: 800ms; --paper-delay: 70ms; }
+.oc-paper-trail-far { z-index: 0; --paper-shift: 8%; --paper-angle: 6deg; --paper-duration: 860ms; --paper-delay: 140ms; }
 
 .oc-caption { grid-column: 1 / -1; z-index: 3; display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; margin: 0; font-size: 14px; font-weight: 700; line-height: 1.3; }
 .oc-caption > :last-child { text-align: right; }
@@ -74,49 +73,40 @@
 
 @keyframes oc-paper-enter { from { opacity: 0; transform: translateX(clamp(20px, 3vw, 48px)); } to { opacity: 1; transform: none; } }
 @keyframes oc-paper-trail-enter {
-  from { opacity: 0; transform: translateX(calc(var(--paper-shift) + clamp(20px, 3vw, 48px))); }
-  to { opacity: var(--paper-opacity); transform: translateX(var(--paper-shift)); }
+  from { opacity: 0; transform: translateX(calc(var(--paper-shift) + clamp(20px, 3vw, 48px))) rotate(var(--paper-angle)); }
+  to { opacity: 1; transform: translateX(var(--paper-shift)) rotate(var(--paper-angle)); }
 }
 
-/* Desktop: one left reading column balanced by an upright sheet on the
- * right. The paper ends at the headline baseline, above the action row. */
+/* A tilted three-sheet poster. The document reserves its lower 42% for
+ * the headline overlap; all readable content stays in the upper section. */
 @media (min-width: 901px) {
   .oc-cover {
     --oc-h: max(660px, var(--page-viewport-height, 100vh));
-    --oc-paper-height: min(clamp(390px, calc(var(--oc-h) - 200px), 780px), 60vw);
-    --oc-paper-width: calc(var(--oc-paper-height) * 210 / 297);
-    --oc-title-overlap: 40px;
-    --oc-type: clamp(60px, min(calc((100cqw - var(--oc-paper-width) + var(--oc-title-overlap)) / 6.35), calc(var(--oc-h) * .235)), 320px);
-    grid-template-rows: auto minmax(40px, 1fr) auto auto auto auto;
-    /* 62px ≈ the note row, which sits just past the first viewport. */
-    min-height: calc(var(--oc-h) + 62px);
+    --oc-type: clamp(64px, min(calc(100cqw / 6.35), calc(var(--oc-h) * .235)), 320px);
+    grid-template-rows: auto minmax(280px, 1fr) auto auto auto auto;
+    min-height: calc(var(--oc-h) + 144px);
   }
-  .oc-masthead { grid-row: 1; row-gap: 0; }
-  .oc-masthead .oc-masthead-copy { grid-column: 1 / span 6; grid-row: 2; margin-top: clamp(40px, 5.5vh, 64px); }
+  .oc-masthead { grid-row: 1; }
+  .oc-masthead .oc-masthead-copy { grid-column: 5 / span 4; grid-row: 1; margin: 0; font-size: 13px; line-height: 1.7; }
   .oc-access { grid-row: 1; }
   .oc-art { grid-row: 1 / 5; margin-inline: calc(-1 * var(--oc-g)); container-type: size; }
   .oc-art .oc-paper-stack {
-    /* Front sheet is 630×891 at (34,28) in a 720×960 canvas. */
-    --u: min(calc(var(--oc-paper-height) / 891), calc((100cqh - 100px) / 891));
-    position: absolute; max-width: none;
+    /* Rotated front bounds: (-66,-32) to (761,985); the far sheet
+     * ends at x830. Fit the whole fan, keeping a visible right margin. */
+    --u: min(calc(var(--oc-h) * .8 / 1017), calc((100cqw - 2 * var(--oc-g)) / 900));
+    position: absolute;
     width: calc(var(--u) * 720); height: calc(var(--u) * 960);
-    top: calc(100cqh - var(--u) * 919);
-    left: calc(100cqw - var(--oc-g) - var(--u) * 732);
+    top: calc(36px + var(--u) * 32);
+    left: calc(100cqw - var(--oc-g) - var(--u) * 832);
   }
-  .oc-caption { grid-row: 3; justify-content: flex-start; gap: 32px; margin-bottom: calc(var(--oc-type) * .1); }
+  .oc-caption { grid-row: 3; justify-content: flex-start; gap: 28px; margin-bottom: 24px; }
   .oc-caption > span:last-child { align-self: flex-end; text-align: left; }
   .oc-title { grid-row: 4; }
-  .oc-bottom { grid-row: 5; margin-top: clamp(22px, 3.6vh, 40px); padding-bottom: clamp(22px, 3.4vh, 36px); }
-  .oc-bottom > button { grid-column: 1 / span 4; grid-row: 1; justify-self: start; width: min(100%, 320px); }
-  .oc-bottom > p:first-child { grid-column: 5 / span 3; grid-row: 1; }
-  .oc-bottom > p:last-child { grid-column: 10 / span 3; grid-row: 1; }
+  .oc-bottom { grid-row: 5; margin-top: 36px; padding-bottom: 32px; }
   .oc-note { grid-row: 6; }
 }
-@media (min-width: 901px) and (max-width: 1100px) {
-  .oc-cover { --oc-title-overlap: 0px; }
-}
 
-/* Tablet and phone: a calm single column. Nothing is hidden. */
+/* The mobile title also sits over the reserved blank part of the sheet. */
 @media (max-width: 900px) {
   .oc-cover { --oc-type: clamp(46px, calc(100cqw / 6.35), 150px); }
   .oc-masthead { padding-top: 22px; row-gap: 18px; }
@@ -124,10 +114,9 @@
   .oc-access { grid-column: 7 / span 6; }
   .oc-masthead-copy { grid-column: 1 / -1; grid-row: 2; }
   .oc-masthead { grid-row: 1; }
-  .oc-title { grid-row: 2; margin-top: 32px !important; }
-  .oc-art { grid-row: 3; --oc-art-width: min(84vw, 440px); margin: 16px calc(-1 * var(--oc-g)) 0; }
+  .oc-title { grid-row: 3; }
+  .oc-art { grid-row: 2; --oc-art-width: min(74vw, 400px); margin: 28px calc(-1 * var(--oc-g)) calc(32px - var(--oc-art-width) * .36); }
   .oc-art .oc-paper-stack { width: var(--oc-art-width); margin-inline: auto; }
-  /* Small notes follow the complete paper; the headline leads the page. */
   .oc-caption { order: 1; margin: 16px 0 0; font-size: 13px; }
   .oc-bottom, .oc-note { order: 2; }
   .oc-bottom { row-gap: 18px; margin: 26px 0 26px; font-size: 14px; }
@@ -142,7 +131,7 @@
   .oc-caption, .oc-bottom { font-size: 12px; }
 }
 @media (prefers-reduced-motion: reduce) { .oc-art .oc-paper-front, .oc-paper-trail { animation: none; } }
-@media (forced-colors: active) { .oc-cover { --primary: LinkText; --primary-ink: LinkText; } .oc-art .oc-paper-front, .oc-paper-trail { animation: none; } .oc-paper-trail { background: Canvas; border-color: CanvasText; opacity: 1; } }
+@media (forced-colors: active) { .oc-cover { --primary: LinkText; --primary-ink: LinkText; } .oc-art .oc-paper-front, .oc-paper-trail { animation: none; } }
 
 /* ------------------------------------------------------------------ */
 /* Controls                                                            */
