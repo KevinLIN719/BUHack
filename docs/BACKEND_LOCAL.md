@@ -2,7 +2,7 @@
 
 已实现：健康检查、匿名浏览器会话、审阅档案、背景版本、调查任务、状态查询、SSE 事件重放、取消与删除，以及 PDF 上传、后台分页提取、原件访问和原文引用。SQLite 保存数据，关闭服务后仍保留。
 
-已接入初步调查运行器。没有可用合同时进入 awaiting_input；有合同但未配置 Key 时返回 503 AGENT_NOT_CONNECTED。配置模型后运行真实调查，结果由 GET run 的 `report` 字段提供，GET review 的 `currentReport` 提供带页码解析的同款报告（含 `review` 语义复核结论）。补件续查（`resumeFromRunId`）已实现；正式前端 `materials.html` 已接入调查与续查，其余示例页仍为模板。
+已接入初步调查运行器。没有可用合同时进入 awaiting_input；有合同但未配置 Key 时返回 503 AGENT_NOT_CONNECTED。配置模型后运行真实调查，结果由 GET run 的 `report` 字段提供，GET review 的 `currentReport` 提供带页码解析的同款报告（含 `review` 语义复核结论）。补件续查（`resumeFromRunId`）已实现；宣传与条款对照（`comparisons`）已实现；正式前端 `materials.html` 已接入调查与续查，其余示例页仍为模板。
 
 ## 启动与检查
 
@@ -107,6 +107,8 @@ GET /api/reviews/:id/documents/:docId/content 返回原 PDF。目前提供完整
 
 `review`：报告发布后立刻做的**独立语义复核**结果，可为 `null`（旧报告）。`status` 为 `checked`（逐条核对后没有硬冲突）、`issues_found`（至少一条 `unsupported` 或 `quote_mismatch`）、`unavailable`（复核调用失败，运行照常发布）、`not_applicable`（没有可复核的引用结论）。`items[]` 含 `index`（对应 `findings` 下标）、`verdict`（`supported` / `partial` / `unsupported` / `quote_mismatch`）、`note`（一句话依据）。复核只回答「引用的原文是否支持这条结论」，不改写结论、不评价条款合法性、不判断是否赔付；失败不使任务失败，只在报告里记 `unavailable`。
 
+`comparisons`：宣传与条款对照，可为空数组。当审阅里存在 `role=promotion` 的材料时，模型逐条提取宣传主张，并在合同/附表/批单原文里找对应条件，每条含 `relation`（`supported_with_conditions` 有条件下支持 / `apparent_conflict` 表面冲突 / `insufficient_basis` 材料不足以判断）、`marketingQuote`（宣传原文逐字摘录）、`contractQuote`（合同原文逐字摘录，`insufficient_basis` 且无对应条文时为空串）、`explanation`（一句解释，指出差在哪 / 缺什么）、以及两侧解析后的引用 `marketing[]` / `contract[]`（结构同 findings 的 `citations`，含 documentName、role、pageIndex、quote、status）。校验规则：两侧引用的 sourceId 必须来自本次运行的已观察来源，宣传侧只能是 `promotion`，合同侧只能是 `contract` / `schedule` / `endorsement`，两侧引文都必须是该来源原文的子串；任一侧无法核对的整条会被丢弃，不改写成结论，`droppedComparisons` 记录丢弃条数，前端提示「有 N 条对照因原文无法核对而未显示」。对照不判断条款是否合法、不判断是否赔付。
+
 SSE 当前仅重放已保存事件；awaiting_input/cancelled 时关闭连接。消费端收到这种状态应主动关闭 EventSource，避免自动重连。接入持续运行的 Agent 时，再增加实时订阅和心跳。
 
 本阶段仅供单机本地开发，监听 127.0.0.1。对外部署前需要补充 HTTPS/安全 cookie、会话生命周期和速率/容量限制等配置。API 不开放跨域调用，前端联调时使用同源服务或开发代理。
@@ -122,4 +124,4 @@ SSE 当前仅重放已保存事件；awaiting_input/cancelled 时关闭连接。
 
 测试使用本地模拟模型端点验证检索→阅读→结构化结果的完整循环，不需要真实 Key，不产生供应商费用。真实 DeepSeek 的账号、模型与端点仍需配置后验证。
 
-当前限制：重启时正在执行的模型任务标记 failed/server_restarted，不自动恢复；需重新创建任务。补件续查与独立语义复核已完成；专题子 Agent、即时 SSE 推送和前端接入尚未完成。GET events 目前为事件重放，可轮询 GET run。删除文件时清除相关审阅的调查快照/输出并取消其调查，避免保留被删材料的派生文本。
+当前限制：重启时正在执行的模型任务标记 failed/server_restarted，不自动恢复；需重新创建任务。补件续查、独立语义复核与宣传对照已完成；专题子 Agent、即时 SSE 推送和前端接入尚未完成。GET events 目前为事件重放，可轮询 GET run。删除文件时清除相关审阅的调查快照/输出并取消其调查，避免保留被删材料的派生文本。

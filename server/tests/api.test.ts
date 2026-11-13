@@ -558,3 +558,140 @@ test("semantic review flags conclusions the quotes do not support", async () => 
     async () => { throw new Error("should not be called"); });
   assert.equal(none.status, "not_applicable");
 });
+
+test("promotion claims are only compared when both sides can be quoted verbatim", () => {
+  const snapshot: Snapshot = { context: {}, documents: [], sources: [
+    { sourceId: "c:p1:b1", documentId: "c", pageIndex: 1, quote: "Delay exceeding 6 hours applies to the trip delay benefit.", role: "contract" },
+    { sourceId: "m:p1:b1", documentId: "m", pageIndex: 1, quote: "Total trip protection up to 10,000.", role: "promotion" },
+  ]};
+  const actions: string[] = [];
+  const scoped = sourceTools(snapshot, name => actions.push(name), () => {});
+  const options = { toolCallId: "compare", messages: [], context: {} };
+
+  const comparison = {
+    relation: "supported_with_conditions" as const,
+    marketingQuote: "Total trip protection up to 10,000.",
+    contractQuote: "Delay exceeding 6 hours",
+    explanation: "宣传口径说的是总额，合同只支持 6 小时延误这一条件。",
+    marketingSourceIds: ["m:p1:b1"],
+    contractSourceIds: ["c:p1:b1"],
+  };
+  const answer = { findings: [], openQuestions: [], requests: [], comparisons: [comparison] };
+
+  // Nothing can be quoted before the tools actually returned it.
+  assert.throws(() => validateAnswer(answer, snapshot, scoped.seen), /COMPARISON_INVALID:marketing_source_0/);
+  void scoped.tools.searchSources.execute!({ query: "trip" }, options);
+  void scoped.tools.readSource.execute!({ sourceId: "c:p1:b1" }, options);
+
+  const validated = validateAnswer(answer, snapshot, scoped.seen);
+  assert.equal(validated.comparisons.length, 1);
+  assert.deepEqual(validated.sources.map(source => source.sourceId).sort(), ["c:p1:b1", "m:p1:b1"]);
+
+  // A rewritten promise is refused even when the source id is real.
+  assert.throws(() => validateAnswer({ ...answer, comparisons: [{ ...comparison, marketingQuote: "全额赔付所有行程" }] },
+    snapshot, scoped.seen), /COMPARISON_INVALID:marketing_quote_0/);
+  // The contract side must come from contract material, not from the promotion sheet.
+  assert.throws(() => validateAnswer({ ...answer, comparisons: [{ ...comparison, contractSourceIds: ["m:p1:b1"] }] },
+    snapshot, scoped.seen), /COMPARISON_INVALID:contract_source_0/);
+  // Missing basis is allowed to carry no contract quote.
+  const insufficient = validateAnswer({ ...answer, comparisons: [{ ...comparison, relation: "insufficient_basis",
+    contractQuote: "", contractSourceIds: [] }] }, snapshot, scoped.seen);
+  assert.equal(insufficient.comparisons[0].relation, "insufficient_basis");
+});
+
+test("review exposes promotion comparisons with resolved citations", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "policy-lens-compare-"));
+  const dbPath = join(dir, "test.sqlite");
+  const api = await start(dbPath);
+  try {
+    const created = await api.request("/api/reviews", { method: "POST" });
+    const cookie = created.headers.get("set-cookie")!.split(";")[0];
+    const review = await created.json();
+    const headers = { Cookie: cookie };
+    const db = api.store.db;
+    const now = new Date().toISOString();
+    const contractId = "33333333-3333-4333-8333-333333333333";
+    const promoId = "44444444-4444-4444-8444-444444444444";
+    const runId = "55555555-5555-4555-8555-555555555555";
+    const insertDoc = db.prepare(`INSERT INTO documents (id, reviewId, role, name, sha256, byteSize, content, status, pageCount, createdAt)
+      VALUES (?, ?, ?, ?, ?, 1, ?, 'ready', 1, ?)`);
+    insertDoc.run(contractId, review.id, "contract", "policy.pdf", "b".repeat(64), new Uint8Array([0x25, 0x50, 0x44, 0x46]), now);
+    insertDoc.run(promoId, review.id, "promotion", "flyer.pdf", "c".repeat(64), new Uint8Array([0x25, 0x50, 0x44, 0x46]), now);
+    const insertPage = db.prepare("INSERT INTO pages (documentId, pageIndex, text, status) VALUES (?, 1, ?, 'complete')");
+    insertPage.run(contractId, "Delay exceeding 6 hours.");
+    insertPage.run(promoId, "Total trip protection up to 10,000.");
+    const insertSource = db.prepare("INSERT INTO sources (id, documentId, pageIndex, blockId, quote) VALUES (?, ?, 1, 'b1', ?)");
+    const contractSource = `${contractId}:p1:b1`, promoSource = `${promoId}:p1:b1`;
+    insertSource.run(contractSource, contractId, "Delay exceeding 6 hours.");
+    insertSource.run(promoSource, promoId, "Total trip protection up to 10,000.");
+    const report = JSON.stringify({
+      findings: [], openQuestions: ["总额是否包含延误？"], requests: [],
+      comparisons: [{ relation: "apparent_conflict", marketingQuote: "Total trip protection up to 10,000.",
+        contractQuote: "Delay exceeding 6 hours.", explanation: "宣传说总额，合同只写延误条件。",
+        marketingSourceIds: [promoSource], contractSourceIds: [contractSource] }],
+      droppedComparisons: 1,
+      sources: [], coverage: [], verification: "source_ids_checked_semantics_reviewed",
+    });
+    db.prepare(`INSERT INTO runs (id, reviewId, inputRevision, kind, goal, status, requestHash, createdAt, updatedAt)
+      VALUES (?, ?, 1, 'investigate', '核对宣传口径', 'partial', 'h2', ?, ?)`).run(runId, review.id, now, now);
+    db.prepare("INSERT INTO investigations (runId, snapshot, output) VALUES (?, ?, ?)")
+      .run(runId, JSON.stringify({ context: {}, documents: [], sources: [] }), report);
+
+    const view = (await (await api.request(`/api/reviews/${review.id}`, { headers })).json()).currentReport;
+    assert.equal(view.comparisons.length, 1);
+    assert.equal(view.comparisons[0].relation, "apparent_conflict");
+    assert.equal(view.comparisons[0].marketing[0].role, "promotion");
+    assert.equal(view.comparisons[0].marketing[0].documentName, "flyer.pdf");
+    assert.equal(view.comparisons[0].marketing[0].status, "verified");
+    assert.equal(view.comparisons[0].contract[0].documentName, "policy.pdf");
+    assert.equal(view.droppedComparisons, 1);
+  } finally {
+    await api.close();
+    // Windows can hold the file handle for a moment after the last connection closes.
+    await rm(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
+  }
+});
+
+test("an unverifiable comparison is dropped instead of failing the run", async () => {
+  const api = await start();
+  let calls = 0;
+  const model = createServer(async (req, res) => {
+    let body = "";
+    for await (const chunk of req) body += chunk;
+    const request = JSON.parse(body);
+    calls++;
+    const message = { role: "assistant", content: JSON.stringify({
+      findings: [], openQuestions: ["宣传口径来源不明"], requests: [],
+      comparisons: [{ relation: "apparent_conflict", marketingQuote: "全额赔付", contractQuote: "Delay exceeding 6 hours.",
+        explanation: "宣传与合同不一致。", marketingSourceIds: ["invented:p1:b1"], contractSourceIds: [] }],
+    }) };
+    res.setHeader("Content-Type", "application/json");
+    res.end(JSON.stringify({ id: `mock_${calls}`, object: "chat.completion", created: 1, model: request.model,
+      choices: [{ index: 0, message, finish_reason: "stop" }],
+      usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 } }));
+  }).listen(0, "127.0.0.1");
+  await once(model, "listening");
+  const previous = { key: process.env.DEEPSEEK_API_KEY, base: process.env.DEEPSEEK_BASE_URL };
+  process.env.DEEPSEEK_API_KEY = "local-mock-only";
+  process.env.DEEPSEEK_BASE_URL = `http://127.0.0.1:${(model.address() as AddressInfo).port}`;
+  try {
+    const created = await api.request("/api/reviews", { method: "POST" });
+    const cookie = created.headers.get("set-cookie")!.split(";")[0];
+    const path = `/api/reviews/${(await created.json()).id}`;
+    const uploaded = await (await uploadPdf(api, path, cookie, pdfFixture(["Delay exceeding 6 hours."]))).json();
+    await waitForDocument(api, `${path}/documents/${uploaded.id}`, cookie);
+    const headers = { Cookie: cookie, "Content-Type": "application/json" };
+    const run = await (await api.request(`${path}/runs`, { method: "POST", headers,
+      body: JSON.stringify({ expectedRevision: 2, kind: "investigate", goal: "核对宣传口径" }) })).json();
+    const finished = await waitForRun(api, path, run.id, cookie);
+    assert.equal(finished.status, "partial");
+    assert.equal(finished.report.comparisons.length, 0);
+    assert.equal(finished.report.droppedComparisons, 1);
+    assert.equal(calls, 2, "one attempt plus one corrective attempt");
+  } finally {
+    if (previous.key === undefined) delete process.env.DEEPSEEK_API_KEY; else process.env.DEEPSEEK_API_KEY = previous.key;
+    if (previous.base === undefined) delete process.env.DEEPSEEK_BASE_URL; else process.env.DEEPSEEK_BASE_URL = previous.base;
+    await api.close();
+    await new Promise<void>(resolve => { model.close(() => resolve()); model.closeAllConnections(); });
+  }
+});

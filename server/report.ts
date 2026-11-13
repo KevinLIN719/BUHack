@@ -13,6 +13,9 @@ type StoredReport = {
   findings: {explanation: string; evidenceStatus: string; sourceIds: string[]}[];
   openQuestions: string[];
   requests: {message: string; requestedRole: string}[];
+  comparisons?: {relation: string; marketingQuote: string; contractQuote?: string; explanation: string;
+    marketingSourceIds: string[]; contractSourceIds?: string[]}[];
+  droppedComparisons?: number;
   sources?: {sourceId: string; documentId: string; pageIndex: number; quote: string; role: string}[];
   coverage?: {id: string; status: string; pageCount: number | null}[];
   verification?: string;
@@ -34,6 +37,8 @@ function sourceLookup(store: Store, reviewId: string) {
 export type ReportView = {
   runId: string; runStatus: string; inputRevision: number; createdAt: string;
   findings: (StoredReport["findings"][number] & {citations: ResolvedCitation[]})[];
+  comparisons: (NonNullable<StoredReport["comparisons"]>[number] & {marketing: ResolvedCitation[]; contract: ResolvedCitation[]})[];
+  droppedComparisons: number;
   openQuestions: string[];
   requests: {message: string; requestedRole: string}[];
   sources: ResolvedCitation[];
@@ -69,12 +74,16 @@ export function reportView(store: Store, reviewId: string): ReportView | null {
       : {sourceId, documentId: "", documentName: "", role: "", pageIndex: 0, pageLabel: null, quote: "", status: "missing"};
   };
   const findings = report.findings.map(finding => ({...finding, citations: finding.sourceIds.map(resolve)}));
+  const comparisons = (report.comparisons ?? []).map(comparison => ({...comparison,
+    marketing: comparison.marketingSourceIds.map(resolve),
+    contract: (comparison.contractSourceIds ?? []).map(resolve)}));
   // Keep the report's own source list (with order) but resolve each entry as well.
   const sources = (report.sources ?? []).map(source => resolve(source.sourceId));
   const missing = [...cited].filter(id => !lookup.has(id)).length;
   return {
     runId: run.runId, runStatus: run.status, inputRevision: run.inputRevision, createdAt: run.createdAt,
-    findings, openQuestions: report.openQuestions, requests: report.requests ?? [],
+    findings, comparisons, droppedComparisons: report.droppedComparisons ?? 0,
+    openQuestions: report.openQuestions, requests: report.requests ?? [],
     sources, coverage: report.coverage ?? [], verification: report.verification ?? null,
     review: report.review ?? null,
     citationIntegrity: {cited: cited.size, verified: cited.size - missing, missing},

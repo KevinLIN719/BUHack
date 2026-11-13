@@ -15,6 +15,8 @@
     EMPTY_GOAL:'請先寫下你想問的問題。'
   };
   const verdictTone = {supported:'ok',partial:'warn',unsupported:'bad',quote_mismatch:'bad'};
+  const comparisonLabels = {supported_with_conditions:'有條件支持',apparent_conflict:'表面衝突',insufficient_basis:'材料不足以判斷'};
+  const comparisonTone = {supported_with_conditions:'ok',apparent_conflict:'bad',insufficient_basis:'warn'};
   const state = {reviewId:null, review:null, runId:null, busy:false};
 
   const node = (tag, text, className) => {
@@ -115,6 +117,34 @@
       findingsHost.append(article);
     });
     host.append(findingsHost.childElementCount ? findingsHost : node('p', '本次沒有可引用的結論。', 'muted'));
+
+    if (report.comparisons?.length || report.droppedComparisons) {
+      const section = node('section', undefined, 'compare');
+      section.append(node('h3', '宣傳與條款'));
+      section.append(node('p', '左側是宣傳材料的原話，右側是合同原文；只對照雙方能逐字引用的內容。', 'muted'));
+      for (const item of report.comparisons ?? []) {
+        const card = node('article', undefined, 'comparison');
+        card.append(node('span', comparisonLabels[item.relation] ?? item.relation, `badge ${comparisonTone[item.relation] ?? ''}`));
+        const side = (label, citations) => {
+          const block = node('div', undefined, 'side');
+          block.append(node('p', label, 'side-label'));
+          for (const citation of citations ?? []) {
+            block.append(citationButton(citation));
+            if (citation.quote) block.append(node('blockquote', citation.quote));
+          }
+          return block;
+        };
+        card.append(side('宣傳材料說的', item.marketing));
+        if (item.contract?.length) card.append(side('合同原文寫的', item.contract));
+        else card.append(node('p', '合同材料中暫未找到對應條件。', 'muted'));
+        if (item.explanation) card.append(node('div', item.explanation, 'finding-text'));
+        section.append(card);
+      }
+      if (report.droppedComparisons) {
+        section.append(node('p', `有 ${report.droppedComparisons} 條對照因原文無法核對而未顯示。`, 'muted'));
+      }
+      host.append(section);
+    }
 
     if (report.requests?.length) {
       const section = node('section', undefined, 'asks');
