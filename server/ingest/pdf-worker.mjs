@@ -11,8 +11,8 @@ const task = getDocument({
   stopAtErrors: true,
   disableFontFace: true,
   useSystemFonts: false,
-  standardFontDataUrl: join(packageDir, "standard_fonts") + sep,
-  cMapUrl: join(packageDir, "cmaps") + sep,
+  standardFontDataUrl: join(packageDir, "standard_fonts").split(sep).join("/") + "/",
+  cMapUrl: join(packageDir, "cmaps").split(sep).join("/") + "/",
   cMapPacked: true,
 });
 
