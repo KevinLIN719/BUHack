@@ -175,6 +175,18 @@ async function waitForDocument(api: Awaited<ReturnType<typeof start>>, path: str
   throw new Error("Document did not finish parsing");
 }
 
+async function waitForRun(api: Awaited<ReturnType<typeof start>>, path: string, runId: string, cookie: string) {
+  const deadline = Date.now() + 20_000;
+  while (Date.now() < deadline) {
+    const response = await api.request(`${path}/runs/${runId}`, { headers: { Cookie: cookie } });
+    assert.equal(response.status, 200);
+    const run = await response.json();
+    if (!["queued", "running"].includes(run.status)) return run;
+    await new Promise(resolve => setTimeout(resolve, 25));
+  }
+  throw new Error("Run did not finish");
+}
+
 test("PDF upload preserves bytes, page citations, isolation, version and duplicate semantics", async () => {
   const api = await start();
   try {
@@ -374,5 +386,81 @@ test("model adapter drives a real tool loop against a local mock endpoint", asyn
     if (previous.base === undefined) delete process.env.DEEPSEEK_BASE_URL; else process.env.DEEPSEEK_BASE_URL=previous.base;
     await api.close();
     await new Promise<void>(resolve=>{model.close(()=>resolve());model.closeAllConnections();});
+  }
+});
+
+test("successor run continues a prior report only when new input arrived", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "policy-lens-resume-"));
+  const dbPath = join(dir, "test.sqlite");
+  const prompts: string[] = [];
+  const model = createServer(async (req, res) => {
+    let body = "";
+    for await (const chunk of req) body += chunk;
+    const request = JSON.parse(body);
+    prompts.push(JSON.stringify(request.messages ?? request));
+    res.setHeader("Content-Type", "application/json");
+    res.end(JSON.stringify({ id: `mock_${prompts.length}`, object: "chat.completion", created: 1, model: request.model,
+      choices: [{ index: 0, finish_reason: "stop", message: { role: "assistant", content: JSON.stringify({
+        findings: [], openQuestions: ["滑雪是否在承保范围"], requests: [{ message: "请补充完整条款", requestedRole: "contract" }],
+      }) } }], usage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 } }));
+  }).listen(0, "127.0.0.1");
+  await once(model, "listening");
+  const previous = { key: process.env.DEEPSEEK_API_KEY, base: process.env.DEEPSEEK_BASE_URL };
+  process.env.DEEPSEEK_API_KEY = "local-mock-only";
+  process.env.DEEPSEEK_BASE_URL = `http://127.0.0.1:${(model.address() as AddressInfo).port}`;
+  let api = await start(dbPath);
+  try {
+    const created = await api.request("/api/reviews", { method: "POST" });
+    const cookie = created.headers.get("set-cookie")!.split(";")[0];
+    const path = `/api/reviews/${(await created.json()).id}`;
+    const headers = { Cookie: cookie, "Content-Type": "application/json" };
+    const contract = await (await uploadPdf(api, path, cookie, pdfFixture(["Delay exceeding 6 hours."]))).json();
+    await waitForDocument(api, `${path}/documents/${contract.id}`, cookie);
+    const first = await (await api.request(`${path}/runs`, { method: "POST", headers, body: JSON.stringify({ expectedRevision: 2, kind: "investigate", goal: "检查滑雪保障" }) })).json();
+    const firstDone = await waitForRun(api, path, first.id, cookie);
+    assert.equal(firstDone.status, "awaiting_input");
+    assert.equal(firstDone.inputRequests[0].message, "请补充完整条款");
+    assert.equal(firstDone.parentRunId, null);
+
+    // Without new input the successor is refused instead of repeating the investigation.
+    const early = await api.request(`${path}/runs`, { method: "POST", headers, body: JSON.stringify({ expectedRevision: 2, kind: "investigate", goal: "检查滑雪保障", resumeFromRunId: first.id }) });
+    assert.equal(early.status, 409);
+    assert.equal((await early.json()).error.code, "NO_NEW_INPUT");
+
+    const supplement = await (await uploadPdf(api, path, cookie, pdfFixture(["Winter sports exclusion applies."]), "schedule")).json();
+    await waitForDocument(api, `${path}/documents/${supplement.id}`, cookie);
+    const resumed = await api.request(`${path}/runs`, { method: "POST", headers, body: JSON.stringify({ expectedRevision: 3, kind: "investigate", goal: "检查滑雪保障", resumeFromRunId: first.id }) });
+    assert.equal(resumed.status, 202);
+    const second = await resumed.json();
+    assert.equal(second.parentRunId, first.id);
+    assert.equal((await waitForRun(api, path, second.id, cookie)).status, "awaiting_input");
+    // The model receives the previous requests and the list of new documents.
+    assert.match(prompts.at(-1)!, /请补充完整条款/);
+    assert.match(prompts.at(-1)!, /newDocuments/);
+    assert.match(prompts.at(-1)!, new RegExp(supplement.id));
+
+    const stale = await api.request(`${path}/runs`, { method: "POST", headers, body: JSON.stringify({ expectedRevision: 2, kind: "investigate", goal: "检查滑雪保障", resumeFromRunId: first.id }) });
+    assert.equal(stale.status, 409);
+    assert.equal((await stale.json()).error.code, "REVISION_CONFLICT");
+
+    const other = await api.request("/api/reviews", { method: "POST" });
+    const otherCookie = other.headers.get("set-cookie")!.split(";")[0];
+    const otherPath = `/api/reviews/${(await other.json()).id}`;
+    const foreign = await api.request(`${otherPath}/runs`, { method: "POST", headers: { Cookie: otherCookie, "Content-Type": "application/json" }, body: JSON.stringify({ expectedRevision: 1, kind: "investigate", goal: "x", resumeFromRunId: first.id }) });
+    assert.equal(foreign.status, 404);
+
+    // Reports, their requests and the parent link survive a restart.
+    await api.close();
+    api = await start(dbPath);
+    const reopened = await (await api.request(`${path}/runs/${first.id}`, { headers })).json();
+    assert.equal(reopened.inputRequests[0].message, "请补充完整条款");
+    const reopenedSecond = await (await api.request(`${path}/runs/${second.id}`, { headers })).json();
+    assert.equal(reopenedSecond.parentRunId, first.id);
+  } finally {
+    if (previous.key === undefined) delete process.env.DEEPSEEK_API_KEY; else process.env.DEEPSEEK_API_KEY = previous.key;
+    if (previous.base === undefined) delete process.env.DEEPSEEK_BASE_URL; else process.env.DEEPSEEK_BASE_URL = previous.base;
+    await api.close();
+    await new Promise<void>(resolve => { model.close(() => resolve()); model.closeAllConnections(); });
+    await rm(dir, { recursive: true, force: true });
   }
 });

@@ -93,13 +93,15 @@ GET /api/reviews/:id/documents/:docId/content 返回原 PDF。目前提供完整
 | GET | /api/reviews/:id/documents/:docId/content | 受会话保护的原 PDF |
 | DELETE | /api/reviews/:id/documents/:docId | 删除原件、页与引用 |
 | GET | /api/reviews/:id/sources/:sourceId | 原文、版本和页码出处 |
-| POST | /api/reviews/:id/runs | expectedRevision + kind=investigate + goal，创建等待材料的任务 |
+| POST | /api/reviews/:id/runs | expectedRevision + kind=investigate + goal，可选 resumeFromRunId；创建调查任务 |
 | GET | /api/reviews/:id/runs/:runId | 查询状态 |
 | GET | /api/reviews/:id/runs/:runId/events | SSE；after 或 Last-Event-ID 重放 |
 | POST | /api/reviews/:id/runs/:runId/cancel | 取消任务，可重复调用 |
 | DELETE | /api/reviews/:id | 删除审阅及其任务、事件 |
 
 同一 Idempotency-Key 和相同请求会返回同一任务；请求内容不同返回 409。背景允许 destination、traveller、activities、concerns；未填写的事实保持未知。所有审阅接口绑定创建它的 cookie 会话，UUID 本身不是访问权限。
+
+补件续查：`POST runs` 的 body 增加 `resumeFromRunId`（上一次 runId）即创建 successor run，返回体里 `parentRunId` 指向父任务，事件流里多一条 `run.resumed`。父任务必须已经产出 report 且已结束；当前 revision 必须大于父任务的 inputRevision（否则 409 `NO_NEW_INPUT`）。父任务还在执行返回 409 `PARENT_RUN_ACTIVE`，父任务无结论返回 409 `PARENT_RUN_NOT_RESUMABLE`，父任务属于别的审阅或不存在返回 404 `PARENT_RUN_NOT_FOUND`。新任务会拿到上次的 findings / openQuestions / requests 与新增材料清单；旧引用必须先重新读取原文才允许引用，已被删除的材料引用自动丢弃。report 与其中的 requests 存在 investigations.output，重启后仍可通过 GET run 读取。
 
 SSE 当前仅重放已保存事件；awaiting_input/cancelled 时关闭连接。消费端收到这种状态应主动关闭 EventSource，避免自动重连。接入持续运行的 Agent 时，再增加实时订阅和心跳。
 
@@ -108,7 +110,7 @@ SSE 当前仅重放已保存事件；awaiting_input/cancelled 时关闭连接。
 
 ## 第三阶段：DeepSeek 调查原型
 
-已接入 AI SDK ToolLoopAgent 与 DeepSeek provider。服务端工具为 listDocuments、searchSources、readSource；模型自主选择工具。每次运行保存不可变材料/背景快照，最多 10 轮和 24 次工具执行，120 秒活动超时。修改输入或取消后不可发布迟到结果。
+已接入 AI SDK ToolLoopAgent 与 DeepSeek provider。服务端工具为 listDocuments、searchSources、readSource；模型自主选择工具。每次运行保存不可变材料/背景快照，最多 10 轮和 24 次工具执行，120 秒活动超时。修改输入或取消后不可发布迟到结果。readSource 接受被缩短的 sourceId（如 `p2:b1`）并在找不到时返回可用列表，避免模型格式化失误导致材料看起来不可读。
 
 本机 .env 填写 DEEPSEEK_API_KEY，按实际端点配置 DEEPSEEK_BASE_URL 和 DEEPSEEK_MODEL，重启 npm run dev:api。不要把 Key 发到聊天或提交 Git。有可用合同但没有 Key 时返回 503；配置后 POST runs 返回 202，GET run 可查询状态和 report。真实调用会把本次材料和用户问题交给配置的模型平台处理。
 

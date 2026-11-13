@@ -20,6 +20,8 @@ const runSchema = z.object({
   expectedRevision: z.number().int().positive(),
   kind: z.literal("investigate"),
   goal: z.string().trim().min(1).max(2000),
+  // Set to create a successor run that continues the report of an earlier run.
+  resumeFromRunId: z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i).optional(),
 }).strict();
 const contextUpdateSchema = z.object({
   expectedRevision: z.number().int().positive(), context: contextSchema,
@@ -222,13 +224,26 @@ export function createApp(store: Store) {
         }
       }
       assertRevision(review, body.expectedRevision);
+      let parent: Run | undefined;
+      if (body.resumeFromRunId) {
+        const earlier = store.getRun(body.resumeFromRunId, review.id);
+        if (!earlier) throw new ApiError(404, "PARENT_RUN_NOT_FOUND", "找不到要接续的上一次任务。");
+        if (["queued", "running"].includes(earlier.status)) throw new ApiError(409, "PARENT_RUN_ACTIVE", "上一次任务仍在执行，请等它结束后再续查。");
+        const previous = store.db.prepare("SELECT output FROM investigations WHERE runId = ?").get(earlier.id) as {output: string | null} | undefined;
+        if (!previous?.output) throw new ApiError(409, "PARENT_RUN_NOT_RESUMABLE", "上一次任务没有可接续的结论，请新建调查任务。");
+        // A successor run must carry new input; otherwise it would repeat the same investigation.
+        if (review.revision <= earlier.inputRevision) throw new ApiError(409, "NO_NEW_INPUT", "材料或背景自上次任务后没有更新，无需续查。");
+        parent = earlier;
+      }
       if (documentsFor(store, review.id).some(doc => doc.role === "contract" && ["ready", "partial"].includes(doc.status))) {
         if (!investigator.configured()) throw new ApiError(503, "AGENT_NOT_CONNECTED", "请在本机 .env 配置 DEEPSEEK_API_KEY 后重启后端。");
       }
       const id = randomUUID(), now = new Date().toISOString();
       // The model runner is a later step. Do not manufacture a successful report.
-      store.db.prepare("INSERT INTO runs VALUES (?, ?, ?, ?, ?, 'awaiting_input', ?, ?, ?, ?)")
-        .run(id, review.id, review.revision, body.kind, body.goal, key, requestHash, now, now);
+      store.db.prepare(`INSERT INTO runs (id, reviewId, inputRevision, kind, goal, status, idempotencyKey, requestHash, parentRunId, createdAt, updatedAt)
+        VALUES (?, ?, ?, ?, ?, 'awaiting_input', ?, ?, ?, ?, ?)`)
+        .run(id, review.id, review.revision, body.kind, body.goal, key, requestHash, parent?.id ?? null, now, now);
+      if (parent) store.addEvent(id, "run.resumed", { parentRunId: parent.id });
       const snapshot = snapshotFor(store, review.id);
       if (snapshot.documents.some(doc => ["queued", "parsing"].includes(doc.status))) throw new ApiError(409, "DOCUMENTS_PROCESSING", "请等待材料解析完成。");
       const usable = snapshot.documents.some(doc => doc.role === "contract" && ["ready", "partial"].includes(doc.status));

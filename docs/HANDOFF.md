@@ -58,16 +58,24 @@ npm run build
 
 ## Agent 的真实进度
 
-源码已接入 ToolLoopAgent + DeepSeek，模型可自行 listDocuments / searchSources / readSource。测试用本地模拟端点验证检索→阅读→JSON 输出，未验证真实 DeepSeek 账户。没有 Key 时不产生模型请求；上传页不会启动 Agent。
+源码已接入 ToolLoopAgent + DeepSeek，模型可自行 listDocuments / searchSources / readSource。测试用本地模拟端点验证检索→阅读→JSON 输出。**真实 DeepSeek 账户已完成联调**：目标明确时约 11 秒、13 次工具调用后返回 awaiting_input；检索无命中的条目明确写「没有可引用条款」，没有编造引用。
 
 如要联调，在本机 .env 配置 DEEPSEEK_API_KEY、实际 DEEPSEEK_BASE_URL / DEEPSEEK_MODEL 后重启后端。创建任务与轮询方法见 BACKEND_LOCAL.md。真实调用会将本次材料和问题交给所配置的模型平台处理。
 
-当前结果只检查 schema、引用归属和引用是否被工具观察到，尚无独立语义复核，因此标为 partial；有补充请求则为 awaiting_input。不能据此声称完整审阅或确定赔付。运行中重启会标记失败，需要新建任务；尚未实现模型步骤持久恢复。
+当前结果只检查 schema、引用归属和引用是否被工具观察到，尚无独立语义复核，因此标为 partial；有补充请求则为 awaiting_input。不能据此声称完整审阅或确定赔付。引用校验失败时会给模型一次修正机会（把无引用的结论降级为 unknown），仍失败才把任务标记失败，并在服务端日志写明原因。运行中重启会标记失败，需要新建任务；尚未实现模型步骤持久恢复。
+
+### 补件续查（successor run）
+
+1. 第一次 `POST /api/reviews/:id/runs` 返回 `awaiting_input` 时，`inputRequests` 就是模型请求的材料。
+2. 上传新材料（或 PATCH 背景）会递增 `revision`。
+3. 再 `POST /api/reviews/:id/runs`，body 加 `resumeFromRunId` 指向上一次的 runId，`expectedRevision` 用最新值。
+4. 新任务会收到上次的 findings / openQuestions / requests 和新增材料清单；复用旧引用前必须重新读取原文，已失效的引用会被丢弃。
+5. 失败语义：没有新材料 → 409 `NO_NEW_INPUT`；版本过期 → 409 `REVISION_CONFLICT`；父任务仍在跑 → 409 `PARENT_RUN_ACTIVE`；父任务没有结论 → 409 `PARENT_RUN_NOT_RESUMABLE`。
 
 ## 下一位成员建议顺序
 
-1. 用团队实际 DeepSeek 账户完成最小真实联调，确认 tool calling 和结构化输出兼容。
-2. 完成 input_requests 持久化及补件 successor run，复用已查证据并检查版本。
+1. ~~用团队实际 DeepSeek 账户完成最小真实联调~~ 已完成，见上文「Agent 的真实进度」。
+2. ~~完成 input_requests 持久化及补件 successor run~~ 已完成，用法见上文「补件续查」。
 3. 增加 resolveReference 和独立语义复核，之后再把调查工作台接到界面。
 4. OCR、情景计算、宣传对照和经纪回复核验逐项增加。
 

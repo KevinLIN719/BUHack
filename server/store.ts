@@ -9,9 +9,15 @@ export type Review = {
 export type Run = {
   id: string; reviewId: string; inputRevision: number; kind: "investigate";
   goal: string; status: "awaiting_input" | "cancelled" | "queued" | "running" | "partial" | "failed";
-  idempotencyKey: string | null; requestHash: string;
+  idempotencyKey: string | null; requestHash: string; parentRunId: string | null;
   createdAt: string; updatedAt: string;
 };
+
+// Columns added after the first release; existing local databases must be migrated in place.
+function ensureColumn(db: DatabaseSync, table: string, column: string, ddl: string) {
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all() as {name: string}[];
+  if (!columns.some(entry => entry.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
+}
 
 export class Store {
   readonly db: DatabaseSync;
@@ -64,6 +70,8 @@ export class Store {
       CREATE INDEX IF NOT EXISTS documents_review ON documents(reviewId);
       CREATE INDEX IF NOT EXISTS sources_document ON sources(documentId, pageIndex);
     `);
+    // A successor run points at the run whose report requested more material.
+    ensureColumn(this.db, "runs", "parentRunId", "parentRunId TEXT");
   }
 
   transaction<T>(work: () => T): T {
