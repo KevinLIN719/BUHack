@@ -7,12 +7,7 @@
   --ease-soft: cubic-bezier(.22,1,.36,1);
   --dur-fast: 180ms;
   --dur-base: 280ms;
-  /* Completion and hero light now stay inside the orange family. */
-  --completion-yellow: #FFE2D2;
-  --completion-pink: #FFC7B0;
-  --completion-violet: #FFD8C8;
-  --completion-cyan: #FFEDE4;
-  --completion-mint: #FFF4EE;
+  /* Completion light inherits the four marker priorities from completion.css. */
 }
 
 /* ------------------------------------------------------------------ */

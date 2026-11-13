@@ -111,9 +111,7 @@
 .ex-result { margin-top:27px; padding-top:24px; border-top:1px solid var(--border); }
 .ex-result .completion-reveal { height:auto; max-height:none; overflow:visible; }
 .ex-result .completion-reveal:is([data-reveal-state="preparing"],[data-reveal-state="revealing"]) { overflow:hidden; }
-.ex-result .completion-document { padding:0 16px 30px; }
 .ex-result .completion-document-head { font-size:11px; }
-.ex-result .completion-row { grid-template-columns:30px minmax(0,1fr); }
 .ex-result .completion-row p { font-size:15px; line-height:1.75; }
 .ex-result .completion-row blockquote { margin:12px 0; font-size:13px; line-height:1.9; overflow-wrap:anywhere; }
 .ex-result .completion-row small { font-size:11px; line-height:1.8; }
@@ -168,8 +166,6 @@
  .ex-page .agent-workspace button { font-size:11px; }
  .ex-page .agent-conversation { min-height:460px; }
  .ex-page .agent-feed { max-height:400px; min-height:230px; }
- .ex-result .completion-document { padding-inline:0; }
- .ex-result .completion-row { grid-template-columns:23px minmax(0,1fr); gap:9px; }
  .ex-result .completion-row p { font-size:14px; }
  .ex-result .completion-document-head { font-size:10px; }
  .ex-result .completion-row small { font-size:10px; }

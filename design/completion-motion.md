@@ -12,13 +12,13 @@ The source does not establish circular rings or separated RGB outlines. A narrow
 
 ## Product mapping and runtime
 
-`completion-motion.js` exports `PolicyCompletionReveal.mount(host, {onPhase, prepareMs})`. The controller supplies `play()`, `cancel()`, `destroy()` and `state`. `PolicyCompletionReveal.timings` is the only implementation timing source. The host contains `[data-reveal-content]` and optional `[data-reveal-row]` rows. Colors and the broad light layers are defined in `completion.css` using shared theme variables.
+`completion-motion.js` exports `PolicyCompletionReveal.mount(host, {onPhase, prepareMs})`. The controller supplies `play()`, `cancel()`, `destroy()` and `state`. `PolicyCompletionReveal.timings` is the only implementation timing source. The host contains `[data-reveal-content]` and optional `[data-reveal-row]` rows. Colors and the broad light layers are defined in `completion.css` using the four `--priority-1/2/3/4-*` marker pairs: cherry, amber, teal and violet. The final refinement layer must not recolour them orange.
 
-The controller holds an inaccessible, faint visual duplicate while preparing, then moves a layered spectral wash upward. A collective soft mask reveals the real list behind it. Row transforms approximate the reference's small local deformation rather than making cards enter independently. Geometry follows the visible result surface, including lists taller than the viewport. The visual duplicate and temporary effects are removed afterward.
+The controller holds an inaccessible, faint visual duplicate while preparing, then moves a layered spectral wash from top to bottom. A collective soft mask reveals the real list behind it. Row transforms approximate the reference's small local deformation rather than making cards enter independently. Geometry follows the visible result surface, including lists taller than the viewport. The visual duplicate and temporary effects are removed afterward.
 
-The app's **Generate checklist** action validates the currently selected questions and opens a read-only result. It preserves exact edits and available references; unmatched Agent questions explicitly have no matching wording. A generation preview does not count as copying, sharing, adviser confirmation or a coverage decision. Copy/download use the existing export path after generation. Closing, replaying and changing pages cancel the previous operation.
+The app's **Generate checklist** action validates the currently selected questions and opens a white grid-paper notebook with native confirmation checkboxes. Each question is a label beside its checkbox; the exact wording and source sit in a collapsed details element below. These sheet-local ticks do not change source selections or review states. It preserves exact edits and available references; unmatched Agent questions explicitly have no matching wording. A generation preview does not count as copying, sharing, adviser confirmation or a coverage decision. Copy/download use the existing export path after generation. Replaying and cancelling the animation retain the current sheet and its checked/expanded states. New generation creates unchecked inputs; changing source selections invalidates the old sheet. Closing and changing pages cancel the active animation.
 
-`completion-preview.html` is a focused interactive demonstration with four concise sample questions. It starts with faint placeholders, then reveals all four when the user generates. `dist/completion-preview.html` is self-contained. The full prototype still starts at Home in `dist/index.html`.
+`completion-preview.html` is a focused interactive demonstration with four concise sample questions. It starts with faint placeholders, then reveals all four when the user generates. `dist/completion-preview.html` is self-contained. The connected experience is the default entry in `dist/index.html`; the earlier journey remains in `dist/journey-reference.html`.
 
 ## Acceptance
 
@@ -32,3 +32,11 @@ The app's **Generate checklist** action validates the currently selected questio
 - Verify narrow and short screens without horizontal overflow or inaccessible completion controls.
 
 This follows `oil-motion` state, continuity and cancellation checks. It is native DOM motion; generated-media, atlas and video-delivery production steps are not needed.
+
+## Notebook update acceptance
+
+- White paper uses the existing 24px grid and a fine notebook margin rule.
+- One native checkbox precedes each question; clicking its label and pressing Space both work.
+- New sheets start unchecked. Replaying or stopping the reveal retains ticks; these do not imply a coverage decision.
+- Collapsed source details keep the main sheet concise without dropping exact quotations or references.
+- The spectral wave is transient; after it finishes the final paper remains white.

@@ -65,14 +65,15 @@
     if (!snapshot.length) return;
     const token = ++generation;
     busy = true; syncButtons();
-    $('[data-reveal-content]').innerHTML = `<div class="completion-document-head"><span>${escape(snapshot[0].policyTitle)}／示例問題</span><span>已選 ${snapshot.length} 題</span></div>${snapshot.map(f=>`<article class="completion-row" data-reveal-row data-priority="${f.priority}" data-finding-id="${escape(f.id)}"><span class="completion-row-number">${String(f.priority).padStart(2,'0')}</span><div><p>${escape(f.question)}</p><blockquote class="sc-result-quote"><mark class="pl-marker" data-priority="${f.priority}">${escape(f.quote)}</mark></blockquote><small><span class="pl-priority" data-priority="${f.priority}">${f.priority} · ${labels[f.priority]}</span> ${escape(f.sourceLabel)}</small></div></article>`).join('')}`;
+    // Retain the native checkbox state when replaying the same generated sheet.
+    if (!replay) $('[data-reveal-content]').innerHTML = `<div class="completion-document-head"><span>${escape(snapshot[0].policyTitle)}／示例問題</span><span>已選 ${snapshot.length} 題</span></div><ul class="completion-list">${snapshot.map(f=>`<li class="completion-row" data-reveal-row data-priority="${f.priority}" data-finding-id="${escape(f.id)}"><label class="completion-item"><input type="checkbox" class="completion-checkbox" aria-label="已確認：${escape(f.question)}" /><span class="completion-item-content">${escape(f.question)}</span></label><details class="completion-source"><summary>條款與出處</summary><blockquote class="sc-result-quote"><mark class="pl-marker" data-priority="${f.priority}">${escape(f.quote)}</mark></blockquote><small><span class="pl-priority" data-priority="${f.priority}">${f.priority} · ${labels[f.priority]}</span> ${escape(f.sourceLabel)}</small></details></li>`).join('')}</ul>`;
     surfaces?.cancel($('[data-checklist-result]'));
     $('[data-checklist-result]').hidden = false;
     $('[data-showcase-reveal]').scrollTop = 0;
     await reveal.play();
     if (destroyed || token !== generation) return;
     busy = false; syncButtons();
-    $('[data-checklist-status]').textContent = `已整理 ${snapshot.length} 個問題；尚未傳送或標記為已審閱。`;
+    $('[data-checklist-status]').textContent = `已整理 ${snapshot.length} 個問題。可逐項勾選記錄確認進度，或展開條款與出處。`;
   }
   listen(document,'click',event=>{
     const button = event.target.closest('button');
@@ -88,7 +89,10 @@
     if (button.hasAttribute('data-checklist-generate')) generate();
     if (button.hasAttribute('data-policy-pull-replay')) workbench?.inspect(workbench.selectedId);
     if (button.hasAttribute('data-checklist-replay')) generate(true);
-    if (button.hasAttribute('data-checklist-cancel')) resetResult('已取消揭示，所選問題維持不變。');
+    if (button.hasAttribute('data-checklist-cancel')) {
+      generation++; reveal.cancel(); busy=false; syncButtons();
+      $('[data-checklist-status]').textContent='展示已停止，清單與確認進度已保留。';
+    }
   });
   listen($('[data-checklist-options]'),'change',event=>{
     if (!event.target.matches('[data-checklist-choice]')) return;

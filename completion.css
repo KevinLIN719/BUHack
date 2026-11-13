@@ -1,10 +1,16 @@
 /* The result stays on paper. Only the passing completion light is spectral. */
 :root {
-  --completion-cyan: #9eeef2;
-  --completion-mint: #c4f7d9;
-  --completion-violet: #c7b6f4;
-  --completion-pink: #f2a5e5;
-  --completion-yellow: #fff3b7;
+  /* The passing light reuses the four wording priorities, with a small
+   * amount of their own ink so the pastel colours survive the soft blur. */
+  --completion-cherry: color-mix(in srgb, var(--priority-1-surface, #FBE8ED) 90%, var(--priority-1-ink, #903959));
+  --completion-amber: color-mix(in srgb, var(--priority-2-surface, #FCECD3) 90%, var(--priority-2-ink, #81571E));
+  --completion-teal: color-mix(in srgb, var(--priority-3-surface, #D2FBF1) 90%, var(--priority-3-ink, #347665));
+  --completion-violet: color-mix(in srgb, var(--priority-4-surface, #EDEEFE) 90%, var(--priority-4-ink, #5753A9));
+  /* Retain the previous public names for consumers of the light palette. */
+  --completion-pink: var(--completion-cherry);
+  --completion-yellow: var(--completion-amber);
+  --completion-cyan: var(--completion-teal);
+  --completion-mint: var(--completion-teal);
 }
 .completion-dialog {
   display: flex;
@@ -31,34 +37,104 @@
   scrollbar-width: thin;
   scrollbar-gutter: stable;
   border-block: 1px solid var(--border);
-  background: var(--background);
+  background: var(--paper-raised, #fff);
 }
 .completion-dialog > .completion-reveal { flex: 1 1 auto; }
 .completion-reveal:is([data-reveal-state="preparing"], [data-reveal-state="revealing"]) { overflow: hidden; }
-.completion-document { position: relative; padding: 0 18px 28px; }
+.completion-document {
+  position: relative;
+  min-height: 100%;
+  padding: 0 24px 32px;
+  background-color: var(--paper-raised, #fff);
+  background-image:
+    linear-gradient(var(--paper-grid, #f0eae5) 1px, transparent 1px),
+    linear-gradient(90deg, var(--paper-grid, #f0eae5) 1px, transparent 1px);
+  background-size: 24px 24px;
+  background-position: -1px -1px;
+}
+.completion-document::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 14px;
+  width: 1px;
+  background: var(--primary-line, #f2c6b8);
+  pointer-events: none;
+}
 .completion-document-head {
   display: flex;
   justify-content: space-between;
   gap: 15px;
-  padding: 17px 0;
+  padding: 24px 0 20px;
   color: var(--muted);
   border-bottom: 1px solid var(--border);
-  font: 8px/1.5 var(--font-mono);
+  font: 11px/1.6 var(--font-mono);
 }
 .completion-list { list-style: none; padding: 0; margin: 0; }
 .completion-row {
-  display: grid;
-  grid-template-columns: 30px minmax(0, 1fr) 100px;
-  gap: 12px;
-  align-items: start;
-  padding: 21px 0;
-  border-bottom: 1px solid var(--border);
+  display: block;
+  min-width: 0;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--notebook-rule, var(--border));
   transform-origin: center;
 }
-.completion-row-number { color: var(--muted); font: 10px/1.6 var(--font-mono); }
+.completion-item {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+  min-height: 28px;
+  padding-block: 4px;
+  cursor: pointer;
+}
+.completion-item-content {
+  min-width: 0;
+  color: var(--ink);
+  font: 400 16px/1.75 var(--font-sans);
+  overflow-wrap: anywhere;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+.completion-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  margin: 4px 0 0;
+  border: 1px solid var(--muted);
+  border-radius: 3px;
+  background: #fff;
+  cursor: pointer;
+  accent-color: var(--primary-action, #c9472b);
+  background-image: linear-gradient(var(--primary-action, #c9472b), var(--primary-action, #c9472b));
+  background-size: 0 100%;
+  background-repeat: no-repeat;
+  background-position: left center;
+  transition: background-size 200ms ease, border-color 200ms ease;
+}
+.completion-checkbox:checked {
+  border-color: var(--primary-action, #c9472b);
+  background-size: 100% 100%;
+}
+.completion-checkbox:checked::after {
+  content: '';
+  display: block;
+  width: 5px;
+  height: 10px;
+  margin: 2px 0 0 6px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.completion-checkbox:focus-visible { outline: 2px solid var(--ring); outline-offset: 4px; }
+.completion-checkbox:checked + .completion-item-content { color: var(--muted); text-decoration: line-through; }
+.completion-source { margin: 6px 0 0 36px; font-size: 12px; line-height: 1.8; }
+.completion-source > summary { width: fit-content; color: var(--muted); cursor: pointer; font: inherit; }
+.completion-source blockquote { margin: 12px 0; font-size: 13px; line-height: 1.9; overflow-wrap: anywhere; }
+.completion-source .pl-priority { margin-right: 6px; }
 .completion-row p { font-size: 13px; line-height: 1.65; color: var(--ink); overflow-wrap: anywhere; }
-.completion-row small { display: block; margin-top: 7px; font: 8px/1.65 var(--font-mono); color: var(--muted); }
-.completion-row-state { color: var(--primary-ink, var(--primary)); font: 8px/1.6 var(--font-mono); text-align: right; }
+.completion-row small { display: block; margin-top: 7px; font: 11px/1.8 var(--font-sans); color: var(--muted); }
 .completion-context { margin-top: 20px; color: var(--muted); font-size: 11px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; }
 .completion-context strong { display: block; font: 8px/1.5 var(--font-mono); color: var(--primary-ink, var(--primary)); margin-bottom: 5px; }
 .completion-ghost { position: absolute; inset: 0; pointer-events: none; user-select: none; z-index: 0; opacity: .08; filter: blur(1.5px); }
@@ -74,11 +150,10 @@
   opacity: 0;
   will-change: transform, opacity;
   background:
-    radial-gradient(ellipse at 12% 22%, var(--completion-yellow) 0%, transparent 45%),
-    radial-gradient(ellipse at 47% 36%, var(--completion-pink) 0%, transparent 55%),
-    radial-gradient(ellipse at 74% 57%, var(--completion-violet) 0%, transparent 52%),
-    radial-gradient(ellipse at 62% 82%, var(--completion-cyan) 0%, transparent 51%),
-    radial-gradient(ellipse at 88% 91%, var(--completion-mint) 0%, transparent 48%);
+    radial-gradient(ellipse at 16% 28%, var(--completion-cherry) 0%, transparent 54%),
+    radial-gradient(ellipse at 78% 24%, var(--completion-amber) 0%, transparent 53%),
+    radial-gradient(ellipse at 30% 78%, var(--completion-teal) 0%, transparent 53%),
+    radial-gradient(ellipse at 84% 76%, var(--completion-violet) 0%, transparent 54%);
   filter: blur(22px);
   mix-blend-mode: multiply;
 }
@@ -111,10 +186,13 @@
   .completion-dialog { padding: 16px; max-height: calc(100% - 24px); }
   .completion-dialog .dialog-heading h2 { font-size: 25px; }
   .completion-dialog .dialog-heading .small-note { font-size: 9px; }
-  .completion-document { padding: 0 11px 20px; }
-  .completion-document-head { flex-direction: column; gap: 4px; font-size: 7px; }
-  .completion-row { grid-template-columns: 22px minmax(0, 1fr); gap: 8px; padding: 17px 0; }
-  .completion-row-state { grid-column: 2; text-align: left; margin-top: -3px; font-size: 7px; }
+  .completion-document { padding: 0 20px 24px; }
+  .completion-document::before { left: 10px; }
+  .completion-document-head { flex-direction: column; gap: 4px; font-size: 10px; }
+  .completion-row { padding: 15px 0; }
+  .completion-item { gap: 12px; }
+  .completion-item-content { font-size: 15px; }
+  .completion-source { margin-left: 32px; }
   .completion-row p { font-size: 12px; }
   .completion-prompt > p { font-size: 11px; }
   .completion-result-actions { gap: 10px; }
@@ -131,8 +209,13 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .completion-wave, .completion-wave-glow, .completion-ghost { display: none; }
+  .completion-checkbox { transition: none; }
 }
 @media (forced-colors: active) {
   .completion-wave, .completion-wave-glow { display: none; }
   .completion-dialog, .completion-preview-stage { background: Canvas; border-color: CanvasText; }
+  .completion-document { background: Canvas; }
+  .completion-document::before { background: CanvasText; }
+  .completion-checkbox { appearance: auto; -webkit-appearance: auto; background: Canvas; }
+  .completion-checkbox:checked::after { content: none; }
 }

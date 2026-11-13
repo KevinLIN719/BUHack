@@ -162,14 +162,16 @@
     }
     if(!snapshot)return;
     const token=++resultVersion;busy=true;
-    $('[data-reveal-content]').innerHTML=`<div class="completion-document-head"><span>${escape(snapshot.title)} · 虛構示例</span><span>${snapshot.findings.length} 個已選問題</span></div>${snapshot.findings.map(f=>`<article class="completion-row" data-reveal-row data-finding-id="${escape(f.id)}" data-priority="${f.priority}"><span class="completion-row-number">${String(f.priority).padStart(2,'0')}</span><div><p>${escape(f.question)}</p><blockquote><mark class="pl-marker" data-priority="${f.priority}">${escape(f.quote)}</mark></blockquote><small><span class="pl-priority" data-priority="${f.priority}">${f.priority} · ${labels[f.priority]}</span> ${escape(snapshot.source)}</small></div></article>`).join('')}<div class="completion-context"><strong>你的使用情境</strong>${escape(snapshot.context)}${snapshot.note?`<br /><br /><strong>你的筆記</strong>${escape(snapshot.note)}`:''}</div>`;
+    // Replaying reuses the original inputs, preserving this sheet's confirmation ticks.
+    // A fresh generation creates a new sheet with every confirmation unchecked.
+    if(!replay) $('[data-reveal-content]').innerHTML=`<div class="completion-document-head"><span>${escape(snapshot.title)} · 虛構示例</span><span>${snapshot.findings.length} 個已選問題</span></div><ul class="completion-list">${snapshot.findings.map(f=>`<li class="completion-row" data-reveal-row data-finding-id="${escape(f.id)}" data-priority="${f.priority}"><label class="completion-item"><input type="checkbox" class="completion-checkbox" aria-label="已確認：${escape(f.question)}" /><span class="completion-item-content">${escape(f.question)}</span></label><details class="completion-source"><summary>條款與出處</summary><blockquote><mark class="pl-marker" data-priority="${f.priority}">${escape(f.quote)}</mark></blockquote><small><span class="pl-priority" data-priority="${f.priority}">${f.priority} · ${labels[f.priority]}</span> ${escape(snapshot.source)}</small></details></li>`).join('')}</ul><div class="completion-context"><strong>你的使用情境</strong>${escape(snapshot.context)}${snapshot.note?`<br /><br /><strong>你的筆記</strong>${escape(snapshot.note)}`:''}</div>`;
     $('[data-exp-result]').hidden=false;sync();
     $('[data-exp-result]').scrollIntoView?.({block:'start',behavior:calm()?'instant':'smooth'});
     // Start only after the scroll operation has been requested. The reveal
     // reads the actual result surface, not an incoming page transition.
     await reveal.play();
     if(dead||token!==resultVersion)return;
-    busy=false;sync();$('[data-exp-result-status]').textContent='提問清單已整理好，每個問題都附有對應原文。';
+    busy=false;sync();$('[data-exp-result-status]').textContent='提問清單已整理好。勾選可記錄本清單的確認進度；條款與出處可逐項展開。';
   }
   async function copy() {
     const text=resultText();if(!text)return;
@@ -202,7 +204,9 @@
       case 'concept-finish':hero.finish();break;
       case 'generate':void generate();break;
       case 'replay-result':void generate(true);break;
-      case 'cancel':invalidate('展示已取消，已選問題仍然保留。');break;
+      case 'cancel':
+        resultVersion++;reveal.cancel();busy=false;sync();
+        $('[data-exp-result-status]').textContent='展示已停止，清單與確認進度已保留。';break;
       case 'copy':void copy();break;
       case 'download':download();break;
       case 'restart':void restart();break;

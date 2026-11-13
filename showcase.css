@@ -99,8 +99,6 @@
 .sc-check-options label span { min-width:0; }
 .sc-result { border-top:1px solid var(--border); margin-top:25px; padding:25px 0 0; }
 .sc-result .completion-reveal { height:auto; max-height:none; border-bottom:1px solid var(--border); }
-.sc-result .completion-document { padding:0 16px 30px; }
-.sc-result .completion-row { grid-template-columns:30px minmax(0,1fr); }
 .sc-result .completion-row p { font-size:15px; }
 .sc-result-quote { margin:10px 0 12px; font-size:13px; line-height:1.85; }
 .sc-result .completion-row small { font-size:11px; }

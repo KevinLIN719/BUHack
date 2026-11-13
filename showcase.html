@@ -155,16 +155,21 @@ chat.submit('航班延誤條件怎樣寫？');
 // 卸載時： chat.destroy();</code></pre><p><strong>隊友提供的資料。</strong> 此適配使用本機示例回覆庫；服務準備好後，由隊友替換 showcase-chat.js 的回覆取得方式。目前動態模組支援一個使用中的對話。</p></div></details>
 </section>
 <section aria-labelledby="checklist-title" class="sc-section" id="checklist">
-<div class="sc-section-head"><span class="sc-number">06</span><div><p class="sc-eyebrow">A useful finish</p><h2 id="checklist-title">讓重要問題，一起浮現。</h2><p>一道光洗按 1 至 4 的優先級揭示所選問題；每個問題都保留同色標記的原文依據。</p></div></div>
-<dl class="sc-use"><div><dt>效果</dt><dd>現有由下而上的完成揭示。</dd></div><div><dt>觸發方式</dt><dd>選取目前保單的問題，再按生成。</dd></div><div><dt>適用位置</dt><dd>已準備好的清單、閱讀摘要或完成內容。</dd></div></dl>
+<div class="sc-section-head"><span class="sc-number">06</span><div><p class="sc-eyebrow">A useful finish</p><h2 id="checklist-title">讓重要問題，一起浮現。</h2><p>由四種重點螢光色混成的炫彩光洗，帶出白色網格確認清單。每項問題可勾選，並可展開查看原文依據。</p></div></div>
+<dl class="sc-use"><div><dt>效果</dt><dd>炫彩光洗由上往下帶出筆記清單。</dd></div><div><dt>觸發方式</dt><dd>選取目前保單的問題，再按生成。</dd></div><div><dt>適用位置</dt><dd>已準備好的清單、閱讀摘要或完成內容。</dd></div></dl>
 <fieldset class="sc-check-options"><legend data-checklist-policy="">所選虛構保單的問題</legend><div data-checklist-options=""></div></fieldset>
 <div class="sc-actions"><button data-liquid-variant="primary" data-checklist-generate="" type="button">生成所選問題清單</button><button data-checklist-replay="" disabled="" type="button">重播揭示</button><button data-checklist-cancel="" disabled="" type="button">取消揭示</button></div><p class="sc-small" data-checklist-status="" role="status">請至少選一個問題。</p>
 <div class="sc-result" data-checklist-result="" hidden=""><div class="completion-reveal" data-showcase-reveal=""><div class="completion-document" data-reveal-content=""></div></div></div>
-<details class="sc-usage" data-component-usage="checklist"><summary>前端接入 · 完成衝擊波</summary><div class="sc-usage-body"><p>在結果準備好時使用由上往下、較淡的色散光洗，例如問題清單、閱讀摘要或完成內容。先放好內容，再觸發一次。</p><p><strong>所需檔案。</strong> 載入 completion.css、completion-motion.js 及主題樣式。</p><p>先把結果放進 data-reveal-content，並為每個結果項目加上 data-reveal-row，再呼叫 play()。它只負責已準備內容的動畫。</p><pre><code>&lt;div class="completion-reveal" id="result-example"&gt;
+<details class="sc-usage" data-component-usage="checklist"><summary>前端接入 · 完成衝擊波</summary><div class="sc-usage-body"><p>結果準備好後，以櫻桃紅、琥珀、青綠與紫羅蘭重點色混成由上往下的光洗。白色網格紙上每項有原生 Checkbox；勾選只記錄這份清單的進度。重播或停止展示會保留勾選，重新生成才建立新清單。</p><p><strong>所需檔案。</strong> 載入 completion.css、completion-motion.js 及主題樣式。</p><p>先把結果放進 data-reveal-content，並為每個結果項目加上 data-reveal-row，再呼叫 play()。它只負責已準備內容的動畫。</p><pre><code>&lt;div class="completion-reveal" id="result-example"&gt;
   &lt;div class="completion-document" data-reveal-content&gt;
-    &lt;article class="completion-row" data-reveal-row&gt;
-      &lt;span&gt;01&lt;/span&gt;&lt;div&gt;已準備的結果&lt;/div&gt;
-    &lt;/article&gt;
+    &lt;ul class="completion-list"&gt;
+      &lt;li class="completion-row" data-reveal-row&gt;
+        &lt;label class="completion-item"&gt;
+          &lt;input type="checkbox" class="completion-checkbox" /&gt;
+          &lt;span class="completion-item-content"&gt;投保前要確認的問題&lt;/span&gt;
+        &lt;/label&gt;
+      &lt;/li&gt;
+    &lt;/ul&gt;
   &lt;/div&gt;
 &lt;/div&gt;
 
