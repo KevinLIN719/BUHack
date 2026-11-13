@@ -1,9 +1,9 @@
-/* A short symbol sequence and one persistent brand/tagline group. Only the active layer
- * animates, using compositor opacity/transform; there is no per-frame DOM scan. */
+/* Whole market names behind the symbols, then one persistent brand/tagline group.
+ * Compositor opacity/transform only; no character nodes or per-frame DOM scan. */
 (() => {
   'use strict';
-  const timings = Object.freeze({ glyph: 500, cycles: 1, patternCount: 4,
-    icons: 2000, dotwordHold: 0, wordSettle: 500, total: 2500 });
+  const timings = Object.freeze({ glyph: 900, cycles: 1, patternCount: 4,
+    icons: 3600, dotwordHold: 0, wordSettle: 500, total: 4100 });
   const mounts = new WeakMap();
   const SVG_NS = 'http://www.w3.org/2000/svg';
   const patterns = Object.freeze([
@@ -29,6 +29,7 @@
     const cleanups = [], autoPauses = new Set();
     let state = 'ready', phase = 'name', destroyed = false, manualPaused = false;
     let run = null, animation = null;
+    const backgroundAnimations = new Set();
     const preference = view.matchMedia?.('(prefers-reduced-motion: reduce)');
     const contrast = view.matchMedia?.('(forced-colors: active)');
     const quiet = () => preference?.matches || contrast?.matches;
@@ -36,6 +37,18 @@
       if (!originalAttributes.has(name)) originalAttributes.set(name, host.getAttribute(name));
       host.setAttribute(name, value);
     };
+    const field = doc.createElement('div');
+    field.className = 'concept-field';
+    field.setAttribute('aria-hidden', 'true');
+    const insurers = Array.isArray(options.insurers) ? options.insurers : window.PolicyConceptData?.insurers || [];
+    for (const insurer of insurers.slice(0, 16)) {
+      const text = typeof insurer === 'string' ? insurer : insurer?.name;
+      if (!text) continue;
+      const label = doc.createElement('span');
+      label.className = 'concept-insurer';
+      label.textContent = text;
+      field.appendChild(label);
+    }
     const symbol = doc.createElement('div');
     symbol.className = 'concept-symbol';
     symbol.setAttribute('aria-hidden', 'true');
@@ -56,7 +69,7 @@
     const copy = doc.createElement('p');
     copy.className = 'concept-tagline';
     copy.textContent = tagline.replace('，', '，\n');
-    lockup.append(wordmark, copy); title.appendChild(lockup); host.append(symbol, title);
+    lockup.append(wordmark, copy); title.appendChild(lockup); host.append(field, symbol, title);
     ownAttribute('role', 'img'); ownAttribute('aria-label', `${name}／${tagline}`);
 
     function setStatus(next, nextPhase = phase) {
@@ -72,6 +85,8 @@
       if (destroyed) return;
       const job = run; run = null;
       animation?.cancel(); animation = null;
+      for (const effect of backgroundAnimations) effect.cancel();
+      backgroundAnimations.clear();
       manualPaused = false;
       ownAttribute('data-concept-glyph', 'tagline');
       setStatus('ready', 'name');
@@ -83,6 +98,10 @@
       const paused = manualPaused || autoPauses.size > 0;
       if (paused) animation?.pause();
       else animation?.play();
+      for (const effect of backgroundAnimations) {
+        if (effect.playState === 'finished') continue;
+        if (paused) effect.pause(); else effect.play();
+      }
       setStatus(paused ? 'paused' : 'playing');
     }
     const setAutoPause = (reason, paused) => {
@@ -119,6 +138,23 @@
         { opacity: 1, transform: 'none' }
       ], timings.wordSettle, job)) finish();
     }
+    function revealNames() {
+      if (!field.children.length) return;
+      const track = (node, frames, options) => {
+        const effect = node.animate(frames, { fill: 'both', easing: 'ease-out', ...options });
+        backgroundAnimations.add(effect);
+        effect.finished.catch(() => {});
+        if (autoPauses.size) effect.pause();
+      };
+      track(field, [
+        { opacity: 0, offset: 0 }, { opacity: 1, offset: .08 },
+        { opacity: 1, offset: .78 }, { opacity: 0, offset: .9 }, { opacity: 0, offset: 1 }
+      ], { duration: timings.total });
+      [...field.children].forEach((label, index) => track(label, [
+        { opacity: 0, transform: 'translateY(4px)' },
+        { opacity: .65, transform: 'none' }
+      ], { duration: 420, delay: Math.floor(index / 4) * 260 + index % 4 * 100 }));
+    }
     function play() {
       if (destroyed) return Promise.resolve();
       if (run) return run.promise;
@@ -127,6 +163,7 @@
       let resolve;
       const promise = new Promise(done => { resolve = done; });
       const job = { promise, resolve }; run = job;
+      revealNames();
       void sequence(job);
       return promise;
     }
@@ -136,7 +173,7 @@
       if (destroyed) return;
       finish(); destroyed = true;
       for (const cleanup of cleanups) cleanup();
-      symbol.remove(); title.remove();
+      field.remove(); symbol.remove(); title.remove();
       for (const [name, original] of originalAttributes) {
         if (original === null) host.removeAttribute(name); else host.setAttribute(name, original);
       }

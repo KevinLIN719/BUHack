@@ -59,15 +59,15 @@
 </div>
 </section>
 <div class="sc-hero-toolbar"><p class="sc-small">一段連貫的介紹：貨幣 → 保障 → 條款 → 你的閱讀空間。</p><div class="sc-actions"><button data-hero-replay="" type="button">重播概念動畫</button><button data-hero-finish="" type="button">略過概念動畫</button></div><span class="sc-sr" data-hero-status="" role="status"></span></div>
-<div class="sc-concept-guide"><dl class="sc-use"><div><dt>效果</dt><dd>簡潔符號帶出品牌與標語，整組只進場一次。</dd></div><div><dt>觸發方式</dt><dd>首次查看此示例，或按下重播概念動畫。</dd></div><div><dt>適用位置</dt><dd>概念頁，或產品介紹的開頭。</dd></div></dl>
-<details class="sc-usage" data-component-usage="concept"><summary>前端接入 · 概念介紹</summary><div class="sc-usage-body"><p>適合放在概念頁開頭。簡潔符號淡入後，橙色 POLICY LENS 字標與「你的保單，付款前看清。」作為同一組一起呈現，並保留到結尾。整組只進場一次。</p><p><strong>所需檔案。</strong> 依次載入 concept-data.js → concept-motion.js → hero-transition.js，並加入 concept.css、hero-transition.css、ui-markers.css 及主題樣式。</p><p>複製本頁的 [data-hero] 結構，包括 data-hero-concept 與 data-hero-home；後者只作未載入程式時的靜態品牌與標語。整段介紹期間須保留首頁的實際版面位置，避免下方筆記跳動。</p><pre><code>const heroHost = document.querySelector('[data-hero]');
+<div class="sc-concept-guide"><dl class="sc-use"><div><dt>效果</dt><dd>保險公司名稱淡淡浮現，符號帶出品牌與標語。</dd></div><div><dt>觸發方式</dt><dd>首次查看此示例，或按下重播概念動畫。</dd></div><div><dt>適用位置</dt><dd>概念頁，或產品介紹的開頭。</dd></div></dl>
+<details class="sc-usage" data-component-usage="concept"><summary>前端接入 · 概念介紹</summary><div class="sc-usage-body"><p>適合放在概念頁開頭。十六個保險公司名稱在符號後方逐批淡入，最後淡出；橙色 POLICY LENS 字標與「你的保單，付款前看清。」作為同一組一起呈現，並保留到結尾。整組只進場一次。</p><p><strong>所需檔案。</strong> 依次載入 concept-data.js → concept-motion.js → hero-transition.js，並加入 concept.css、hero-transition.css、ui-markers.css 及主題樣式。</p><p>複製本頁的 [data-hero] 結構，包括 data-hero-concept 與 data-hero-home；後者只作未載入程式時的靜態品牌與標語。整段介紹期間須保留首頁的實際版面位置，避免下方筆記跳動。</p><pre><code>const heroHost = document.querySelector('[data-hero]');
 const intro = PolicyHeroTransition.mount(heroHost);
 intro.play();
 // 重播時： intro.replay();
 // 略過時： intro.finish();
 // 卸載時： intro.destroy();</code></pre><p><strong>隊友提供的資料。</strong> 標語及概念符號。此介紹可獨立於其他示例使用。</p></div></details>
 </div>
-<details class="sc-sources"><summary>16 個香港市場名稱 · 背景與來源</summary><p>這些名稱只供查閱市場背景，不代表合作、推薦，亦不是下方虛構保單的供應商。</p><ul data-market-sources=""></ul></details>
+<details class="sc-sources"><summary>16 個香港市場名稱 · 背景與來源</summary><p>這些名稱用於動畫的市場背景，不代表合作、推薦，亦不是下方虛構保單的供應商。</p><ul data-market-sources=""></ul></details>
 </section>
 <section aria-labelledby="controls-title" class="sc-section" id="controls">
 <div class="sc-section-head"><span class="sc-number">01</span><div><p class="sc-eyebrow">A shared touch</p><h2 id="controls-title">輕柔按下，清楚選擇。</h2><p>輕量平面按鈕，統一以由左至右的淡色填充回應操作。</p></div></div>
