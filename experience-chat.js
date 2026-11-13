@@ -6,6 +6,11 @@
   let serial = 0;
   const escape = value => String(value ?? '').replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
   const labels = Object.freeze({ 1:'首要', 2:'重要', 3:'待確認', 4:'參考' });
+  const modes = Object.freeze({
+    explain: { label:'解釋條款', help:'用白話拆解這份保單的條件與限制。', placeholder:'例如：這項保障要符合甚麼條件？' },
+    'what-if': { label:'假設情境', help:'描述你的情況，對照原文看哪些細節仍需確認。', placeholder:'例如：如果發生這個情況，還要確認甚麼？' },
+    ask: { label:'怎樣問', help:'把疑問整理成可以直接向顧問確認的問題。', placeholder:'例如：關於這項條款，我應如何問？' }
+  });
   function mount(host, { getPolicy, getContext = () => ({}), onSaveQuestion } = {}) {
     if (!host?.ownerDocument) throw new TypeError('PolicyExperienceChat.mount needs an empty DOM host.');
     if (!window.PolicyExperienceData) throw new Error('Load experience-data.js before experience-chat.js.');
@@ -15,7 +20,7 @@
     const id = `expchat-draft-${++serial}`;
     const workspace = doc.createElement('div');
     workspace.className = 'agent-workspace expchat-workspace';
-    workspace.innerHTML = `<div class="agent-header"><div><p class="kicker">同一份保單／再看仔細一點</p><h3>一起釐清這個問題。</h3><p class="small-note" data-expchat-policy></p></div><button type="button" data-expchat-reset>清除對話</button></div><div class="agent-layout"><section class="agent-conversation" aria-label="保單對話"><div class="agent-feed" data-expchat-feed role="log" aria-label="你的保單對話" aria-live="off"><div class="agent-stack" data-expchat-stack></div></div><form class="agent-composer" data-expchat-form><label class="visually-hidden" for="${id}">詢問所選虛構保單的條款</label><textarea id="${id}" data-expchat-draft maxlength="1000" rows="2" placeholder="詢問某項條件，或選擇上方的問題……"></textarea><div class="agent-composer-toolbar"><span class="small-note">對照你所選的保單。</span><button type="submit" class="agent-send-button" data-expchat-send aria-label="送出問題" disabled>↑</button></div></form></section><aside class="agent-desk ex-chat-evidence" aria-label="所選保單的確切原文"><div class="agent-desk-content" data-expchat-evidence></div></aside></div><p class="agent-disclosure" data-expchat-status role="status" aria-live="polite"></p>`;
+    workspace.innerHTML = `<div class="agent-header"><div><p class="kicker">同一份保單／再看仔細一點</p><h3>一起釐清這個問題。</h3><p class="small-note" data-expchat-policy></p></div><button type="button" data-expchat-reset>清除對話</button></div><div class="agent-layout"><section class="agent-conversation" aria-label="保單對話"><div class="agent-feed" data-expchat-feed role="log" aria-label="你的保單對話" aria-live="off"><div class="agent-stack" data-expchat-stack></div></div><form class="agent-composer" data-expchat-form><label class="visually-hidden" for="${id}">詢問所選虛構保單的條款</label><p class="agent-mode-help" id="${id}-help" data-expchat-mode-help role="status" aria-live="polite"></p><textarea aria-describedby="${id}-help" id="${id}" data-expchat-draft maxlength="1000" rows="2" placeholder="詢問某項條件，或選擇上方的問題……"></textarea><div class="agent-composer-toolbar"><div class="agent-modes" role="group" aria-label="回覆方式">${Object.entries(modes).map(([value,item]) => `<button type="button" data-expchat-mode="${value}" aria-pressed="${value === 'explain'}">${item.label}</button>`).join('')}</div><button type="submit" class="agent-send-button" data-expchat-send aria-label="送出問題" disabled>↑</button></div></form></section><aside class="agent-desk ex-chat-evidence" aria-label="所選保單的確切原文"><div class="agent-desk-content" data-expchat-evidence></div></aside></div><p class="agent-disclosure" data-expchat-status role="status" aria-live="polite"></p>`;
     host.appendChild(workspace);
     const $ = selector => workspace.querySelector(selector);
     const feed = $('[data-expchat-feed]'), stack = $('[data-expchat-stack]');
@@ -24,14 +29,25 @@
     const composer = $('.agent-composer'), status = $('[data-expchat-status]');
     const readPolicy = () => getPolicy?.() || window.PolicyExperienceData.items[0] || null;
     let policyId = readPolicy()?.id || null, transcript = [], pending = null;
-    let busy = false, dead = false, version = 0, lastFindingId = null;
+    let busy = false, dead = false, version = 0, lastFindingId = null, mode = 'explain';
     const find = id => readPolicy()?.findings.find(finding => finding.id === id);
     const source = finding => `<span class="pl-priority" data-priority="${finding.priority}">${finding.priority} · ${labels[finding.priority]}</span><blockquote class="agent-desk-quote"><mark class="pl-marker" data-priority="${finding.priority}">${escape(finding.quote)}</mark></blockquote>`;
     function resize() {
       field.style.height = '50px';
       field.style.height = `${Math.min(126,Math.max(50,field.scrollHeight))}px`;
     }
+    function updateMode() {
+      const selected = modes[mode];
+      field.placeholder = selected.placeholder;
+      const help = $('[data-expchat-mode-help]'), text = `${selected.label} · ${selected.help}`;
+      if (help.textContent !== text) help.textContent = text;
+      workspace.querySelectorAll('[data-expchat-mode]').forEach(button => {
+        button.setAttribute('aria-pressed', String(button.dataset.expchatMode === mode));
+        button.disabled = busy;
+      });
+    }
     function sync() {
+      updateMode();
       send.disabled = busy || !field.value.trim();
       form.setAttribute('aria-busy', String(busy));
       feed.setAttribute('aria-busy', String(busy));
@@ -57,7 +73,7 @@
           const next = policy?.findings.find(value => value.question === question);
           return next ? `<button type="button" data-expchat-suggestion="${escape(next.id)}">${escape(question)}</button>` : '';
         }).join('');
-        element.innerHTML = `<span class="agent-response-label">本機虛構示例 · <span class="pl-marker" data-marker="${reply.grounded ? '12' : '7'}">${reply.grounded ? '附有條款依據' : '需要其他依據'}</span></span><h3>${escape(reply.title)}</h3>${reply.paragraphs.map(paragraph => `<p>${escape(paragraph)}</p>`).join('')}${finding ? `<div class="agent-evidence"><button type="button" data-expchat-source="${escape(finding.id)}">查看確切原文 ↗</button></div><div class="ex-chat-inline-source"><p class="agent-response-label">${escape(policy.title)} · ${escape(policy.sourceLabel)}</p>${source(finding)}</div>` : ''}<div class="agent-followups">${followups}</div>${finding ? `<div class="agent-answer-actions"><button type="button" data-expchat-save="${escape(finding.id)}">保留這個問題</button></div>` : ''}`;
+        element.innerHTML = `<p class="agent-mode-label">${modes[item.mode || 'explain'].label}</p><span class="agent-response-label">本機虛構示例 · <span class="pl-marker" data-marker="${reply.grounded ? '12' : '7'}">${reply.grounded ? '附有條款依據' : '需要其他依據'}</span></span><h3>${escape(reply.title)}</h3>${reply.paragraphs.map(paragraph => `<p>${escape(paragraph)}</p>`).join('')}${finding ? `<div class="agent-evidence"><button type="button" data-expchat-source="${escape(finding.id)}">查看確切原文 ↗</button></div><div class="ex-chat-inline-source"><p class="agent-response-label">${escape(policy.title)} · ${escape(policy.sourceLabel)}</p>${source(finding)}</div>` : ''}<div class="agent-followups">${followups}</div>${finding ? `<div class="agent-answer-actions"><button type="button" data-expchat-save="${escape(finding.id)}">保留這個問題</button></div>` : ''}`;
       }
       stack.appendChild(element);
       return element;
@@ -84,7 +100,7 @@
     function reset() {
       if (dead) return;
       version++; motion?.cancelAll();
-      pending = null; transcript = []; busy = false; lastFindingId = null;
+      pending = null; transcript = []; busy = false; lastFindingId = readPolicy()?.findings[0]?.id || null;
       policyId = readPolicy()?.id || null;
       field.value = ''; resize(); render();
       showSource(readPolicy()?.findings[0]?.id, false); sync();
@@ -100,10 +116,10 @@
       if (!text || !policy) return;
       const token = ++version, selectedPolicyId = policy.id;
       const fromRect = field.getBoundingClientRect();
-      const reply = window.PolicyExperienceData.reply(selectedPolicyId,text,{ findingId:findingId || lastFindingId, context:getContext() });
+      const reply = window.PolicyExperienceData.reply(selectedPolicyId,text,{ findingId:findingId || lastFindingId, context:getContext(), mode });
       lastFindingId = reply.grounded ? reply.findingId : null;
       transcript.push({ role:'user', text });
-      pending = { role:'assistant', question:text, reply };
+      pending = { role:'assistant', question:text, reply, mode };
       busy = true;
       field.value = ''; resize(); sync();
       showSource(lastFindingId);
@@ -127,7 +143,8 @@
       const button = event.target.closest('button');
       if (!button || !workspace.contains(button) || dead) return;
       ensurePolicy();
-      if (button.hasAttribute('data-expchat-reset')) { reset(); field.focus({ preventScroll:true }); }
+      if (button.dataset.expchatMode && !busy) { mode = button.dataset.expchatMode; updateMode(); }
+      else if (button.hasAttribute('data-expchat-reset')) { reset(); field.focus({ preventScroll:true }); }
       else if (button.dataset.expchatSuggestion) {
         const finding = find(button.dataset.expchatSuggestion);
         if (finding) submit(finding.question,{findingId:finding.id});

@@ -22,7 +22,7 @@
     'health-authorisation': /\b(authorisation|authorization|hospital|emergency|admission|approval)\b|預先批核|事先批核|批核|住院|入院|緊急情況|授權/,
     'health-referral': /\b(referral|letter|specialist|consultation|consultations)\b|轉介信|轉介|專科|診症/
   });
-  const genericFollowup = /^(why|why is that|why does that matter|what does that mean|what should i ask|what should i confirm|how should i ask|can you explain that|explain that|tell me more|what about that|which wording supports that|what is the source)( please)?$|^(為甚麼|為什麼|點解|這是甚麼意思|這是什麼意思|是甚麼意思|可以解釋一下嗎|可否解釋一下|請解釋一下|說清楚一點|我應問甚麼|我應確認甚麼|我應如何問|依據是甚麼|哪段條款支持這個說法|原文在哪裏|原文在哪裡)$/;
+  const genericFollowup = /^(why|why is that|why does that matter|what does that mean|what should i ask|what should i confirm|how should i ask|can you explain that|explain that|tell me more|what about that|which wording supports that|what is the source)( please)?$|^(為甚麼|為什麼|點解|這是甚麼意思|這是什麼意思|是甚麼意思|可以解釋一下嗎|可否解釋一下|請解釋一下|說清楚一點|我應問甚麼|我應確認甚麼|我應如何問|依據是甚麼|哪段條款支持這個說法|原文在哪裏|原文在哪裡|這項保障要符合甚麼條件|如果發生這個情況 還要確認甚麼|關於這項條款 我應如何問)$/;
   // Distinct subjects outrank words shared by many kinds of conditions.
   const specificTopics = Object.freeze({
     ...topics,
@@ -107,7 +107,7 @@
       question: finding.question, quote: finding.quote, priority: finding.priority
     }));
   }
-  function reply(policyId, question, { findingId = null } = {}) {
+  function reply(policyId, question, { findingId = null, mode = 'explain', context = {} } = {}) {
     const policy = findPolicy(policyId), text = clean(question), query = normal(text);
     let finding = query ? policy?.findings.find(item => [item.question,item.title,item.quote].some(value => normal(value) === query)) : null;
     if (!finding && policy) {
@@ -127,9 +127,14 @@
       sourceIds:Object.freeze([]), followUps:Object.freeze(policy?.findings.slice(0,2).map(item => item.question) || []),
       findingId:null, question:text, quote:null, priority:null
     });
+    const scene = mode === 'what-if' ? scenarios(policyId, context).find(item => item.findingId === finding.id) : null;
+    const paragraphs = mode === 'ask'
+      ? [`可以問：「${finding.question}」`, `請對方指出「${finding.quote}」適用的完整條款，並以書面確認相關限制及所需文件。`]
+      : scene ? [`假設情境：${scene.scene}`, scene.why, `仍需確認：${finding.question}`]
+      : explanations[finding.id].slice();
     return Object.freeze({
       grounded:true, title:finding.title,
-      paragraphs:Object.freeze(explanations[finding.id].slice()),
+      paragraphs:Object.freeze(paragraphs),
       sourceIds:Object.freeze([finding.id]),
       followUps:Object.freeze(policy.findings.filter(item => item.id !== finding.id).slice(0,2).map(item => item.question)),
       findingId:finding.id, question:finding.question, quote:finding.quote, priority:finding.priority

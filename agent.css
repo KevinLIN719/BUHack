@@ -43,6 +43,7 @@
   margin-top: 7px;
 }
 .agent-header .icon-action { width: 34px; height: 34px; }
+.agent-header > button { flex-shrink: 0; white-space: nowrap; }
 .agent-layout {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
@@ -356,4 +357,30 @@ blockquote.agent-desk-quote {
   .agent-modes button:is([aria-pressed="true"], [aria-selected="true"], .is-active) { outline: 1px solid Highlight; }
   .agent-workspace :focus-visible { outline: 2px solid Highlight; }
   .agent-send-pulse { display: none; }
+}
+
+/* Persistent guidance explains what changes before a question is sent. */
+.agent-mode-help {
+  margin: 0 0 12px;
+  padding: 0 0 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font: 12px/1.7 var(--font-sans);
+  overflow-wrap: anywhere;
+}
+.agent-mode-label {
+  margin: 0 0 8px;
+  color: var(--primary-ink, var(--primary));
+  font: 500 11px/1.5 var(--font-sans);
+}
+.agent-composer-toolbar { align-items: flex-end; gap: 10px; }
+.agent-workspace .agent-modes { flex-wrap: wrap; gap: 4px; }
+.agent-workspace .agent-modes button { min-height: 36px; padding: 7px 9px; font-size: 12px; line-height: 1.4; }
+.agent-composer { box-shadow: none; border-radius: 8px; }
+/* The field resizes immediately so typing does not queue layout animation. */
+.agent-workspace .agent-composer textarea[data-agent-draft] { transition: none; font-size: 15px; }
+@media (max-width: 480px) {
+  .agent-workspace .agent-composer textarea[data-agent-draft] { font-size: 16px; }
+  .agent-workspace .agent-modes button { padding-inline: 7px; font-size: 11px; }
+  .agent-mode-help { font-size: 12px; }
 }

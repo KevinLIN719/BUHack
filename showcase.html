@@ -19,7 +19,6 @@
 <link rel="stylesheet" href="policy-pull.css" />
 <link rel="stylesheet" href="hero-transition.css" />
 <link rel="stylesheet" href="showcase.css" />
-<link rel="stylesheet" href="liquid-controls.css" />
 <link rel="stylesheet" href="refine.css" />
 <script defer src="viewport-layout.js"></script>
 <script defer="" src="demo-data.js"></script>
@@ -38,6 +37,7 @@
 <script defer="" src="liquid-controls.js"></script>
 <script defer="" src="toggle-motion.js"></script>
 <script defer="" src="showcase.js"></script>
+<link rel="stylesheet" href="liquid-controls.css" />
 </head>
 <body class="sc-page">
 <a class="sc-skip" href="#components">跳至互動筆記</a>
@@ -55,26 +55,26 @@
 <section aria-label="從概念到保單" class="ht-stage" data-hero="">
 <div class="concept-stage ht-concept" data-hero-concept="" hidden=""></div>
 <div class="ht-home" data-hero-home="">
-<div><h2 class="ht-name" data-hero-name=""><span data-hero-name-text="">Policy <span class="ht-name-accent">Lens</span></span></h2><div class="ht-copy" data-hero-copy=""><h2>你的保單，<br/><span class="ht-heading-mark">付款前先看清。</span></h2></div></div>
+<div class="ht-copy" data-hero-copy><h2>你的保單，<br />付款前看清。</h2></div>
 </div>
 </section>
 <div class="sc-hero-toolbar"><p class="sc-small">一段連貫的介紹：貨幣 → 保障 → 條款 → 你的閱讀空間。</p><div class="sc-actions"><button data-hero-replay="" type="button">重播概念動畫</button><button data-hero-finish="" type="button">略過概念動畫</button></div><span class="sc-sr" data-hero-status="" role="status"></span></div>
-<div class="sc-concept-guide"><dl class="sc-use"><div><dt>效果</dt><dd>已完成的貨幣、保障、保單及品牌名稱介紹。</dd></div><div><dt>觸發方式</dt><dd>首次查看此示例，或按下重播概念動畫。</dd></div><div><dt>適用位置</dt><dd>概念頁，或產品介紹的開頭。</dd></div></dl>
-<details class="sc-usage" data-component-usage="concept"><summary>前端接入 · 概念介紹</summary><div class="sc-usage-body"><p>適合放在概念頁開頭。保險公司名稱以完整文字輕輕浮現，概念標題移至產品標題，標語「你的保單，付款前先看清。」隨後接入，結尾只保留品牌與標語。橙色螢光套色保持對齊品牌名稱。</p><p><strong>所需檔案。</strong> 依次載入 concept-data.js → concept-motion.js → hero-transition.js，並加入 concept.css、hero-transition.css、ui-markers.css 及主題樣式。</p><p>複製本頁的 [data-hero] 結構，包括 data-hero-concept、data-hero-home、data-hero-name、data-hero-name-text 及 data-hero-copy；data-hero-paper 為選用。整段介紹期間須保留首頁的實際版面位置，避免下方筆記跳動。</p><pre><code>const heroHost = document.querySelector('[data-hero]');
+<div class="sc-concept-guide"><dl class="sc-use"><div><dt>效果</dt><dd>簡潔符號與一句標語，沒有重疊文字。</dd></div><div><dt>觸發方式</dt><dd>首次查看此示例，或按下重播概念動畫。</dd></div><div><dt>適用位置</dt><dd>概念頁，或產品介紹的開頭。</dd></div></dl>
+<details class="sc-usage" data-component-usage="concept"><summary>前端接入 · 概念介紹</summary><div class="sc-usage-body"><p>適合放在概念頁開頭。簡潔符號淡入後，只呈現「你的保單，付款前看清。」。同一文字節點保留到結尾，沒有第二組品牌或標語進場。</p><p><strong>所需檔案。</strong> 依次載入 concept-data.js → concept-motion.js → hero-transition.js，並加入 concept.css、hero-transition.css、ui-markers.css 及主題樣式。</p><p>複製本頁的 [data-hero] 結構，包括 data-hero-concept 與 data-hero-home；後者只作未載入程式時的靜態標語。整段介紹期間須保留首頁的實際版面位置，避免下方筆記跳動。</p><pre><code>const heroHost = document.querySelector('[data-hero]');
 const intro = PolicyHeroTransition.mount(heroHost);
 intro.play();
 // 重播時： intro.replay();
 // 略過時： intro.finish();
-// 卸載時： intro.destroy();</code></pre><p><strong>隊友提供的資料。</strong> 平台名稱、標語及市場名稱資料。此介紹可獨立於其他示例使用。</p></div></details>
+// 卸載時： intro.destroy();</code></pre><p><strong>隊友提供的資料。</strong> 標語及概念符號。此介紹可獨立於其他示例使用。</p></div></details>
 </div>
-<details class="sc-sources"><summary>16 個香港市場名稱 · 背景與來源</summary><p>這些名稱只用於介紹市場背景，不代表合作、推薦，亦不是下方虛構保單的供應商。</p><ul data-market-sources=""></ul></details>
+<details class="sc-sources"><summary>16 個香港市場名稱 · 背景與來源</summary><p>這些名稱只供查閱市場背景，不代表合作、推薦，亦不是下方虛構保單的供應商。</p><ul data-market-sources=""></ul></details>
 </section>
 <section aria-labelledby="controls-title" class="sc-section" id="controls">
-<div class="sc-section-head"><span class="sc-number">01</span><div><p class="sc-eyebrow">A shared touch</p><h2 id="controls-title">輕柔按下，清楚選擇。</h2><p>圓潤、淺凸的同一種表面，讓每個操作都有熟悉的手感。</p></div></div>
-<dl class="sc-use"><div><dt>效果</dt><dd>輕按下沉，再快速而柔和地回彈。</dd></div><div><dt>觸發方式</dt><dd>按下按鈕，或選取目的地。</dd></div><div><dt>適用位置</dt><dd>主要操作、分頁、小工具及選擇項。</dd></div></dl>
+<div class="sc-section-head"><span class="sc-number">01</span><div><p class="sc-eyebrow">A shared touch</p><h2 id="controls-title">輕柔按下，清楚選擇。</h2><p>輕量平面按鈕，統一以由左至右的淡色填充回應操作。</p></div></div>
+<dl class="sc-use"><div><dt>效果</dt><dd>滑過、聚焦或選取時，底色由左向右填入。</dd></div><div><dt>觸發方式</dt><dd>按下按鈕，或選取目的地。</dd></div><div><dt>適用位置</dt><dd>主要操作、分頁、小工具及選擇項。</dd></div></dl>
 <div class="sc-demo-row"><div><h3>你準備去哪裏？</h3><p>每次選一個目的地，動畫結束後仍能清楚看見選取狀態。</p></div><div aria-label="目的地" class="sc-choices" role="group"><button aria-pressed="true" data-destination="Japan" type="button">日本</button><button aria-pressed="false" data-destination="United Kingdom" type="button">英國</button><button aria-pressed="false" data-destination="Hong Kong" type="button">香港</button><button aria-pressed="false" data-destination="Somewhere else" type="button">其他地方</button></div></div>
 <div class="sc-demo-row"><div><h3>把常用操作放在手邊。</h3><p data-control-status="" role="status">目的地：日本</p></div><div class="sc-actions"><button data-liquid-variant="surface" data-note-add="" type="button">新增筆記</button><button aria-label="標記此筆記分區" aria-pressed="false" class="sc-icon" data-mark-section="" type="button">☆</button><button disabled="" type="button">暫不可用</button></div></div>
-<details class="sc-usage" data-component-usage="controls"><summary>前端接入 · 按鈕與選項</summary><div class="sc-usage-body"><p>主要操作保留彈性表面；複製、下載、重播、返回等次要操作預設為輕量文字按鈕。選項保留明確選取狀態，按下時只移動裝飾表層，文字、焦點與點擊範圍保持穩定。</p><p><strong>所需檔案。</strong> 先載入 ui-theme.css 及 liquid-controls.css，再載入 liquid-controls.js。程式會自動掛載一次，重複明確掛載亦不會建立多份實例。</p><p>保留原生按鈕，並由介面管理選取狀態。主要操作加上 data-liquid-variant="primary"；一般按鈕預設為輕量樣式，只有互動時浮現淡淡表面。需要展示完整白色表面時使用 data-liquid-variant="surface"。核取方塊外層使用緊湊的 .sc-check-toggle。</p><pre><code>&lt;button type="button" aria-pressed="false"&gt;日本&lt;/button&gt;
+<details class="sc-usage" data-component-usage="controls"><summary>前端接入 · 按鈕與選項</summary><div class="sc-usage-body"><p>所有操作使用相同的平面細線與由左至右填充，不設立體陰影或彈跳。選項保留明確選取狀態，文字、焦點與點擊範圍保持穩定。</p><p><strong>所需檔案。</strong> 先載入 ui-theme.css 及 liquid-controls.css，再載入 liquid-controls.js。程式會自動掛載一次，重複明確掛載亦不會建立多份實例。</p><p>保留原生按鈕，並由介面管理選取狀態。主要操作加上 data-liquid-variant="primary"；一般按鈕預設為輕量樣式，只有互動時浮現淡淡表面。需要展示完整平面表面時使用 data-liquid-variant="surface"。核取方塊外層使用緊湊的 .sc-check-toggle。</p><pre><code>&lt;button type="button" aria-pressed="false"&gt;日本&lt;/button&gt;
 &lt;span class="sc-check-toggle" data-liquid-control data-liquid-choice&gt;
   &lt;input type="checkbox" /&gt;
 &lt;/span&gt;
@@ -144,7 +144,7 @@ desk.inspect(desk.selectedId);
 <div class="sc-actions sc-chat-actions"><button aria-controls="showcase-conversation" aria-expanded="true" data-chat-open="" type="button">開啟對話</button><button data-chat-replay="" type="button">重播示例問題</button></div>
 <div class="agent-workspace sc-chat" data-chat-panel="" id="showcase-conversation">
 <div class="agent-header"><div><p class="kicker">LOCAL WORDING COMPANION</p><h3>一次，看清一條。</h3><p>晴日旅遊 · 虛構示例 · 未接入 AI 服務</p></div><button aria-label="關閉對話" data-chat-close="" type="button">關閉</button></div>
-<div class="agent-layout"><div class="agent-conversation"><div aria-label="對話記錄" class="agent-feed" data-chat-feed="" tabindex="0"><div class="agent-stack" data-chat-stack=""></div></div><form class="agent-composer"><label class="sc-sr" for="showcase-draft">你對虛構條款的問題</label><textarea data-agent-draft="" id="showcase-draft" placeholder="航班延誤條件怎樣寫？" rows="2"></textarea><div class="agent-composer-toolbar"><div aria-label="回覆方式" class="agent-modes"><button aria-pressed="true" data-chat-mode="explain" type="button">解釋</button><button aria-pressed="false" data-chat-mode="what-if" type="button">假如……</button><button aria-pressed="false" data-chat-mode="ask" type="button">怎樣問</button></div><button aria-label="送出問題" class="agent-send-button" data-chat-send="" disabled="" type="submit">↑</button></div></form></div><aside class="agent-desk"><div class="agent-desk-content" data-chat-evidence=""></div></aside></div><p class="agent-disclosure" data-chat-status="" role="status"></p>
+<div class="agent-layout"><div class="agent-conversation"><div aria-label="對話記錄" class="agent-feed" data-chat-feed="" tabindex="0"><div class="agent-stack" data-chat-stack=""></div></div><form class="agent-composer"><label class="sc-sr" for="showcase-draft">你對虛構條款的問題</label><p class="agent-mode-help" id="showcase-mode-help" data-chat-mode-help role="status" aria-live="polite">解釋條款 · 用白話拆解條件、限制和所需證明。</p><textarea aria-describedby="showcase-mode-help" maxlength="1000" data-agent-draft="" id="showcase-draft" placeholder="航班延誤條件怎樣寫？" rows="2"></textarea><div class="agent-composer-toolbar"><div aria-label="回覆方式" role="group" class="agent-modes"><button aria-pressed="true" data-chat-mode="explain" type="button">解釋條款</button><button aria-pressed="false" data-chat-mode="what-if" type="button">假設情境</button><button aria-pressed="false" data-chat-mode="ask" type="button">怎樣問</button></div><button aria-label="送出問題" class="agent-send-button" data-chat-send="" disabled="" type="submit">↑</button></div></form></div><aside class="agent-desk"><div class="agent-desk-content" data-chat-evidence=""></div></aside></div><p class="agent-disclosure" data-chat-status="" role="status"></p>
 </div>
 </div>
 <details class="sc-usage" data-component-usage="conversation"><summary>前端接入 · 流動對話</summary><div class="sc-usage-body"><p>適合放在不清楚的條款或待討論問題旁。訊息由輸入區升起，回覆再連同來源展開。</p><p><strong>所需檔案。</strong> 依次載入 demo-data.js → agent-replies.js → agent-motion.js → showcase-chat.js，並加入 agent.css、主題／標記樣式及本頁對話樣式。</p><p>複製完整 [data-showcase-chat] 結構，包括輸入表單／草稿、訊息區、來源／狀態及控制項；此適配需要這些掛點，空 div 並不足夠。</p><pre><code>const chatHost = document.querySelector('[data-showcase-chat]');

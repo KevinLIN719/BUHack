@@ -8,9 +8,9 @@
     pause.setAttribute('aria-label',state==='paused'?'繼續播放概念動畫':'暫停概念動畫');
   };
   if(!data||!window.PolicyConceptMotion){
-    host.dataset.conceptState='ready';host.style.setProperty('--concept-clarity','1');
+    host.dataset.conceptState='ready';
     const title=document.createElement('div');title.className='concept-title';
-    const name=document.createElement('strong'),tagline=document.createElement('p');name.textContent=data?.name||'Policy Lens';tagline.textContent=data?.tagline||'投保前，先看清楚。';title.append(name,tagline);host.appendChild(title);
+    const tagline=document.createElement('p');tagline.className='concept-tagline';tagline.textContent=(data?.tagline||'你的保單，付款前看清。').replace('，','，\n');title.appendChild(tagline);host.appendChild(title);
     document.querySelectorAll('[data-concept-replay],[data-concept-pause],[data-concept-skip]').forEach(button=>{button.disabled=true;});return;
   }
   const controller=window.PolicyConceptMotion.mount(host,{...data,autoplay:false,onPhase:update});

@@ -110,23 +110,6 @@
     for (const job of [...active]) job.finish();
   }
 
-  function pulse(button) {
-    if (!connected(button) || typeof button.animate !== 'function') return;
-    const job = operation(button);
-    const ring = document.createElement('span');
-    ring.className = 'agent-send-pulse';
-    ring.setAttribute('aria-hidden', 'true');
-    Object.assign(ring.style, { position: 'absolute', inset: '-1px', border: '1px solid var(--primary)', borderRadius: 'inherit', pointerEvents: 'none', opacity: '0', zIndex: '1' });
-    if (window.getComputedStyle(button).position === 'static') job.style(button, 'position', 'relative');
-    button.appendChild(ring);
-    job.cleanup(() => { if (connected(ring)) ring.remove(); });
-    const animation = job.animate(ring, [
-      { transform: 'scale(.96)', opacity: .45 },
-      { transform: 'scale(1.65)', opacity: 0 },
-    ], { duration: timings.pulse, easing: 'cubic-bezier(.2,.7,.2,1)', fill: 'both' });
-    job.watch(animation);
-  }
-
   function launch({ bubble, composer, field, feed, button, fromRect } = {}) {
     if (!connected(bubble) || reduced() || typeof bubble.animate !== 'function') {
       bottom(feed);
@@ -144,7 +127,6 @@
     const finalRadius = window.getComputedStyle(bubble).borderRadius || '18px';
     const job = operation(bubble);
 
-    pulse(button);
     const animation = job.animate(bubble, [
       { transform: `translate(${shift}px,${rise}px) scale(${widthRatio},.96)`, transformOrigin: '100% 100%', borderRadius: '13px', opacity: .18, filter: 'blur(3px)', offset: 0 },
       { transform: `translate(${shift * .1}px,${rise * .1}px) scale(1.012,1.006)`, transformOrigin: '100% 100%', borderRadius: finalRadius, opacity: 1, filter: 'blur(0px)', offset: .66 },

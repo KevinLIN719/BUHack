@@ -142,101 +142,9 @@
 /* ------------------------------------------------------------------ */
 /* Controls                                                            */
 /* ------------------------------------------------------------------ */
-/* Shared arrow nudge: a trailing aria-hidden glyph in any control. */
-.sc-page :is(button, a) > span[aria-hidden="true"]:last-child { display: inline-block; transition: transform var(--dur-base) var(--ease-out); }
-@media (hover: hover) {
-  .sc-page :is(button, a):hover > span[aria-hidden="true"]:last-child { transform: translate3d(3px, -2px, 0); }
-}
-
-/* Primary: flat orange, no emboss. A darker wash sweeps in on hover. */
-.liquid-control.liquid-control.liquid-control[data-liquid-mounted]:where(.solid, .primary, [data-liquid-variant="primary"]) {
-  --liquid-face: var(--primary-action);
-  --liquid-hover: var(--primary-action);
-  --liquid-pressed: color-mix(in srgb, var(--primary-action) 90%, #4a1a0e);
-  --liquid-line: var(--primary-action);
-  --liquid-shadow: 0 1px 0 rgb(185 67 40 / .12), 0 8px 20px -10px rgb(201 71 43 / .55);
-  gap: 14px; letter-spacing: .01em; overflow: hidden;
-}
-.liquid-control.liquid-control.liquid-control[data-liquid-mounted]:where(.solid, .primary, [data-liquid-variant="primary"]) > .liquid-skin {
-  background: var(--liquid-face);
-  box-shadow: var(--liquid-shadow);
-}
-.liquid-control.liquid-control[data-liquid-mounted]:where([data-liquid-variant="primary"])::after {
-  content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
-  background: color-mix(in srgb, var(--primary-action) 82%, #5a1f10);
-  transform: scaleX(0); transform-origin: left center;
-  transition: transform 420ms var(--ease-out);
-}
-@media (hover: hover) {
-  .liquid-control.liquid-control[data-liquid-mounted]:where([data-liquid-variant="primary"]):hover:not([data-liquid-disabled="true"])::after { transform: scaleX(1); }
-}
-
-/* Cover CTA follows the poster reference: white pill, hairline, arrow at the end. */
+/* Button surfaces and left-to-right fills are owned by liquid-controls.css. */
 .oc-bottom > .ex-cover-start { display: inline-flex; justify-content: space-between; align-items: center; gap: 18px; min-height: 56px; padding: 0 24px; font-size: 15px; text-align: left; }
-.oc-bottom > .ex-cover-start.liquid-control.liquid-control.liquid-control[data-liquid-mounted] {
-  --liquid-face: #FFFFFF;
-  --liquid-hover: #FFFFFF;
-  --liquid-pressed: var(--primary-soft);
-  --liquid-line: var(--primary-line);
-  --liquid-ink: var(--primary);
-  --liquid-shadow: 0 1px 0 rgb(47 41 37 / .03), 0 10px 26px -14px rgb(185 67 40 / .35);
-  color: var(--primary);
-}
-.oc-bottom > .ex-cover-start.liquid-control[data-liquid-mounted]::after { background: var(--primary-soft); }
 .oc-bottom > .ex-cover-start > span[aria-hidden="true"] { font-size: 18px; }
-
-/* Quiet/secondary actions: ink in brand orange, soft wash on hover. */
-.liquid-control.liquid-control[data-liquid-mounted]:where(:not(.solid,.primary,.agent-send-button,[data-liquid-variant="primary"],[data-liquid-variant="surface"],[data-liquid-choice],[aria-pressed],[aria-checked],[role="radio"],[role="checkbox"],[role="switch"])) > .liquid-skin {
-  background: var(--primary-soft);
-  transition: opacity var(--dur-fast) ease, transform 90ms ease;
-}
-
-/* Choices: hairline pills; state colour moves with the indicator. */
-.liquid-control.liquid-control.liquid-control[data-liquid-mounted]:where([aria-pressed]) {
-  --liquid-face: #FFFFFF;
-  --liquid-hover: #FFFFFF;
-  --liquid-line: var(--control-line);
-  --liquid-ink: var(--foreground);
-  transition: color var(--dur-base) var(--ease-out);
-}
-.liquid-control.liquid-control.liquid-control[data-liquid-mounted]:where([aria-pressed="true"]) { --liquid-ink: var(--primary-ink); }
-
-/* Sliding indicator for single-choice groups and the step track. */
-.tg-group { position: relative; isolation: isolate; }
-.tg-group > :not(.tg-indicator) { position: relative; z-index: 1; }
-.tg-indicator {
-  position: absolute; top: 0; left: 0; z-index: 0; width: 0; height: 0; opacity: 0;
-  pointer-events: none; border-radius: 999px; box-sizing: border-box;
-  border: 1px solid var(--primary);
-  background: var(--primary-soft);
-  transition: transform 340ms var(--ease-soft), width 340ms var(--ease-soft), height 340ms var(--ease-soft), opacity 200ms ease;
-  will-change: transform, width;
-}
-/* The indicator is the selected surface; pills keep only their hairline. */
-.tg-group[data-tg-kind="pill"] > .liquid-control[data-liquid-mounted] > .liquid-skin { background: transparent; box-shadow: none; transition: border-color var(--dur-base) var(--ease-out), background-color var(--dur-fast) ease, transform 90ms ease; }
-.tg-group[data-tg-kind="pill"] > .liquid-control[data-liquid-selected="true"] > .liquid-skin { border-color: transparent; }
-@media (hover: hover) {
-  .tg-group[data-tg-kind="pill"] > .liquid-control[data-liquid-mounted]:hover:not([data-liquid-selected="true"]) > .liquid-skin { background: color-mix(in srgb, var(--primary-soft) 55%, transparent); border-color: var(--primary-line); }
-}
-.tg-indicator[data-kind="line"] {
-  border: 0; border-radius: 0; background: none;
-}
-.tg-indicator[data-kind="line"]::after {
-  content: ''; position: absolute; left: 12px; right: 12px; bottom: 2px; height: 1.5px; border-radius: 2px; background: var(--primary);
-}
-.ex-step-track.tg-group > .ex-step[aria-current] > .liquid-skin { opacity: 0; }
-.liquid-control.liquid-control.liquid-control[data-liquid-mounted].ex-step { box-shadow: none; }
-
-/* Independent toggles (keep question, mark section): fill sweeps in, and back out. */
-.liquid-control.liquid-control[data-liquid-mounted]:where([aria-pressed]):not(.tg-group > *)::after {
-  content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none;
-  border: 1px solid var(--primary);
-  background: var(--primary-soft);
-  clip-path: inset(0 100% 0 0 round 999px);
-  transition: clip-path 360ms var(--ease-soft);
-}
-.liquid-control.liquid-control[data-liquid-mounted]:where([aria-pressed="true"]):not(.tg-group > *)::after { clip-path: inset(0 0 0 0 round 999px); }
-.liquid-control.liquid-control[data-liquid-mounted]:where([aria-pressed]):not(.tg-group > *) { overflow: hidden; }
 
 /* Checkboxes: a rounded square that fills orange and draws its tick. */
 .sc-page :is(.sc-check-toggle, .ex-question-options, .sc-check-options) input[type="checkbox"] {
@@ -261,12 +169,9 @@
 .sc-page :is(.ex-question-options, .ex-activity-options) label:has(input:checked)::before { clip-path: inset(0 0 0 0); }
 
 @media (prefers-reduced-motion: reduce) {
-  .tg-indicator, .sc-page :is(button, a) > span[aria-hidden="true"]:last-child,
-  .liquid-control[data-liquid-mounted]::after, .sc-page label::before, .sc-page input[type="checkbox"] { transition: none !important; }
+  .sc-page label::before, .sc-page input[type="checkbox"] { transition: none !important; }
 }
 @media (forced-colors: active) {
-  .tg-indicator { border: 2px solid Highlight; background: none; }
-  .tg-indicator[data-kind="line"]::after { background: Highlight; }
   .liquid-control[data-liquid-mounted]::after, .sc-page label::before { display: none; }
   .sc-page input[type="checkbox"] { appearance: auto; -webkit-appearance: auto; }
 }
@@ -339,18 +244,5 @@ html:lang(zh-Hant) .ex-heading h2 { line-height: 1.18; letter-spacing: -.02em; }
 .oc-note > button.liquid-control[data-liquid-mounted] > .liquid-skin { inset: -2px -12px; }
 
 /* ------------------------------------------------------------------ */
-/* Concept ending: only the brand and its promise, centred.            */
+/* Concept stage typography and lifecycle are owned by concept.css. */
 /* ------------------------------------------------------------------ */
-.ht-home { grid-template-columns: minmax(0, 1fr); justify-items: center; align-content: center; text-align: center; gap: 0; padding: clamp(64px, 10vh, 112px) 0; }
-.ht-home > div { display: flex; flex-direction: column; align-items: center; }
-/* Same weight and tracking as the animated concept title, so the handoff
- * is a pure move-and-scale with no change of letterform at the end. */
-.ht-name, .ht-concept .concept-title strong { font-weight: 800; letter-spacing: -.055em; }
-.ht-name { margin: 0 0 clamp(20px, 3vh, 32px); font-size: clamp(56px, 10vw, 148px); line-height: .9; }
-.ht-copy h2 { max-width: none; margin: 0; color: var(--foreground); font-size: clamp(28px, 3.8vw, 52px); font-weight: 600; line-height: 1.22; letter-spacing: -.02em; }
-html:lang(zh-Hant) .ht-copy h2 { line-height: 1.28; letter-spacing: 0; }
-@media (max-width: 600px) {
-  .ht-home { padding: 56px 0; }
-  .ht-name { font-size: clamp(44px, 13vw, 72px); }
-  .ht-copy h2 { font-size: clamp(26px, 7.4vw, 34px); }
-}

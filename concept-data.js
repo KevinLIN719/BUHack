@@ -1,7 +1,7 @@
 /* Verified display names, not insurer recommendations or partner claims. */
 window.PolicyConceptData = Object.freeze({
   name: 'Policy Lens',
-  tagline: '決定之前，先看清楚。',
+  tagline: '你的保單，付款前看清。',
   market: '在香港營運的保險公司',
   directory: 'https://www.ia.org.hk/en/supervision/reg_insurers_lloyd/contact_list_of_authorized_insurers.html',
   insurers: Object.freeze([

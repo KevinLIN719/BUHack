@@ -1,13 +1,13 @@
-/* Policy Lens native shared-control adaptation. PixelToggleEngine was not supplied. */
+/* Flat shared controls. CSS owns the left-to-right fill; this adapter only
+ * mirrors native state and manages pointer/keyboard presses and dynamic nodes. */
 (() => {
   'use strict';
   if (window.PolicyButtonMotion) return;
 
-  const DEFAULT_SELECTOR = 'button,summary,a.button,a.icon-action,a.text-action,[role="button"],[role="tab"],[role="radio"],[role="checkbox"],[role="switch"],[data-liquid-control]';
-  const PRESS = 'scale(1.035, .92)';
+  const DEFAULT_SELECTOR = 'button,summary,a.button,a.icon-action,a.text-action,nav a,.oc-access,.ex-page-actions a,.ex-footer a,.sc-footer a,[role="button"],[role="tab"],[role="radio"],[role="checkbox"],[role="switch"],[data-liquid-control]';
   const controllers = new WeakMap();
   const services = new WeakMap();
-  const defaults = Object.freeze({ selector: DEFAULT_SELECTOR, pressMs: 90, releaseMs: 460 });
+  const defaults = Object.freeze({ selector: DEFAULT_SELECTOR, pressMs: 180, releaseMs: 180 });
   const hooks = ['data-liquid-mounted', 'data-liquid-selected', 'data-liquid-disabled', 'data-liquid-pressed'];
   const snapshot = (element, names) => names.map(name => [name, element.getAttribute(name)]);
   const restore = (element, values) => values.forEach(([name, value]) => value === null ? element.removeAttribute(name) : element.setAttribute(name, value));
@@ -27,14 +27,12 @@
     for (let ancestor = element; ancestor; ancestor = composedParent(ancestor)) if (ancestor.matches(selector)) return true;
     return false;
   }
-  // Pull's decorative geometry and its dedicated ink variables do not change
-  // any control's availability or state. Avoid rescanning the entire notebook
-  // for every animation frame; ordinary style/visibility changes still sync.
-  const withoutArrivalInk = value => (value || '').replace(/(?:^|;)\s*--pw-(?:arrival|heading-ink|copy-ink|note-ink|loading-ink|ink)\s*:[^;]*/g, '').replace(/^\s*;|;\s*$/g, '').trim();
+  // Motion engines write their own inline styles every frame. Never rescan the
+  // document for those writes; availability is checked when a control is used.
   function visualMutation(record) {
-    if (record.type !== 'attributes' || record.attributeName !== 'style') return false;
     if (ancestorMatches(record.target, '[data-liquid-ignore]')) return true;
-    return record.target.matches('[data-policy-detail],.pw-finding') && withoutArrivalInk(record.oldValue) === withoutArrivalInk(record.target.getAttribute('style'));
+    return record.type === 'childList' && record.addedNodes.length > 0 && !record.removedNodes.length &&
+      [...record.addedNodes].every(node => node.nodeType === 1 && node.matches('.liquid-skin'));
   }
   const disabled = element => element.matches(':disabled') || Boolean(choiceInput(element)?.matches(':disabled')) || ancestorMatches(element, '[aria-disabled="true"],[inert]');
   const unavailable = element => {
@@ -66,7 +64,7 @@
       refreshQueued = true;
       queueMicrotask(() => { refreshQueued = false; mounts.forEach(controller => controller.refresh()); });
     });
-    documentObserver.observe(doc, { subtree: true, childList: true, attributes: true, attributeOldValue:true, attributeFilter: ['disabled', 'hidden', 'inert', 'aria-disabled', 'aria-hidden', 'class', 'style', 'data-liquid', 'data-liquid-ignore'] });
+    documentObserver.observe(doc, { subtree: true, childList: true, attributes: true, attributeFilter: ['disabled', 'hidden', 'inert', 'aria-disabled', 'aria-hidden', 'class', 'data-liquid', 'data-liquid-ignore'] });
     const listen = (target, name, handler, options = true) => {
       target.addEventListener(name, handler, options);
       listeners.push(() => target.removeEventListener(name, handler, options));
@@ -83,59 +81,37 @@
     const optionsFor = record => [...record.owners].sort((a, b) =>
       Number(a.root.nodeType === 9) - Number(b.root.nodeType === 9) || b.order - a.order
     )[0]?.options || defaults;
-    const currentTransform = record => {
-      try { return win.getComputedStyle(record.skin).transform || 'none'; } catch (_) { return 'none'; }
-    };
     function cancelAnimation(record) {
-      const animation = record.animation;
-      record.animation = null;
-      if (animation) { animation.onfinish = null; animation.oncancel = null; animation.cancel(); }
+      if (record.releaseTimer !== null) win.clearTimeout(record.releaseTimer);
+      record.releaseTimer = null;
       if (!record.pressing) active.delete(record);
-    }
-    function animate(record, frames, ms) {
-      if (quiet() || !ms || typeof record.skin.animate !== 'function') return;
-      let animation;
-      try { animation = record.skin.animate(frames, { duration: ms, easing: 'linear', fill: 'both' }); } catch (_) { return; }
-      record.animation = animation;
-      active.add(record);
-      const finish = () => {
-        if (record.animation !== animation) return;
-        record.animation = null;
-        animation.onfinish = null;
-        animation.oncancel = null;
-        animation.cancel();
-        if (!record.pressing) active.delete(record);
-      };
-      animation.onfinish = finish;
-      animation.oncancel = finish;
-      // An interrupted finished promise must not create an unhandled rejection.
-      animation.finished?.catch(() => {});
     }
     function press(record) {
       if (unavailable(record.element) || record.pressing) return;
-      const start = currentTransform(record);
       cancelAnimation(record);
       record.pressing = true;
+      record.pressedAt = win.performance.now();
       active.add(record);
       attr(record.element, 'data-liquid-pressed', 'true');
-      animate(record, [{ transform: start, easing: 'cubic-bezier(.2,.75,.25,1)' }, { transform: PRESS }], duration(optionsFor(record).pressMs, 90));
     }
     function release(record, immediate = false, synthetic = false) {
-      const start = synthetic ? PRESS : currentTransform(record);
+      if (synthetic) press(record);
       record.pressing = false;
       record.key = null;
       if (record.pointerId !== null) pointers.delete(record.pointerId);
       record.pointerId = null;
       cancelAnimation(record);
-      attr(record.element, 'data-liquid-pressed', null);
-      if (immediate || unavailable(record.element)) return;
-      animate(record, [
-        { transform: start, offset: 0 },
-        { transform: 'scale(.965, 1.065)', offset: .22, easing: 'ease-in-out' },
-        { transform: 'scale(1.02, .982)', offset: .48, easing: 'ease-in-out' },
-        { transform: 'scale(.994, 1.008)', offset: .73, easing: 'ease-in-out' },
-        { transform: 'none', offset: 1 },
-      ], duration(optionsFor(record).releaseMs, 460));
+      const finish = () => {
+        record.releaseTimer = null;
+        attr(record.element, 'data-liquid-pressed', null);
+        active.delete(record);
+      };
+      // A short tap still gets one readable fill. No bounce, host transform,
+      // frame callback or continuous animation is allocated.
+      const hold = immediate || quiet() || unavailable(record.element) ? 0 :
+        Math.max(0, duration(optionsFor(record).pressMs, 180) - (win.performance.now() - record.pressedAt));
+      if (!hold) finish();
+      else { active.add(record); record.releaseTimer = win.setTimeout(finish, hold); }
     }
     function settle() { [...active].forEach(record => release(record, true)); pointers.clear(); }
     listen(doc, 'pointerdown', event => {
@@ -167,7 +143,7 @@
     });
     listen(doc, 'click', event => {
       const record = fromEvent(event);
-      if (record && event.detail === 0 && !record.pressing && !record.animation && !unavailable(record.element)) release(record, false, true);
+      if (record && event.detail === 0 && !record.pressing && record.releaseTimer === null && !unavailable(record.element)) release(record, false, true);
     });
     // checked is a live property, so native click/Space changes need an event,
     // not an attribute observer. Refresh siblings too for native radio groups.
@@ -248,7 +224,7 @@
       attr(element, 'data-liquid-mounted', '');
       attr(element, 'data-liquid-selected', String(chosen(element)));
       attr(element, 'data-liquid-disabled', String(disabled(element)));
-      if ((record.pressing || record.animation) && unavailable(element)) service.release(record, true);
+      if ((record.pressing || record.releaseTimer !== null) && unavailable(element)) service.release(record, true);
     }
     function refresh() {
       if (stopped) return controller;
@@ -270,7 +246,7 @@
           const skin = [...element.children].find(child => child.classList.contains('liquid-skin')) || doc.createElement('span');
           record = { element, skin, createdSkin: !skin.parentNode, skinAttributes: snapshot(skin, ['aria-hidden', 'data-liquid-skin']),
             attributes: snapshot(element, hooks), createdClass: !element.classList.contains('liquid-control'), owners: new Set(),
-            animation: null, pressing: false, pointerId: null, key: null };
+            releaseTimer: null, pressedAt: 0, pressing: false, pointerId: null, key: null };
           skin.classList.add('liquid-skin');
           service.records.set(element, record);
         }
@@ -310,12 +286,12 @@
       scheduled = true;
       queueMicrotask(() => { scheduled = false; if (!stopped) refresh(); });
     });
-    observer.observe(root, { subtree: true, childList: true, attributes: true, attributeOldValue:true,
-      attributeFilter: ['class', 'style', 'disabled', 'checked', 'role', 'aria-disabled', 'aria-hidden', 'aria-pressed', 'aria-selected', 'aria-checked', 'aria-current', 'data-selected', 'data-state', 'data-liquid', 'data-liquid-ignore', 'data-liquid-control', 'data-liquid-choice', 'hidden', 'inert'] });
+    observer.observe(root, { subtree: true, childList: true, attributes: true,
+      attributeFilter: ['class', 'disabled', 'checked', 'role', 'aria-disabled', 'aria-hidden', 'aria-pressed', 'aria-selected', 'aria-checked', 'aria-current', 'data-selected', 'data-state', 'data-liquid', 'data-liquid-ignore', 'data-liquid-control', 'data-liquid-choice', 'hidden', 'inert'] });
     return controller;
   }
 
-  window.PolicyButtonMotion = Object.freeze({ mount, defaults, adaptation: 'native-shared-controls; PixelToggleEngine not supplied' });
+  window.PolicyButtonMotion = Object.freeze({ mount, defaults, adaptation: 'flat-left-to-right-fill; native-controls' });
   function autoMount() { mount(document); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', autoMount, { once: true });
   else mount(document);

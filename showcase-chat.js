@@ -59,6 +59,11 @@
   }
   const sourceLegend = '<p class="sc-source-legend" aria-label="條款閱讀優先級">' +
     Object.entries(priorityLabels).map(([priority,label]) => '<span class="pl-priority" data-priority="' + priority + '">' + priority + ' · ' + label + '</span>').join('') + '</p>';
+  const modes = Object.freeze({
+    explain: { label:'解釋條款', help:'用白話拆解條件、限制和所需證明。', placeholder:'例如：航班延誤要符合甚麼條件？', prompts:['航班延誤要符合甚麼條件？','行李延誤需要保留哪些收據？'] },
+    'what-if': { label:'假設情境', help:'寫下「如果……」，對照條款看哪些細節仍需確認。', placeholder:'例如：如果剛好延誤六小時呢？', prompts:['如果剛好延誤六小時呢？','如果因此錯過轉機航班呢？'] },
+    ask: { label:'怎樣問', help:'把疑問整理成可以直接向顧問確認的具體問題。', placeholder:'例如：航班延誤的限制，我應該怎樣問？', prompts:['航班延誤的限制，我應該怎樣問？','行李延誤需要向顧問確認甚麼？'] }
+  });
   function mount(host, { onQuestion } = {}) {
     mounts.get(host)?.destroy();
     const panel = host.querySelector('[data-chat-panel]');
@@ -75,6 +80,14 @@
     let transcript = [], draft = '', busy = false, version = 0, destroyed = false, mode = 'explain', pending = null;
     let sourceId = 'delay', scenarioId = null;
     function resize() { field.style.height = '50px'; field.style.height = `${Math.min(126, Math.max(50, field.scrollHeight))}px`; }
+    function updateMode() {
+      const selected = modes[mode];
+      field.placeholder = selected.placeholder;
+      const help = host.querySelector('[data-chat-mode-help]');
+      if (help) help.textContent = `${selected.label} · ${selected.help}`;
+      const suggestions = stack.querySelector('[data-chat-starters]');
+      if (suggestions) suggestions.innerHTML = selected.prompts.map(question => `<button type="button" data-chat-suggestion="${escape(question)}">${escape(question)}</button>`).join('');
+    }
     function update() {
       sendButton.disabled = busy || !field.value.trim();
       form.setAttribute('aria-busy', String(busy));
@@ -88,13 +101,20 @@
       else {
         node.innerHTML = `<span class="agent-response-label">虛構示例 · <span class="pl-marker" data-marker="${item.reply.grounded ? '12' : '7'}">${item.reply.grounded ? '已連結原文' : '未找到對應原文'}</span></span><h3>${escape(item.reply.title)}</h3>${item.reply.paragraphs.map(p => `<p>${escape(p)}</p>`).join('')}<div class="agent-evidence">${item.reply.sourceIds.map(id => `<button type="button" data-chat-source="${escape(id)}">閱讀示例原文</button>`).join('')}</div><div class="agent-followups">${item.reply.followUps.map(q => `<button type="button" data-chat-suggestion="${escape(q)}">${escape(q)}</button>`).join('')}</div><div class="agent-answer-actions"><button type="button" data-chat-save="${escape(item.question)}">保留這個問題</button></div>`;
       }
+      if (item.role === 'assistant') {
+        const label = host.ownerDocument.createElement('p');
+        label.className = 'agent-mode-label';
+        label.textContent = modes[item.mode || 'explain'].label;
+        node.prepend(label);
+      }
       stack.appendChild(node);
       return node;
     }
     function render() {
       stack.replaceChildren();
-      if (!transcript.length) stack.innerHTML = '<div class="agent-empty"><h3>從一條不清楚的條款開始。</h3><p>可以詢問虛構的航班延誤條款。回覆會連同原文保留，方便繼續問得更具體。</p></div>';
+      if (!transcript.length) stack.innerHTML = '<div class="agent-empty"><h3>從一條不清楚的條款開始。</h3><p>可以詢問虛構的航班延誤條款。回覆會連同原文保留，方便繼續問得更具體。</p><div class="agent-suggestions" data-chat-starters></div></div>';
       else transcript.forEach(message);
+      updateMode();
     }
     function showSource(id, messageHost) {
       const source = window.PolicyDemo?.sources?.find(item => item.id === id);
@@ -119,13 +139,13 @@
       if (destroyed || busy || !String(question).trim()) return;
       open(false);
       surfaces?.cancel(panel); // The composer must have final geometry before launch.
-      const text = String(question).trim();
+      const text = String(question).trim().slice(0,1000);
       const token = ++version;
       busy = true;
       const fromRect = field.getBoundingClientRect();
       transcript.push({ role: 'user', text });
       const reply = window.PolicyAgentReplies.reply(text, { sourceId, scenarioId, mode });
-      pending = { role: 'assistant', question: text, reply };
+      pending = { role: 'assistant', question: text, reply, mode };
       sourceId = reply.grounded ? reply.sourceIds[0] || null : null;
       scenarioId = reply.grounded ? reply.scenarioIds?.[0] || null : null;
       if (sourceId) showSource(sourceId);
@@ -180,7 +200,7 @@
       else if (button.hasAttribute('data-chat-replay')) replay();
       else if (button.dataset.chatSuggestion) submit(button.dataset.chatSuggestion);
       else if (button.dataset.chatSource) { scenarioId = null; showSource(button.dataset.chatSource, button.closest('.agent-message')); }
-      else if (button.dataset.chatMode && !busy) { mode = button.dataset.chatMode; update(); }
+      else if (button.dataset.chatMode && !busy) { mode = button.dataset.chatMode; updateMode(); update(); }
       else if (button.dataset.chatSave) { onQuestion?.(button.dataset.chatSave); status.textContent = '問題已保留在此頁筆記。'; }
     }
     function keydown(event) {

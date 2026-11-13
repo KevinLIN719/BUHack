@@ -174,7 +174,7 @@
 
   function openConcept(){
     const concept=window.PolicyConceptData;
-    openModal(`<div class="dialog-heading"><div><p class="kicker">POLICY LENS／產品概念</p><h2 id="dialog-title">投保前，先看清楚。</h2></div>${closeButton()}</div><div class="concept-stage" data-concept-host></div><div class="concept-toolbar"><div class="concept-toolbar-actions">${button('concept-replay','重播概念動畫','quiet')}${button('concept-pause','暫停','quiet')}${button('concept-skip','略過至品牌名稱','quiet')}</div><p class="concept-note">在香港營運的保險公司／市場背景資料。<br><a href="https://www.ia.org.hk/en/supervision/reg_insurers_lloyd/contact_list_of_authorized_insurers.html" target="_blank" rel="noopener noreferrer">保險業監管局名冊 ${icon('arrow')}</a></p></div>`,{concept:true});
+    openModal(`<div class="dialog-heading"><div><p class="kicker">POLICY LENS／產品概念</p><h2 id="dialog-title">概念動畫</h2></div>${closeButton()}</div><div class="concept-stage" data-concept-host></div><div class="concept-toolbar"><div class="concept-toolbar-actions">${button('concept-replay','重播概念動畫','quiet')}${button('concept-pause','暫停','quiet')}${button('concept-skip','略過至標語','quiet')}</div><p class="concept-note">貨幣、保障、條款，最後只留下一句提醒。</p></div>`,{concept:true});
     const panel=modalRoot.querySelector('.concept-dialog'),host=panel.querySelector('[data-concept-host]');
     const update=()=>{
       if(!panel.isConnected)return;
@@ -182,7 +182,7 @@
       pause.disabled=state==='ready';pause.textContent=state==='paused'?'繼續播放':'暫停';panel.querySelector('[data-action="concept-skip"]').disabled=state==='ready';
     };
     if(window.PolicyConceptMotion&&concept){conceptIntro=window.PolicyConceptMotion.mount(host,{...concept,autoplay:false,onPhase:update});void conceptIntro.play();update();}
-    else{host.innerHTML='<div class="concept-title" style="opacity:1;filter:none;transform:none"><strong>Policy Lens</strong><p>投保前，先看清楚。</p></div>';host.dataset.conceptState='ready';update();panel.querySelector('[data-action="concept-replay"]').disabled=true;}
+    else{host.innerHTML='<div class="concept-title"><p class="concept-tagline">你的保單，付款前看清。</p></div>';host.dataset.conceptState='ready';update();panel.querySelector('[data-action="concept-replay"]').disabled=true;}
   }
 
   function openSource(id,preserve=false) {
@@ -196,6 +196,19 @@
   }
 
   // Conversations complement the review; they never advance or replace it.
+  const agentModes = Object.freeze({
+    explain: { label:'解釋條款', help:'用白話拆解條款，對照條件、限額與所需文件。', placeholder:'例如：航班延誤要符合哪些條件？' },
+    'what-if': { label:'假設情境', help:'描述實際情況，看看條款有哪些限制、哪些細節仍待確認。', placeholder:'例如：如果航班剛好延誤六小時呢？' },
+    ask: { label:'怎樣問', help:'把疑問整理成向顧問確認的問題，並索取適用的條款依據。', placeholder:'例如：關於延誤證明，我應該怎樣問？' }
+  });
+  function syncAgentMode(thread){
+    const mode=agentModes[thread.mode]||agentModes.explain;
+    const field=modalRoot.querySelector('[data-agent-draft]');
+    if(field)field.placeholder=mode.placeholder;
+    const help=modalRoot.querySelector('.agent-mode-help');
+    if(help)help.textContent=mode.help;
+    modalRoot.querySelectorAll('[data-action="agent-mode"]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.id===thread.mode)));
+  }
   function agentSuggestions(thread){
     const id=thread.sourceId;
     if(thread.mode==='ask'&&id)return ['關於這項條款，我應該向顧問確認甚麼？','我應該準備或索取甚麼證明？'];
@@ -227,7 +240,7 @@
     return `<p class="agent-desk-heading kicker">條款參考／第 0${original.page}</p><h3>${esc(original.title)}</h3><p class="agent-desk-meta">晴日旅遊／虛構示例</p><blockquote class="agent-desk-quote">${esc(original.text.length>570?original.text.slice(0,570)+'…':original.text)}</blockquote><button type="button" class="text-action" data-action="agent-source" data-id="${id}">閱讀完整示例原文 ${icon('arrow')}</button><p class="small-note">內置示例的節錄，並非從你的檔案擷取。</p>`;
   }
   function agentMarkup(thread){
-    return `<div class="agent-header"><div><p class="kicker">POLICY LENS／一起看清楚</p><h2 id="dialog-title">一起把問題釐清。</h2><p class="small-note">${esc(thread.label)} / 示例對話</p></div><button type="button" class="icon-action" data-action="close-modal" aria-label="關閉對話並返回檢視">${icon('close')}</button></div><div class="agent-layout"><section class="agent-conversation" aria-label="對話"><div class="agent-feed" role="log" aria-label="你的對話" aria-live="off"><div class="agent-stack">${thread.messages.length?thread.messages.map(agentMessageMarkup).join(''):`<div class="agent-empty"><h3>一條問題，<br>多一分清晰。</h3><p>針對示例保單提問，讓原文和尚待解答的問題留在身旁。</p><div class="agent-suggestions">${suggestionMarkup(agentSuggestions(thread))}</div></div>`}</div></div><form class="agent-composer" id="agent-form"><label class="visually-hidden" for="agent-draft">詢問示例保單</label><textarea id="agent-draft" data-agent-draft maxlength="1000" rows="2" placeholder="追問這項條款……">${esc(thread.draft)}</textarea><div class="agent-composer-toolbar"><div class="agent-modes" role="group" aria-label="對話方式">${[['explain','解釋條款'],['what-if','情境推演'],['ask','整理問題']].map(([id,label])=>`<button type="button" data-action="agent-mode" data-id="${id}" aria-pressed="${thread.mode===id}">${label}</button>`).join('')}</div><button type="submit" class="agent-send-button" aria-label="傳送問題" ${thread.draft.trim()?'':'disabled'}>${icon('up')}</button></div></form></section><aside class="agent-desk" aria-label="相關保單條款"><div class="agent-desk-content">${deskMarkup(thread)}</div></aside></div><div class="agent-disclosure"><span>預設答覆依據虛構示例條款，不會連接即時 AI 或分析檔案。</span><button type="button" class="text-action agent-list-link" data-action="agent-continue">${state.page<4?'繼續查看情境':'檢視問題清單'} (${state.selected.length}) ${icon('arrow')}</button></div><p class="visually-hidden agent-live" role="status" aria-live="polite"></p>`;
+    return `<div class="agent-header"><div><p class="kicker">POLICY LENS／一起看清楚</p><h2 id="dialog-title">一起把問題釐清。</h2><p class="small-note">${esc(thread.label)} / 示例對話</p></div><button type="button" class="icon-action" data-action="close-modal" aria-label="關閉對話並返回檢視">${icon('close')}</button></div><div class="agent-layout"><section class="agent-conversation" aria-label="對話"><div class="agent-feed" role="log" aria-label="你的對話" aria-live="off"><div class="agent-stack">${thread.messages.length?thread.messages.map(agentMessageMarkup).join(''):`<div class="agent-empty"><h3>一條問題，<br>多一分清晰。</h3><p>針對示例保單提問，讓原文和尚待解答的問題留在身旁。</p><div class="agent-suggestions">${suggestionMarkup(agentSuggestions(thread))}</div></div>`}</div></div><form class="agent-composer" id="agent-form"><label class="visually-hidden" for="agent-draft">詢問示例保單</label><p class="agent-mode-help" id="agent-mode-help" aria-live="polite" aria-atomic="true">${esc((agentModes[thread.mode]||agentModes.explain).help)}</p><textarea id="agent-draft" data-agent-draft maxlength="1000" rows="2" aria-describedby="agent-mode-help" placeholder="${esc((agentModes[thread.mode]||agentModes.explain).placeholder)}">${esc(thread.draft)}</textarea><div class="agent-composer-toolbar"><div class="agent-modes" role="group" aria-label="對話方式">${Object.entries(agentModes).map(([id,{label}])=>`<button type="button" data-action="agent-mode" data-id="${id}" aria-pressed="${thread.mode===id}">${label}</button>`).join('')}</div><button type="submit" class="agent-send-button" aria-label="傳送問題" ${thread.draft.trim()?'':'disabled'}>${icon('up')}</button></div></form></section><aside class="agent-desk" aria-label="相關保單條款"><div class="agent-desk-content">${deskMarkup(thread)}</div></aside></div><div class="agent-disclosure"><span>預設答覆依據虛構示例條款，不會連接即時 AI 或分析檔案。</span><button type="button" class="text-action agent-list-link" data-action="agent-continue">${state.page<4?'繼續查看情境':'檢視問題清單'} (${state.selected.length}) ${icon('arrow')}</button></div><p class="visually-hidden agent-live" role="status" aria-live="polite"></p>`;
   }
   function findAgentLauncher(thread){
     if(thread.launcher?.isConnected)return thread.launcher;
@@ -396,8 +409,8 @@
     else if(action==='ask-agent')openAgent(target.dataset.agentKind,id);
     else if(action==='agent-source')sourceFromAgent(id);
     else if(action==='agent-mode'){
-      const thread=activeAgent;if(!thread||thread.busy)return;
-      thread.mode=id;modalRoot.querySelectorAll('[data-action="agent-mode"]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.id===id)));
+      const thread=activeAgent;if(!thread||thread.busy||!Object.hasOwn(agentModes,id))return;
+      thread.mode=id;syncAgentMode(thread);
       const suggestions=modalRoot.querySelector('.agent-suggestions');if(suggestions)suggestions.innerHTML=suggestionMarkup(agentSuggestions(thread));updateAgentDesk(thread);
     }
     else if(action==='agent-topic'){
