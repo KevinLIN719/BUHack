@@ -9,7 +9,7 @@ import { type AddressInfo } from "node:net";
 import { createApp } from "../app.js";
 import { Store } from "../store.js";
 import { pdfFixture } from "./pdf-fixture.js";
-import { sourceTools, validateAnswer, type Snapshot } from "../agent.js";
+import { semanticReview, sourceTools, validateAnswer, type Snapshot } from "../agent.js";
 
 async function start(path = ":memory:") {
   const store = new Store(path);
@@ -345,7 +345,9 @@ test("model adapter drives a real tool loop against a local mock endpoint", asyn
     const request = JSON.parse(body);
     calls++;
     const name = calls === 1 ? "searchSources" : "readSource";
-    const message = calls <= 2 ? {role:"assistant",content:null,tool_calls:[{
+    const isReview = body.includes("核对每条结论");
+    const message = isReview ? {role:"assistant",content:JSON.stringify({items:[{index:0,verdict:"supported",note:"原文直接陈述6小时延误条件"}]})}
+      : calls <= 2 ? {role:"assistant",content:null,tool_calls:[{
       id:`call_${calls}`,type:"function",function:{name,arguments:JSON.stringify(calls === 1 ? {query:"Delay"} : {sourceId})}
     }]} : {role:"assistant",content:JSON.stringify({findings:[{
       explanation:"条款使用超过6小时的条件，仍需核对适用定义。",evidenceStatus:"interpretation",sourceIds:[sourceId]
@@ -380,7 +382,9 @@ test("model adapter drives a real tool loop against a local mock endpoint", asyn
     } while (Date.now()<deadline);
     assert.equal(finished.status,"partial");
     assert.equal(finished.report.sources[0].sourceId,sourceId);
-    assert.equal(calls,3);
+    assert.equal(finished.report.review.status,"checked");
+    assert.equal(finished.report.review.items[0].verdict,"supported");
+    assert.equal(calls,4);
   } finally {
     if (previous.key === undefined) delete process.env.DEEPSEEK_API_KEY; else process.env.DEEPSEEK_API_KEY=previous.key;
     if (previous.base === undefined) delete process.env.DEEPSEEK_BASE_URL; else process.env.DEEPSEEK_BASE_URL=previous.base;
@@ -435,9 +439,8 @@ test("successor run continues a prior report only when new input arrived", async
     assert.equal(second.parentRunId, first.id);
     assert.equal((await waitForRun(api, path, second.id, cookie)).status, "awaiting_input");
     // The model receives the previous requests and the list of new documents.
-    assert.match(prompts.at(-1)!, /请补充完整条款/);
-    assert.match(prompts.at(-1)!, /newDocuments/);
-    assert.match(prompts.at(-1)!, new RegExp(supplement.id));
+    assert.ok(prompts.some(prompt => prompt.includes("请补充完整条款")));
+    assert.ok(prompts.some(prompt => prompt.includes("newDocuments") && prompt.includes(supplement.id)));
 
     const stale = await api.request(`${path}/runs`, { method: "POST", headers, body: JSON.stringify({ expectedRevision: 2, kind: "investigate", goal: "检查滑雪保障", resumeFromRunId: first.id }) });
     assert.equal(stale.status, 409);
@@ -522,4 +525,36 @@ test("review exposes a resolved report and flags citations of deleted material",
     await api.close();
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+test("semantic review flags conclusions the quotes do not support", async () => {
+  const report = { findings: [
+      { explanation: "条款规定延误超过 6 小时才触发", evidenceStatus: "document_supported" as const, sourceIds: ["doc:p1:b1"] },
+      { explanation: "材料里没有滑雪相关条款", evidenceStatus: "unknown" as const, sourceIds: [] },
+    ], openQuestions: [], requests: [],
+    sources: [{ sourceId: "doc:p1:b1", documentId: "doc", pageIndex: 1, quote: "Delay exceeding 6 hours.", role: "contract" }] };
+
+  // Only cited, non-unknown conclusions are sent to the reviewer.
+  let sent = "";
+  const clean = await semanticReview(report, async prompt => {
+    sent = prompt;
+    return { items: [{ index: 0, verdict: "supported", note: "原文直接陈述" }] };
+  });
+  assert.equal(clean.status, "checked");
+  assert.match(sent, /Delay exceeding 6 hours/);
+  assert.doesNotMatch(sent, /滑雪/);
+
+  const flagged = await semanticReview(report, async () => ({ items: [{ index: 0, verdict: "quote_mismatch", note: "原文只说延误，未提 6 小时" }] }));
+  assert.equal(flagged.status, "issues_found");
+  assert.equal(flagged.items[0].verdict, "quote_mismatch");
+
+  // A broken reviewer must never fail the investigation itself.
+  const unavailable = await semanticReview(report, async () => { throw new Error("model down"); });
+  assert.equal(unavailable.status, "unavailable");
+  assert.deepEqual(unavailable.items, []);
+
+  // Nothing cited means nothing to review, and the model is not called at all.
+  const none = await semanticReview({ ...report, findings: report.findings.map(finding => ({ ...finding, sourceIds: [] })) },
+    async () => { throw new Error("should not be called"); });
+  assert.equal(none.status, "not_applicable");
 });

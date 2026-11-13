@@ -16,6 +16,7 @@ type StoredReport = {
   sources?: {sourceId: string; documentId: string; pageIndex: number; quote: string; role: string}[];
   coverage?: {id: string; status: string; pageCount: number | null}[];
   verification?: string;
+  review?: {status: string; items: {index: number; verdict: string; note: string}[]; checkedAt: string};
 };
 type SourceRow = {
   sourceId: string; documentId: string; pageIndex: number; quote: string;
@@ -38,6 +39,7 @@ export type ReportView = {
   sources: ResolvedCitation[];
   coverage: NonNullable<StoredReport["coverage"]>;
   verification: string | null;
+  review: NonNullable<StoredReport["review"]> | null;
   citationIntegrity: {cited: number; verified: number; missing: number};
 };
 
@@ -74,6 +76,7 @@ export function reportView(store: Store, reviewId: string): ReportView | null {
     runId: run.runId, runStatus: run.status, inputRevision: run.inputRevision, createdAt: run.createdAt,
     findings, openQuestions: report.openQuestions, requests: report.requests ?? [],
     sources, coverage: report.coverage ?? [], verification: report.verification ?? null,
+    review: report.review ?? null,
     citationIntegrity: {cited: cited.size, verified: cited.size - missing, missing},
   };
 }

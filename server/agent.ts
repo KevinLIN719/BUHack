@@ -12,7 +12,18 @@ export const answerSchema = z.object({
   requests: z.array(z.object({ message: z.string().max(1000), requestedRole: z.enum(["schedule", "endorsement", "contract", "clarification"]) })).max(8),
 });
 type Source = {sourceId: string; documentId: string; pageIndex: number; quote: string; role: string};
-type Report = z.infer<typeof answerSchema> & {sources?: Source[]};
+export type ReviewVerdict = "supported" | "partial" | "unsupported" | "quote_mismatch";
+export type SemanticReview = { status: "checked" | "issues_found" | "unavailable" | "not_applicable";
+  items: {index: number; verdict: ReviewVerdict; note: string}[]; checkedAt: string };
+export const reviewSchema = z.object({
+  items: z.array(z.object({
+    index: z.number().int().min(0).max(20),
+    verdict: z.enum(["supported", "partial", "unsupported", "quote_mismatch"]),
+    note: z.string().max(300),
+  })).max(15),
+});
+type Report = z.infer<typeof answerSchema> & {sources?: Source[]; review?: SemanticReview; verification?: string;
+  coverage?: {id: string; status: string; pageCount: number | null}[]};
 export function snapshotFor(store: Store, reviewId: string) {
   const review = store.db.prepare("SELECT context FROM reviews WHERE id = ?").get(reviewId)!;
   const documents = documentsFor(store, reviewId);
@@ -59,6 +70,29 @@ export function validateAnswer(value: unknown, snapshot: Snapshot, seen: Set<str
   return { ...answer, sources: snapshot.sources.filter(s => ids.has(s.sourceId)),
     coverage: snapshot.documents.map(d => ({id:d.id, status:d.status, pageCount:d.pageCount})),
     verification: "source_ids_checked_semantics_not_independently_verified" };
+}
+
+// The citation checks prove a quote exists in the review and was actually read. They do not
+// prove the quote supports the conclusion, so a second call answers only that question.
+// It never rewrites the report: a failed check is recorded as unavailable, not fatal.
+export async function semanticReview(report: Report,
+  generate: (prompt: string) => Promise<unknown>, now = () => new Date().toISOString()): Promise<SemanticReview> {
+  const checkable = report.findings.map((finding, index) => ({index, finding}))
+    .filter(({finding}) => finding.sourceIds.length > 0 && finding.evidenceStatus !== "unknown");
+  if (!checkable.length) return {status: "not_applicable", items: [], checkedAt: now()};
+  const byId = new Map((report.sources ?? []).map(source => [source.sourceId, source]));
+  const items = checkable.map(({index, finding}) => ({index, conclusion: finding.explanation, evidenceStatus: finding.evidenceStatus,
+    quotes: finding.sourceIds.map(id => byId.get(id)).filter((source): source is Source => Boolean(source))
+      .map(source => ({sourceId: source.sourceId, pageIndex: source.pageIndex, quote: source.quote}))}));
+  try {
+    const parsed = reviewSchema.parse(await generate(JSON.stringify({task: "核对每条结论与其引用原文是否相符", items})));
+    const verdicts = parsed.items.filter(item => item.index < report.findings.length && report.findings[item.index].sourceIds.length > 0);
+    const flagged = verdicts.some(item => item.verdict === "unsupported" || item.verdict === "quote_mismatch");
+    return {status: flagged ? "issues_found" : "checked", items: verdicts, checkedAt: now()};
+  } catch (error) {
+    console.error("[agent] semantic review unavailable:", error instanceof Error ? `${error.name}: ${error.message}` : "unknown error");
+    return {status: "unavailable", items: [], checkedAt: now()};
+  }
 }
 
 export class Investigator {
@@ -144,12 +178,28 @@ export class Investigator {
       const result = await agent.generate({prompt, abortSignal:controller.signal});
       assertActive();
       const report = await this.validateWithRepair(result.output, agent, prompt, snapshot, scoped.seen, controller);
+      const review = await semanticReview(report, async reviewPrompt => {
+        const reviewer = new ToolLoopAgent({
+          model: provider(process.env.DEEPSEEK_MODEL ?? "deepseek-flash"),
+          instructions: "你是独立复核员。输入是一份保险材料调查的结论，以及每条结论引用的原文片段。逐条判断引用的原文是否足以支持该结论。verdict 只能是 supported（原文直接支持）、partial（原文只支持一部分或需要额外假设）、unsupported（原文与结论无关）、quote_mismatch（结论的描述与原文字面不符）。不要补充新事实，不要评价结论之外的内容，不要改写结论。note 用一句中文说明依据或问题，最多 100 字。",
+          tools: {}, stopWhen: isStepCount(1), maxRetries: 1,
+          output: Output.object({schema: reviewSchema}),
+        });
+        const checked = await reviewer.generate({prompt: reviewPrompt, abortSignal: controller.signal});
+        return checked.output;
+      });
+      assertActive();
+      const finalReport: Report = {...report, review, verification:
+        review.status === "checked" ? "source_ids_checked_semantics_reviewed"
+        : review.status === "issues_found" ? "source_ids_checked_semantics_flagged"
+        : review.status === "not_applicable" ? "source_ids_checked_no_claims_to_review"
+        : "source_ids_checked_semantics_not_independently_verified"};
       const status = report.requests.length ? "awaiting_input" : "partial";
       this.store.transaction(() => {
         assertActive();
-        this.store.db.prepare("UPDATE investigations SET output = ? WHERE runId = ?").run(JSON.stringify(report), run.id);
+        this.store.db.prepare("UPDATE investigations SET output = ? WHERE runId = ?").run(JSON.stringify(finalReport), run.id);
         this.store.db.prepare("UPDATE runs SET status = ?, updatedAt = ? WHERE id = ?").run(status, new Date().toISOString(), run.id);
-        this.store.addEvent(run.id, "report.published", {status});
+        this.store.addEvent(run.id, "report.published", {status, review: review.status});
         this.store.addEvent(run.id, "run.status", {status, reason:report.requests.length ? "additional_information" : "semantic_review_pending"});
       });
     } catch (error) {

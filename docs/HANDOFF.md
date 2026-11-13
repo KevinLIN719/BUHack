@@ -62,7 +62,7 @@ npm run build
 
 如要联调，在本机 .env 配置 DEEPSEEK_API_KEY、实际 DEEPSEEK_BASE_URL / DEEPSEEK_MODEL 后重启后端。创建任务与轮询方法见 BACKEND_LOCAL.md。真实调用会将本次材料和问题交给所配置的模型平台处理。
 
-当前结果只检查 schema、引用归属和引用是否被工具观察到，尚无独立语义复核，因此标为 partial；有补充请求则为 awaiting_input。不能据此声称完整审阅或确定赔付。引用校验失败时会给模型一次修正机会（把无引用的结论降级为 unknown），仍失败才把任务标记失败，并在服务端日志写明原因。运行中重启会标记失败，需要新建任务；尚未实现模型步骤持久恢复。
+当前结果检查 schema、引用归属、引用是否被工具观察到，并在发布后做一次独立语义复核（只判断引用是否支持结论）；有补充请求则为 awaiting_input。不能据此声称完整审阅或确定赔付。引用校验失败时会给模型一次修正机会（把无引用的结论降级为 unknown），仍失败才把任务标记失败，并在服务端日志写明原因。运行中重启会标记失败，需要新建任务；尚未实现模型步骤持久恢复。
 
 ### 补件续查（successor run）
 
@@ -76,7 +76,7 @@ npm run build
 
 1. ~~用团队实际 DeepSeek 账户完成最小真实联调~~ 已完成，见上文「Agent 的真实进度」。
 2. ~~完成 input_requests 持久化及补件 successor run~~ 已完成，用法见上文「补件续查」。
-3. resolveReference 已完成：`GET /api/reviews/:id` 现在返回 `currentReport`，每条结论带 `citations`（documentName / role / pageIndex / pageLabel / quote / status），材料被删后该引用标 `missing` 而不是消失。**下一步是独立语义复核**，之后再接界面。
+3. resolveReference 与独立语义复核已完成：`GET /api/reviews/:id` 返回的 `currentReport` 每条结论带 `citations`（documentName / role / pageIndex / pageLabel / quote / status，材料被删后标 `missing`），并带 `review`（逐条 `supported` / `partial` / `unsupported` / `quote_mismatch` + 一句话依据；复核失败记 `unavailable` 不影响运行）。**下一步是调查工作台接界面**（正式前端读 `currentReport`），再做 OCR 与情景计算。
 4. OCR、情景计算、宣传对照和经纪回复核验逐项增加。
 
 ## 交接边界

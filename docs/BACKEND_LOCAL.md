@@ -105,6 +105,8 @@ GET /api/reviews/:id/documents/:docId/content 返回原 PDF。目前提供完整
 
 `currentReport`：最近一次已发布报告的展示形态，没有报告时为 `null`（前端据此保留空态）。每条 finding 除原有 `explanation` / `evidenceStatus` / `sourceIds` 外，多一个 `citations` 数组，每项含 `sourceId`、`documentId`、`documentName`、`role`、`pageIndex`、`pageLabel`、`quote`、`status`。`status` 为 `verified` 表示原文仍在审阅里；报告发布后材料被删除时该引用变成 `missing`，finding 文本本身不改写。顶层 `citationIntegrity` 给出 `{cited, verified, missing}` 计数，前端可据此提示「有 1 处原文已删除」，不要静默隐藏。`runId` / `runStatus` / `createdAt` 指明这份报告来自哪个任务。
 
+`review`：报告发布后立刻做的**独立语义复核**结果，可为 `null`（旧报告）。`status` 为 `checked`（逐条核对后没有硬冲突）、`issues_found`（至少一条 `unsupported` 或 `quote_mismatch`）、`unavailable`（复核调用失败，运行照常发布）、`not_applicable`（没有可复核的引用结论）。`items[]` 含 `index`（对应 `findings` 下标）、`verdict`（`supported` / `partial` / `unsupported` / `quote_mismatch`）、`note`（一句话依据）。复核只回答「引用的原文是否支持这条结论」，不改写结论、不评价条款合法性、不判断是否赔付；失败不使任务失败，只在报告里记 `unavailable`。
+
 SSE 当前仅重放已保存事件；awaiting_input/cancelled 时关闭连接。消费端收到这种状态应主动关闭 EventSource，避免自动重连。接入持续运行的 Agent 时，再增加实时订阅和心跳。
 
 本阶段仅供单机本地开发，监听 127.0.0.1。对外部署前需要补充 HTTPS/安全 cookie、会话生命周期和速率/容量限制等配置。API 不开放跨域调用，前端联调时使用同源服务或开发代理。
@@ -116,8 +118,8 @@ SSE 当前仅重放已保存事件；awaiting_input/cancelled 时关闭连接。
 
 本机 .env 填写 DEEPSEEK_API_KEY，按实际端点配置 DEEPSEEK_BASE_URL 和 DEEPSEEK_MODEL，重启 npm run dev:api。不要把 Key 发到聊天或提交 Git。有可用合同但没有 Key 时返回 503；配置后 POST runs 返回 202，GET run 可查询状态和 report。真实调用会把本次材料和用户问题交给配置的模型平台处理。
 
-目前报告只经过 schema、材料范围和已观察引用检查，尚未独立语义审核，状态为 partial；需要补件时为 awaiting_input 并返回 requests。没有伪装成最终保险判断。经纪/宣传资料保留不同来源角色。仅未知项可以不引用原文。
+报告经过 schema、材料范围与已观察引用检查，发布后立即再做一次独立语义复核（第二个不带工具的模型调用，只判断引用是否支持结论）；需要补件时为 awaiting_input 并返回 requests。没有伪装成最终保险判断。经纪/宣传资料保留不同来源角色。仅未知项可以不引用原文。
 
 测试使用本地模拟模型端点验证检索→阅读→结构化结果的完整循环，不需要真实 Key，不产生供应商费用。真实 DeepSeek 的账号、模型与端点仍需配置后验证。
 
-当前限制：重启时正在执行的模型任务标记 failed/server_restarted，不自动恢复；需重新创建任务。补件续查、专题子 Agent、独立语义复核、即时 SSE 推送和前端接入尚未完成。GET events 目前为事件重放，可轮询 GET run。删除文件时清除相关审阅的调查快照/输出并取消其调查，避免保留被删材料的派生文本。
+当前限制：重启时正在执行的模型任务标记 failed/server_restarted，不自动恢复；需重新创建任务。补件续查与独立语义复核已完成；专题子 Agent、即时 SSE 推送和前端接入尚未完成。GET events 目前为事件重放，可轮询 GET run。删除文件时清除相关审阅的调查快照/输出并取消其调查，避免保留被删材料的派生文本。

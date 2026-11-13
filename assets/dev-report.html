@@ -94,16 +94,36 @@ function renderCitation(citation) {
   </div>`;
 }
 
+const VERDICTS = {
+  supported: { label: "語意相符", color: "#0f766e" },
+  partial: { label: "僅部分相符", color: "#b45309" },
+  unsupported: { label: "原文不支援", color: "#b91c1c" },
+  quote_mismatch: { label: "引文與結論不符", color: "#b91c1c" },
+};
+
+function renderVerdict(item) {
+  if (!item) return "";
+  const meta = VERDICTS[item.verdict] ?? { label: item.verdict, color: "#475569" };
+  return `<div class="cite" style="border-left-color:${meta.color}">
+    <div class="meta" style="color:${meta.color}">語意複核 · ${esc(meta.label)}</div>
+    <div style="font-size:12.5px;color:#475569">${esc(item.note)}</div>
+  </div>`;
+}
+
 function renderReport(view) {
   const findings = view.findings ?? [];
   const integrity = view.citationIntegrity ?? { cited: 0, verified: 0, missing: 0 };
-  const findingsHtml = findings.map(finding => `
+  const verdicts = new Map((view.review?.items ?? []).map(item => [item.index, item]));
+  const reviewStatus = { checked: "語意複核完成", issues_found: "語意複核發現問題", unavailable: "語意複核未執行", not_applicable: "無需語意複核" }[view.review?.status] ?? "語意複核未執行";
+  const findingsHtml = findings.map((finding, index) => `
     <div class="finding">
       <span class="badge ${finding.evidenceStatus === "unknown" ? "unknown" : ""}">${esc(finding.evidenceStatus)}</span>
       <div>${esc(finding.explanation)}</div>
       ${(finding.citations ?? []).map(renderCitation).join("")}
+      ${renderVerdict(verdicts.get(index))}
     </div>`).join("") || `<p class="sub">本次沒有可引用的結論。</p>`;
 
+  const reviewLine = `<p class="sub" style="margin:8px 0 0">${esc(reviewStatus)}${view.review?.items?.length ? `（逐條檢查 ${view.review.items.length} 條）` : ""}</p>`;
   const requests = (view.requests ?? []).length
     ? `<h3 style="font-size:15px;margin:0 0 4px">還需要你補充</h3><ul>${view.requests.map(r => `<li>${esc(r.message)}</li>`).join("")}</ul>`
     : "";
@@ -120,10 +140,11 @@ function renderReport(view) {
         <div><b>${integrity.verified}</b>已核對</div>
         <div><b style="color:${integrity.missing ? "#b4453c" : "inherit"}">${integrity.missing}</b>原文已刪除</div>
       </div>
+      ${reviewLine}
     </div>
     <div class="card">${findingsHtml}</div>
     ${requests || questions ? `<div class="card">${requests}${questions}</div>` : ""}
-    <div class="sub">以上為初步分析，尚未做獨立語意複核，不構成理賠或保障結論。</div>`;
+    <div class="sub">${view.review?.status === "checked" || view.review?.status === "issues_found" ? "以上為初步分析，已逐條複核引用是否支持結論（複核範圍僅限引用與結論的對應，不含條款合法性或是否賠付），不構成理賠或保障結論。" : "以上為初步分析，尚未完成獨立語意複核，不構成理賠或保障結論。"}</div>`;
 }
 
 let samplePdf = null;
