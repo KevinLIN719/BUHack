@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const port = Number(process.env.PORT || 4173);
 const publicFiles = new Set(['/viewport-layout.js','/experience.html','/experience.js','/experience.css','/experience-data.js','/experience-chat.js','/showcase.html','/surface-motion.js','/showcase.css','/showcase.js','/showcase-chat.js','/hero-transition.js','/hero-transition.css','/ui-theme.css','/ui-notebook.css','/ui-markers.css','/liquid-controls.js','/liquid-controls.css','/policy-fixtures.js','/policy-deck.js','/policy-deck.css','/policy-pull.js','/policy-pull.css','/policy-workbench.js', '/refine.css', '/toggle-motion.js', '/index.html', '/completion-preview.html', '/concept-preview.html', '/styles.css', '/controls.css', '/agent.css', '/completion.css', '/concept.css', '/app.js', '/demo-data.js', '/agent-replies.js', '/agent-motion.js', '/completion-motion.js', '/completion-preview.js', '/concept-motion.js', '/concept-data.js', '/concept-preview.js']);
-for (const file of ['/materials.html','/materials.css','/materials.js','/i18n.css','/i18n.js','/translations.js']) publicFiles.add(file);
+for (const file of ['/materials.html','/materials.css','/materials.js','/report.css','/report.js','/i18n.css','/i18n.js','/translations.js']) publicFiles.add(file);
 const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml' };
 
 createServer(async (request, response) => {

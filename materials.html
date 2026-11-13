@@ -5,7 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>我的保單原文 · Policy Lens</title>
   <link rel="stylesheet" href="materials.css" />
+  <link rel="stylesheet" href="report.css" />
   <script defer src="materials.js"></script>
+  <script defer src="report.js"></script>
 </head>
 <body>
   <a class="skip" href="#main">跳至內容</a>
@@ -33,7 +35,18 @@
         <pre id="page-text" data-i18n-ignore></pre><div id="sources" data-i18n-ignore></div>
       </section>
     </div>
-    <footer><p>文字提取可能受表格、分欄和字體影響，請對照原 PDF。此頁顯示原文，尚未提供 AI 分析。</p><button type="button" id="delete-review" class="secondary">刪除本次所有材料</button></footer>
+    <section class="panel analysis" id="analysis" aria-labelledby="analysis-title">
+      <h2 id="analysis-title">條款調查</h2>
+      <p class="analysis-intro">材料就緒後，調查員會逐頁讀取並標出原文出處。分析只根據已上傳的材料：找不到不代表不存在，宣傳材料不等於合同。</p>
+      <label class="analysis-goal">你想問什麼<textarea id="goal" rows="3">這份保單是否承保我打算做的活動？有哪些除外責任？我還需要補充什麼材料？</textarea></label>
+      <div class="analysis-actions">
+        <button type="button" id="start">開始調查 ↗</button>
+        <button type="button" id="resume" class="secondary" hidden>用新材料續查 ↗</button>
+      </div>
+      <p id="run-status" role="status" aria-live="polite">正在讀取材料狀態……</p>
+      <div id="report" hidden></div>
+    </section>
+    <footer><p>文字提取可能受表格、分欄和字體影響，請對照原 PDF。</p><button type="button" id="delete-review" class="secondary">刪除本次所有材料</button></footer>
   </main>
 </body>
 </html>

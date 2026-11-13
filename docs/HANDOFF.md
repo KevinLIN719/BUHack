@@ -76,7 +76,7 @@ npm run build
 
 1. ~~用团队实际 DeepSeek 账户完成最小真实联调~~ 已完成，见上文「Agent 的真实进度」。
 2. ~~完成 input_requests 持久化及补件 successor run~~ 已完成，用法见上文「补件续查」。
-3. resolveReference 与独立语义复核已完成：`GET /api/reviews/:id` 返回的 `currentReport` 每条结论带 `citations`（documentName / role / pageIndex / pageLabel / quote / status，材料被删后标 `missing`），并带 `review`（逐条 `supported` / `partial` / `unsupported` / `quote_mismatch` + 一句话依据；复核失败记 `unavailable` 不影响运行）。**下一步是调查工作台接界面**（正式前端读 `currentReport`），再做 OCR 与情景计算。
+3. resolveReference 与独立语义复核已完成：`GET /api/reviews/:id` 返回的 `currentReport` 每条结论带 `citations`（documentName / role / pageIndex / pageLabel / quote / status，材料被删后标 `missing`），并带 `review`（逐条 `supported` / `partial` / `unsupported` / `quote_mismatch` + 一句话依据；复核失败记 `unavailable` 不影响运行）。**材料页已接上一次调查**：`materials.html` 底部「條款調查」区块由 `report.js` / `report.css` 驱动，填问题 → 开始调查 → 轮询 run → 读 `currentReport` 渲染结论、原文引用（点击跳到逐页原文）、语义复核结论、补充请求与提问清单；有新加入的材料时出现「用新材料續查」，带 `resumeFromRunId` 走 successor run，不重复调查旧内容。仍未接的是 `experience.html` 主流程（示意聊天的二次入口）与 OCR／情景计算／宣传对照。
 4. OCR、情景计算、宣传对照和经纪回复核验逐项增加。
 
 ## 交接边界

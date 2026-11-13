@@ -71,6 +71,7 @@
     if(token!==epoch)return;
     const pending=docs.some(doc=>['queued','parsing'].includes(doc.status));
     status(pending?'材料已收到，正在提取原文……':docs.length?'材料已保存。選擇文件和頁碼查看原文。':'準備好了，請加入一份 PDF。');
+    document.dispatchEvent(new CustomEvent('policy-review-changed',{detail:{reviewId,revision:review.revision,ready:docs.filter(doc=>['ready','partial'].includes(doc.status)).length}}));
     if(pending)timer=setTimeout(()=>void refresh().catch(error=>status(error.message)),1000);
   }
   async function connect() {
@@ -97,6 +98,14 @@
     try{await api(`/reviews/${reviewId}`,{method:'DELETE'});remember(null);reviewId=null;selected=null;docs=[];renderDocs();await connect();}
     catch(error){status(error.message);}finally{lock(false);}
   });
+  window.openPageAt = async (docId, index) => {
+    const doc = docs.find(item => item.id === docId);
+    if (!doc) { status('這份材料已不在本次審閱中。'); return; }
+    selected = doc.id; pageNumber = index || 1; viewKey = '';
+    renderDocs();
+    try { await openDocument(doc); } catch (error) { status(error.message); return; }
+    $('reader-title').scrollIntoView({behavior:'smooth', block:'start'});
+  };
   window.addEventListener('pagehide',()=>{epoch++;pageEpoch++;clearTimeout(timer);});
   window.addEventListener('pageshow',event=>{if(event.persisted)void connect().catch(error=>status(error.message));});
   void connect().catch(error=>status(error.message));
