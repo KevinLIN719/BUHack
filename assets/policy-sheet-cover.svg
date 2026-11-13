@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1060" viewBox="0 0 1000 1060" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="960" viewBox="0 0 720 960" fill="none">
   <title>縱向 A4 紙本保單</title>
-  <desc>630 比 891 的縱向保單紙，以輕微斜角呈現橙色 Policy Lens、閱讀摘要和投保前確認附件。</desc>
+  <desc>630 比 891 的縱向保單紙，正面呈現橙色 Policy Lens、閱讀摘要和投保前確認附件。</desc>
   <defs>
     <linearGradient id="paper" x1="45" y1="0" x2="630" y2="891" gradientUnits="userSpaceOnUse"><stop stop-color="#ffffff"/><stop offset=".6" stop-color="#fffefa"/><stop offset="1" stop-color="#f6f4ef"/></linearGradient>
     <linearGradient id="edge" x1="0" y1="0" x2="0" y2="891" gradientUnits="userSpaceOnUse"><stop stop-color="#ecebe7"/><stop offset="1" stop-color="#fdfdfb"/></linearGradient>
@@ -9,11 +9,10 @@
     <filter id="shadow" x="-10%" y="-10%" width="120%" height="125%"><feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#8a6f60" flood-opacity=".10"/></filter>
     <filter id="card-shadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="1" dy="4" stdDeviation="3" flood-color="#8a6f60" flood-opacity=".10"/></filter>
   </defs>
-  <!-- Near-equal axis scales retain the A4 proportions instead of flattening the sheet. -->
-  <g transform="matrix(.94 -.30 .32 .90 36 220)">
-    <rect x="0" y="10" width="630" height="891" rx="9" fill="url(#edge)" stroke="#d3cfc8"/>
-    <rect x="0" y="6" width="630" height="891" rx="9" fill="#f6f5f1" stroke="#d8d4cd"/>
-    <rect x="0" y="3" width="630" height="891" rx="9" fill="#fafaf7" stroke="#dad6cf"/>
+  <!-- Upright A4 front sheet; two offset back sheets provide quiet depth. -->
+  <g transform="translate(34 28)">
+    <rect x="18" y="14" width="630" height="891" rx="9" transform="rotate(1.2 333 459.5)" fill="#f0ede7" stroke="#d8d2c8"/>
+    <rect x="9" y="7" width="630" height="891" rx="9" transform="rotate(-.65 324 452.5)" fill="#fbf9f4" stroke="#dcd6ce"/>
     <rect width="630" height="891" rx="9" fill="url(#paper)" stroke="#d6d2ca" stroke-width="1.2" filter="url(#shadow)"/>
     <g clip-path="url(#clip)">
       <rect width="630" height="891" fill="url(#ruling)" opacity=".48"/>
