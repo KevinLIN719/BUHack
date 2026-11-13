@@ -76,7 +76,7 @@ npm run build
 
 1. ~~用团队实际 DeepSeek 账户完成最小真实联调~~ 已完成，见上文「Agent 的真实进度」。
 2. ~~完成 input_requests 持久化及补件 successor run~~ 已完成，用法见上文「补件续查」。
-3. 增加 resolveReference 和独立语义复核，之后再把调查工作台接到界面。
+3. resolveReference 已完成：`GET /api/reviews/:id` 现在返回 `currentReport`，每条结论带 `citations`（documentName / role / pageIndex / pageLabel / quote / status），材料被删后该引用标 `missing` 而不是消失。**下一步是独立语义复核**，之后再接界面。
 4. OCR、情景计算、宣传对照和经纪回复核验逐项增加。
 
 ## 交接边界

@@ -85,7 +85,7 @@ GET /api/reviews/:id/documents/:docId/content 返回原 PDF。目前提供完整
 | --- | --- | --- |
 | GET | /api/health | 健康检查 |
 | POST | /api/reviews | 创建审阅并设置匿名会话 cookie |
-| GET | /api/reviews/:id | 恢复审阅及任务 |
+| GET | /api/reviews/:id | 恢复审阅、任务，以及带页码解析的 currentReport |
 | PATCH | /api/reviews/:id/context | expectedRevision + context，保存背景并递增版本 |
 | POST | /api/reviews/:id/documents | multipart：role + file，返回 202 并排队解析 |
 | GET | /api/reviews/:id/documents/:docId | 文件状态、页数及逐页完整性 |
@@ -102,6 +102,8 @@ GET /api/reviews/:id/documents/:docId/content 返回原 PDF。目前提供完整
 同一 Idempotency-Key 和相同请求会返回同一任务；请求内容不同返回 409。背景允许 destination、traveller、activities、concerns；未填写的事实保持未知。所有审阅接口绑定创建它的 cookie 会话，UUID 本身不是访问权限。
 
 补件续查：`POST runs` 的 body 增加 `resumeFromRunId`（上一次 runId）即创建 successor run，返回体里 `parentRunId` 指向父任务，事件流里多一条 `run.resumed`。父任务必须已经产出 report 且已结束；当前 revision 必须大于父任务的 inputRevision（否则 409 `NO_NEW_INPUT`）。父任务还在执行返回 409 `PARENT_RUN_ACTIVE`，父任务无结论返回 409 `PARENT_RUN_NOT_RESUMABLE`，父任务属于别的审阅或不存在返回 404 `PARENT_RUN_NOT_FOUND`。新任务会拿到上次的 findings / openQuestions / requests 与新增材料清单；旧引用必须先重新读取原文才允许引用，已被删除的材料引用自动丢弃。report 与其中的 requests 存在 investigations.output，重启后仍可通过 GET run 读取。
+
+`currentReport`：最近一次已发布报告的展示形态，没有报告时为 `null`（前端据此保留空态）。每条 finding 除原有 `explanation` / `evidenceStatus` / `sourceIds` 外，多一个 `citations` 数组，每项含 `sourceId`、`documentId`、`documentName`、`role`、`pageIndex`、`pageLabel`、`quote`、`status`。`status` 为 `verified` 表示原文仍在审阅里；报告发布后材料被删除时该引用变成 `missing`，finding 文本本身不改写。顶层 `citationIntegrity` 给出 `{cited, verified, missing}` 计数，前端可据此提示「有 1 处原文已删除」，不要静默隐藏。`runId` / `runStatus` / `createdAt` 指明这份报告来自哪个任务。
 
 SSE 当前仅重放已保存事件；awaiting_input/cancelled 时关闭连接。消费端收到这种状态应主动关闭 EventSource，避免自动重连。接入持续运行的 Agent 时，再增加实时订阅和心跳。
 

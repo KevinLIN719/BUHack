@@ -5,6 +5,7 @@ import multer from "multer";
 import { Investigator, snapshotFor } from "./agent.js";
 import { DocumentQueue, documentsFor, documentFor, publicDocument, MAX_FILE_BYTES } from "./ingest/documents.js";
 import { Store, type Review, type Run } from "./store.js";
+import { reportView } from "./report.js";
 
 class ApiError extends Error {
   constructor(readonly status: number, readonly code: string, message: string) { super(message); }
@@ -104,7 +105,8 @@ export function createApp(store: Store) {
   app.get("/api/reviews/:id", (req, res) => {
     const review = requireReview(req);
     const runs = store.db.prepare("SELECT * FROM runs WHERE reviewId = ? ORDER BY rowid DESC").all(review.id) as Run[];
-    res.json({ ...publicReview(review), documents: documentsFor(store, review.id).map(publicDocument), runs: runs.map(presentRun), currentReport: null });
+    res.json({ ...publicReview(review), documents: documentsFor(store, review.id).map(publicDocument), runs: runs.map(presentRun),
+      currentReport: reportView(store, review.id) });
   });
 
   function requireDocument(req: Request) {

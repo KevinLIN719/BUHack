@@ -464,3 +464,62 @@ test("successor run continues a prior report only when new input arrived", async
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test("review exposes a resolved report and flags citations of deleted material", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "policy-lens-report-"));
+  const dbPath = join(dir, "test.sqlite");
+  const api = await start(dbPath);
+  try {
+    const created = await api.request("/api/reviews", { method: "POST" });
+    const cookie = created.headers.get("set-cookie")!.split(";")[0];
+    const review = await created.json();
+    const headers = { Cookie: cookie };
+    assert.equal((await (await api.request(`/api/reviews/${review.id}`, { headers })).json()).currentReport, null);
+
+    const store = new Store(dbPath);
+    const now = new Date().toISOString();
+    const docId = "11111111-1111-4111-8111-111111111111";
+    const runId = "22222222-2222-4222-8222-222222222222";
+    const sourceId = `${docId}:p2:b1`;
+    store.db.prepare(`INSERT INTO documents (id, reviewId, role, name, sha256, byteSize, content, status, pageCount, createdAt)
+      VALUES (?, ?, 'contract', 'policy.pdf', ?, 1, ?, 'ready', 3, ?)`)
+      .run(docId, review.id, "a".repeat(64), new Uint8Array([0x25, 0x50, 0x44, 0x46]), now);
+    store.db.prepare("INSERT INTO pages (documentId, pageIndex, printedPageLabel, text, status) VALUES (?, 2, 'Page 2', 'Exclusion applies.', 'complete')").run(docId);
+    store.db.prepare("INSERT INTO sources (id, documentId, pageIndex, blockId, quote) VALUES (?, ?, 2, 'b1', 'Exclusion applies.')").run(sourceId, docId);
+    const report = JSON.stringify({
+      findings: [{ explanation: "Exclusion applies.", evidenceStatus: "document_supported", sourceIds: [sourceId] }],
+      openQuestions: ["滑雪是否属于除外范围？"],
+      requests: [{ message: "请补充完整条款", requestedRole: "contract" }],
+      sources: [{ sourceId, documentId: docId, pageIndex: 2, quote: "Exclusion applies.", role: "contract" }],
+      coverage: [{ id: docId, status: "ready", pageCount: 3 }],
+      verification: "source_ids_checked_semantics_not_independently_verified",
+    });
+    store.db.prepare(`INSERT INTO runs (id, reviewId, inputRevision, kind, goal, status, requestHash, createdAt, updatedAt)
+      VALUES (?, ?, 1, 'investigate', '检查除外责任', 'awaiting_input', 'h', ?, ?)`).run(runId, review.id, now, now);
+    store.db.prepare("INSERT INTO investigations (runId, snapshot, output) VALUES (?, ?, ?)")
+      .run(runId, JSON.stringify({context: {}, documents: [], sources: []}), report);
+    store.close();
+
+    const view = (await (await api.request(`/api/reviews/${review.id}`, { headers })).json()).currentReport;
+    assert.equal(view.runId, runId);
+    assert.equal(view.findings[0].citations[0].status, "verified");
+    assert.equal(view.findings[0].citations[0].pageIndex, 2);
+    assert.equal(view.findings[0].citations[0].pageLabel, "Page 2");
+    assert.equal(view.findings[0].citations[0].documentName, "policy.pdf");
+    assert.deepEqual(view.citationIntegrity, { cited: 1, verified: 1, missing: 0 });
+    assert.equal(view.requests[0].message, "请补充完整条款");
+    assert.equal(view.openQuestions[0], "滑雪是否属于除外范围？");
+
+    // Deleting the material must not rewrite history: the citation becomes visibly missing.
+    const cleanup = new Store(dbPath);
+    cleanup.db.prepare("DELETE FROM sources WHERE id = ?").run(sourceId);
+    cleanup.close();
+    const after = (await (await api.request(`/api/reviews/${review.id}`, { headers })).json()).currentReport;
+    assert.equal(after.findings[0].citations[0].status, "missing");
+    assert.deepEqual(after.citationIntegrity, { cited: 1, verified: 0, missing: 1 });
+    assert.equal(after.findings[0].explanation, "Exclusion applies.");
+  } finally {
+    await api.close();
+    await rm(dir, { recursive: true, force: true });
+  }
+});
