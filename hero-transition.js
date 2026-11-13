@@ -3,7 +3,7 @@
 (() => {
   'use strict';
   const mounts = new WeakMap();
-  const timings = Object.freeze({ symbols: 2000, copy: 500, handoff: 0 });
+  const timings = Object.freeze({ symbols: window.PolicyConceptMotion?.timings.icons || 3600, copy: 500, handoff: 0 });
   function mount(host, { conceptOptions = {}, onState } = {}) {
     if (!host?.querySelector) throw new TypeError('A hero host is required.');
     mounts.get(host)?.destroy();

@@ -174,7 +174,7 @@
 
   function openConcept(){
     const concept=window.PolicyConceptData;
-    openModal(`<div class="dialog-heading"><div><p class="kicker">POLICY LENS／產品概念</p><h2 id="dialog-title">概念動畫</h2></div>${closeButton()}</div><div class="concept-stage" data-concept-host></div><div class="concept-toolbar"><div class="concept-toolbar-actions">${button('concept-replay','重播概念動畫','quiet')}${button('concept-pause','暫停','quiet')}${button('concept-skip','略過至標語','quiet')}</div><p class="concept-note">貨幣、保障、條款，最後只留下一句提醒。</p></div>`,{concept:true});
+    openModal(`<div class="dialog-heading"><div><p class="kicker">POLICY LENS／產品概念</p><h2 id="dialog-title">概念動畫</h2></div>${closeButton()}</div><div class="concept-stage" data-concept-host></div><div class="concept-toolbar"><div class="concept-toolbar-actions">${button('concept-replay','重播概念動畫','quiet')}${button('concept-pause','暫停','quiet')}${button('concept-skip','略過至標語','quiet')}</div><p class="concept-note">貨幣、保障、條款，帶出 POLICY LENS 與一句提醒。</p></div>`,{concept:true});
     const panel=modalRoot.querySelector('.concept-dialog'),host=panel.querySelector('[data-concept-host]');
     const update=()=>{
       if(!panel.isConnected)return;
@@ -182,7 +182,7 @@
       pause.disabled=state==='ready';pause.textContent=state==='paused'?'繼續播放':'暫停';panel.querySelector('[data-action="concept-skip"]').disabled=state==='ready';
     };
     if(window.PolicyConceptMotion&&concept){conceptIntro=window.PolicyConceptMotion.mount(host,{...concept,autoplay:false,onPhase:update});void conceptIntro.play();update();}
-    else{host.innerHTML='<div class="concept-title"><p class="concept-tagline">你的保單，付款前看清。</p></div>';host.dataset.conceptState='ready';update();panel.querySelector('[data-action="concept-replay"]').disabled=true;}
+    else{host.innerHTML='<div class="concept-title"><div class="concept-lockup"><strong class="concept-name">POLICY LENS</strong><p class="concept-tagline">你的保單，<br>付款前看清。</p></div></div>';host.dataset.conceptState='ready';update();panel.querySelector('[data-action="concept-replay"]').disabled=true;}
   }
 
   function openSource(id,preserve=false) {
