@@ -1,0 +1,118 @@
+/* Shared shallow-convex surface. Load after base, component and notebook styles. */
+:where(.liquid-control[data-liquid-mounted]) { position: relative; }
+.liquid-control.liquid-control[data-liquid-mounted] {
+  --liquid-face: var(--control-face, #fffdf8);
+  --liquid-hover: var(--control-hover, #fff7f1);
+  --liquid-pressed: var(--control-pressed, #fbece2);
+  --liquid-line: var(--control-line, #e3d8ce);
+  --liquid-ink: var(--ink, var(--foreground, #342d28));
+  --liquid-shadow: var(--control-shadow, 0 4px 9px rgb(52 45 40 / .10));
+  isolation: isolate;
+  overflow: visible;
+  border-color: transparent;
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--liquid-ink);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  /* No host transform, transition or animation: labels, drag and hit area stay owned by callers. */
+}
+.liquid-control.liquid-control[data-liquid-mounted] > .liquid-skin {
+  position: absolute;
+  display: block;
+  inset: 0;
+  z-index: -1;
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--liquid-line);
+  border-radius: inherit;
+  pointer-events: none;
+  user-select: none;
+  background: radial-gradient(110% 80% at 50% 105%, rgb(255 255 255 / .88), transparent 72%), linear-gradient(180deg, var(--liquid-face), var(--liquid-face) 55%, #fff);
+  box-shadow: var(--liquid-shadow), inset 0 1px 1px rgb(255 255 255 / .95), inset 0 -1px 1px rgb(151 135 121 / .16);
+  transform-origin: 50% 50%;
+  transition: background 100ms ease, border-color 100ms ease, box-shadow 100ms ease, transform 90ms ease;
+}
+.liquid-control.liquid-control[data-liquid-selected="true"] {
+  --liquid-face: color-mix(in srgb, var(--primary, #f24e2a) 12%, #fff);
+  --liquid-hover: color-mix(in srgb, var(--primary, #f24e2a) 18%, #fff);
+  --liquid-pressed: color-mix(in srgb, var(--primary, #f24e2a) 24%, #fff);
+  --liquid-line: color-mix(in srgb, var(--primary, #f24e2a) 48%, #fff);
+  --liquid-ink: var(--primary-ink, #ad351c);
+}
+.liquid-control.liquid-control[data-liquid-mounted]:where(.solid, .primary, .agent-send-button, [data-liquid-variant="primary"]) {
+  --liquid-face: var(--primary-action, #c43d20);
+  --liquid-hover: color-mix(in srgb, var(--primary-action, #c43d20) 94%, #642416);
+  --liquid-pressed: color-mix(in srgb, var(--primary-action, #c43d20) 88%, #642416);
+  --liquid-line: color-mix(in srgb, var(--primary-action, #c43d20) 85%, #642416);
+  --liquid-ink: var(--primary-foreground, #fff);
+}
+.liquid-control.liquid-control.liquid-control[data-liquid-mounted]:where(.solid, .primary, .agent-send-button, [data-liquid-variant="primary"]) { color: var(--liquid-ink); }
+.liquid-control.liquid-control[data-liquid-mounted]:where(.solid, .primary, .agent-send-button, [data-liquid-variant="primary"]) > .liquid-skin {
+  background: radial-gradient(120% 80% at 50% 115%, rgb(255 255 255 / .08), transparent 72%), linear-gradient(180deg, color-mix(in srgb, var(--liquid-face) 92%, #fff), var(--liquid-face));
+  box-shadow: var(--liquid-shadow), inset 0 1px 1px rgb(255 255 255 / .35), inset 0 -1px 1px rgb(0 0 0 / .12);
+}
+@media (hover: hover) {
+  .liquid-control.liquid-control[data-liquid-mounted]:hover:not([data-liquid-disabled="true"]) { --liquid-face: var(--liquid-hover); }
+}
+.liquid-control.liquid-control.liquid-control[data-liquid-mounted][data-liquid-pressed="true"] { --liquid-face: var(--liquid-pressed); }
+.liquid-control.liquid-control[data-liquid-pressed="true"] > .liquid-skin { transform: scale(1.035, .92); }
+.liquid-control.liquid-control[data-liquid-mounted]:focus-visible { outline: 2px solid var(--ring, var(--primary, #f24e2a)); outline-offset: 4px; }
+.liquid-control.liquid-control[data-liquid-choice]:has(input:focus-visible) { outline: 2px solid var(--ring, var(--primary, #f24e2a)); outline-offset: 4px; }
+.liquid-control.liquid-control[data-liquid-disabled="true"] { opacity: .5; cursor: not-allowed; }
+.liquid-control.liquid-control[data-liquid-disabled="true"] > .liquid-skin { box-shadow: inset 0 1px 1px #fff; }
+
+/* Previously underlined/zero-padding actions need room for a rounded surface. */
+.liquid-control.liquid-control[data-liquid-mounted]:is(.text-action, .poster-start) { padding: 8px 12px; min-height: 34px; }
+.liquid-control.liquid-control[data-liquid-mounted].button.quiet { padding-inline: 14px; }
+:is(.progress-nav, .report-tabs, .scenario-filters, .source-pages) > .liquid-control.liquid-control[data-liquid-mounted] { padding: 9px 12px; min-height: 36px; }
+.liquid-control.liquid-control[data-liquid-mounted]:is(.icon-action, .agent-send-button) { border-radius: 50%; }
+.liquid-control.liquid-control[data-liquid-mounted]:is(summary) { padding: 7px 12px; }
+
+/* Secondary actions are quiet by default. Only primary actions and actual
+ * choices keep a persistent surface. The same elastic skin still responds to
+ * hover, focus and press; text and the native hit area remain stationary. */
+.liquid-control.liquid-control[data-liquid-mounted]:where(:not(.solid,.primary,.agent-send-button,[data-liquid-variant="primary"],[data-liquid-variant="surface"],[data-liquid-choice],[aria-pressed],[aria-checked],[role="radio"],[role="checkbox"],[role="switch"])),
+.agent-modes > .liquid-control.liquid-control[data-liquid-mounted] {
+  --liquid-ink: var(--primary-ink, #ad351c);
+  border-radius: 6px;
+  border-color: transparent;
+  color: var(--liquid-ink);
+}
+.liquid-control.liquid-control[data-liquid-mounted]:where(:not(.solid,.primary,.agent-send-button,[data-liquid-variant="primary"],[data-liquid-variant="surface"],[data-liquid-choice],[aria-pressed],[aria-checked],[role="radio"],[role="checkbox"],[role="switch"])) > .liquid-skin,
+.agent-modes > .liquid-control.liquid-control[data-liquid-mounted] > .liquid-skin {
+  border: 0;
+  background: color-mix(in srgb, var(--primary, #f24e2a) 6%, transparent);
+  box-shadow: none;
+  opacity: 0;
+  transition: opacity 160ms ease, transform 90ms ease;
+}
+@media (hover: hover) {
+  .liquid-control.liquid-control[data-liquid-mounted]:hover:not([data-liquid-disabled="true"]) > .liquid-skin { opacity: 1; }
+}
+.liquid-control.liquid-control[data-liquid-mounted]:is(:focus-visible,[data-liquid-pressed="true"]) > .liquid-skin { opacity: 1; }
+.liquid-control.liquid-control[data-liquid-mounted][data-liquid-selected="true"]:where([aria-current], [role="tab"]),
+.agent-modes > .liquid-control.liquid-control[data-liquid-mounted][data-liquid-selected="true"] {
+  box-shadow: inset 0 -1px 0 var(--primary-ink, #ad351c);
+}
+/* Choices remain explicit without the heavy convex chrome of an action. */
+.liquid-control.liquid-control[data-liquid-mounted]:where([data-liquid-choice],[aria-pressed],[aria-checked],[role="radio"],[role="checkbox"],[role="switch"]):not(.solid,.primary,.agent-send-button,[data-liquid-variant="primary"]) > .liquid-skin {
+  box-shadow: none;
+  background: var(--liquid-face);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .liquid-control.liquid-control.liquid-control[data-liquid-mounted] > .liquid-skin { transition: none; transform: none; }
+}
+@media (forced-colors: active) {
+  .liquid-control.liquid-control[data-liquid-mounted] { color: ButtonText; forced-color-adjust: auto; }
+  .liquid-control.liquid-control.liquid-control[data-liquid-mounted] > .liquid-skin { opacity: 1; background: ButtonFace; border: 1px solid ButtonText; box-shadow: none; transition: none; transform: none; }
+  .liquid-control.liquid-control.liquid-control[data-liquid-selected="true"] > .liquid-skin { border: 2px solid Highlight; }
+  .liquid-control.liquid-control[data-liquid-mounted]:focus-visible { outline-color: Highlight; }
+  .liquid-control.liquid-control[data-liquid-choice]:has(input:focus-visible) { outline-color: Highlight; }
+  .liquid-control.liquid-control[data-liquid-disabled="true"] { color: GrayText; opacity: 1; }
+  .liquid-control.liquid-control.liquid-control[data-liquid-disabled="true"] > .liquid-skin { border-color: GrayText; }
+}

@@ -1,0 +1,4 @@
+{
+  // The static server reads its file allowlist at startup.
+  "restartOn": ["scripts/serve.mjs"]
+}

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-Hant-HK">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Policy Lens — 清單揭示動畫</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="controls.css" />
+    <link rel="stylesheet" href="completion.css" />
+    <link rel="stylesheet" href="ui-theme.css" />
+    <link rel="stylesheet" href="ui-notebook.css" />
+    <link rel="stylesheet" href="ui-markers.css" />
+    <link rel="stylesheet" href="liquid-controls.css" />
+    <script defer src="demo-data.js"></script>
+    <script defer src="completion-motion.js"></script>
+    <script defer src="completion-preview.js"></script>
+    <script defer src="liquid-controls.js"></script>
+  </head>
+  <body>
+    <main class="completion-preview">
+      <header class="completion-preview-header">
+        <p class="kicker">POLICY LENS／清單揭示</p>
+        <h1>讓下一步更清晰。</h1>
+        <p>把問題整理成一份實用的確認清單，帶着它再作投保決定。</p>
+      </header>
+      <section class="completion-preview-stage" aria-label="確認清單產生預覽">
+        <div class="completion-reveal" id="completion-surface" aria-label="已產生的問題">
+          <div class="completion-document" data-reveal-content>
+            <div class="completion-document-head"><span>晴日旅遊／虛構示例</span><span>04 條待確認的問題</span></div>
+            <ol class="completion-list" id="completion-preview-list"></ol>
+          </div>
+        </div>
+        <div class="completion-prompt">
+          <p>把我選擇的四條問題及保單出處整理成確認清單，方便向顧問提問。</p>
+          <div class="completion-prompt-toolbar">
+            <p class="completion-status" role="status" aria-live="polite" data-reveal-status>已就緒，按下按鈕產生確認清單。</p>
+            <button type="button" class="button solid" id="completion-generate">產生確認清單 <span aria-hidden="true">↗</span></button>
+          </div>
+        </div>
+      </section>
+      <p class="completion-disclaimer">虛構示例，僅為本機前端演示，不會分析真實文件或判定保障範圍。</p>
+    </main>
+  </body>
+</html>

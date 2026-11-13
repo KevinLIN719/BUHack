@@ -1,0 +1,25 @@
+/* Verified display names, not insurer recommendations or partner claims. */
+window.PolicyConceptData = Object.freeze({
+  name: 'Policy Lens',
+  tagline: '決定之前，先看清楚。',
+  market: '在香港營運的保險公司',
+  directory: 'https://www.ia.org.hk/en/supervision/reg_insurers_lloyd/contact_list_of_authorized_insurers.html',
+  insurers: Object.freeze([
+    {name:'AIA',url:'https://www.aia.com.hk/en'},
+    {name:'Prudential',url:'https://www.prudential.com.hk/en/about-us/our-company/'},
+    {name:'Manulife',url:'https://www.manulife.com.hk/en/individual/about/our-story/our-business.html'},
+    {name:'AXA',url:'https://www.axa.com.hk/en'},
+    {name:'FWD',url:'https://www.fwdlife.hk/en/'},
+    {name:'HSBC Life',url:'https://www.hsbc.com.hk/insurance/products/life/'},
+    {name:'BOC Life',url:'https://www.boclife.com.hk/en/index.html'},
+    {name:'Sun Life',url:'https://www.sunlife.com.hk/en/'},
+    {name:'Chubb Life',url:'https://www.chubb.com/hk-en/chubblifeapp.html'},
+    {name:'Zurich',url:'https://www.zurich.com.hk/en'},
+    {name:'Hang Seng Insurance',url:'https://www.hangseng.com/hangseng-insurance/'},
+    {name:'Bowtie',url:'https://www.bowtie.com.hk/en/about-us'},
+    {name:'Bupa',url:'https://www.bupa.com.hk/en/'},
+    {name:'Blue Cross',url:'https://www.bluecross.com.hk/en/epromotion/OfficeRelocation/Latest'},
+    {name:'China Life (Overseas)',url:'https://chinalife.com.hk/customer-protection-information'},
+    {name:'CTF Life',url:'https://corpweb.ctflife.com.hk/en/about-ctflife/about-us'},
+  ].map(item=>Object.freeze(item))),
+});

@@ -1,0 +1,122 @@
+/* Sampled from the supplied 1092 × 886 marker reference, not a generic palette.
+ * Original ordering: left column top-to-bottom, then right column top-to-bottom.
+ * Ink/surface pairs are opaque so inline and multi-line contrast stays stable. */
+:root {
+  --marker-1-ink: #6C499A; --marker-1-surface: #F3EBFD; /* Purple / 5.92:1 */
+  --marker-2-ink: #863C74; --marker-2-surface: #FBE7F9; /* Pink / 6.15:1 */
+  --marker-3-ink: #903959; --marker-3-surface: #FBE8ED; /* Cherry / 6.13:1 */
+  --marker-4-ink: #913A38; --marker-4-surface: #FBE9E5; /* Red / 6.24:1 */
+  --marker-5-ink: #913E21; --marker-5-surface: #FBEAE4; /* Vermilion / 6.17:1 */
+  --marker-6-ink: #8D4A1D; --marker-6-surface: #FBEBDE; /* Orange / 5.76:1 */
+  --marker-7-ink: #81571E; --marker-7-surface: #FCECD3; /* Amber / 5.45:1 */
+  --marker-8-ink: #706520; --marker-8-surface: #F8F1CB; /* Yellow / 5.16:1 */
+  --marker-9-ink: #516D20; --marker-9-surface: #E7F8D5; /* Lime / 5.28:1 */
+  --marker-10-ink: #347332; --marker-10-surface: #DEF9DD; /* Shamrock / 5.13:1 */
+  --marker-11-ink: #35784C; --marker-11-surface: #D8FCE4; /* Green / 4.81:1 */
+  --marker-12-ink: #347665; --marker-12-surface: #D2FBF1; /* Teal / 4.79:1 */
+  --marker-13-ink: #347763; --marker-13-surface: #D1FCF0; /* Mint / 4.77:1 */
+  --marker-14-ink: #31717B; --marker-14-surface: #D1FBFE; /* Turquoise / 5.01:1 */
+  --marker-15-ink: #317086; --marker-15-surface: #D6F7FE; /* Sky / 4.90:1 */
+  --marker-16-ink: #2B61A8; --marker-16-surface: #DDF4FE; /* Blue / 5.46:1 */
+  --marker-17-ink: #2B5DA7; --marker-17-surface: #E4F2FE; /* Indigo / 5.71:1 */
+  --marker-18-ink: #4059A8; --marker-18-surface: #E6F1FD; /* Sapphire / 5.72:1 */
+  --marker-19-ink: #5753A9; --marker-19-surface: #EDEEFE; /* Violet / 5.68:1 */
+  --marker-20-ink: #5E51A8; --marker-20-surface: #EEEEFE; /* Grape / 5.69:1 */
+
+  --marker-cherry-ink: var(--marker-3-ink); --marker-cherry-surface: var(--marker-3-surface);
+  --priority-1-ink: var(--marker-cherry-ink); --priority-1-surface: var(--marker-cherry-surface);
+  --marker-amber-ink: var(--marker-7-ink); --marker-amber-surface: var(--marker-7-surface);
+  --priority-2-ink: var(--marker-amber-ink); --priority-2-surface: var(--marker-amber-surface);
+  --marker-teal-ink: var(--marker-12-ink); --marker-teal-surface: var(--marker-12-surface);
+  --priority-3-ink: var(--marker-teal-ink); --priority-3-surface: var(--marker-teal-surface);
+  --marker-violet-ink: var(--marker-19-ink); --marker-violet-surface: var(--marker-19-surface);
+  --priority-4-ink: var(--marker-violet-ink); --priority-4-surface: var(--marker-violet-surface);
+}
+
+/* Each priority element must contain its own numeral + meaningful text.
+ * CSS does not invent approval states or duplicate a screen reader label. */
+.pl-marker,
+.pl-priority {
+  --marker-ink: var(--priority-1-ink);
+  --marker-surface: var(--priority-1-surface);
+  color: var(--marker-ink);
+  background-color: var(--marker-surface);
+  border: 0;
+  font: inherit;
+  font-family: var(--font-sans, Arial, sans-serif);
+  font-weight: 600;
+}
+.pl-marker {
+  padding: .08em .24em;
+  border-radius: .18em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  overflow-wrap: anywhere;
+}
+.pl-priority {
+  display: inline-flex;
+  align-items: baseline;
+  gap: .5em;
+  max-width: 100%;
+  padding: .3em .6em;
+  border-radius: 5px;
+  font-size: .8rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.pl-priority > :first-child { flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+.pl-priority > :last-child { min-width: 0; }
+.pl-marker[data-priority="1"], .pl-priority[data-priority="1"] { --marker-ink: var(--priority-1-ink); --marker-surface: var(--priority-1-surface); }
+.pl-marker[data-priority="2"], .pl-priority[data-priority="2"] { --marker-ink: var(--priority-2-ink); --marker-surface: var(--priority-2-surface); }
+.pl-marker[data-priority="3"], .pl-priority[data-priority="3"] { --marker-ink: var(--priority-3-ink); --marker-surface: var(--priority-3-surface); }
+.pl-marker[data-priority="4"], .pl-priority[data-priority="4"] { --marker-ink: var(--priority-4-ink); --marker-surface: var(--priority-4-surface); }
+
+/* Optional reference swatches: data-marker selects a pair, never a priority. */
+.pl-marker[data-marker="1"], .pl-marker-swatch[data-marker="1"] { --marker-ink: var(--marker-1-ink); --marker-surface: var(--marker-1-surface); }
+.pl-marker[data-marker="2"], .pl-marker-swatch[data-marker="2"] { --marker-ink: var(--marker-2-ink); --marker-surface: var(--marker-2-surface); }
+.pl-marker[data-marker="3"], .pl-marker-swatch[data-marker="3"] { --marker-ink: var(--marker-3-ink); --marker-surface: var(--marker-3-surface); }
+.pl-marker[data-marker="4"], .pl-marker-swatch[data-marker="4"] { --marker-ink: var(--marker-4-ink); --marker-surface: var(--marker-4-surface); }
+.pl-marker[data-marker="5"], .pl-marker-swatch[data-marker="5"] { --marker-ink: var(--marker-5-ink); --marker-surface: var(--marker-5-surface); }
+.pl-marker[data-marker="6"], .pl-marker-swatch[data-marker="6"] { --marker-ink: var(--marker-6-ink); --marker-surface: var(--marker-6-surface); }
+.pl-marker[data-marker="7"], .pl-marker-swatch[data-marker="7"] { --marker-ink: var(--marker-7-ink); --marker-surface: var(--marker-7-surface); }
+.pl-marker[data-marker="8"], .pl-marker-swatch[data-marker="8"] { --marker-ink: var(--marker-8-ink); --marker-surface: var(--marker-8-surface); }
+.pl-marker[data-marker="9"], .pl-marker-swatch[data-marker="9"] { --marker-ink: var(--marker-9-ink); --marker-surface: var(--marker-9-surface); }
+.pl-marker[data-marker="10"], .pl-marker-swatch[data-marker="10"] { --marker-ink: var(--marker-10-ink); --marker-surface: var(--marker-10-surface); }
+.pl-marker[data-marker="11"], .pl-marker-swatch[data-marker="11"] { --marker-ink: var(--marker-11-ink); --marker-surface: var(--marker-11-surface); }
+.pl-marker[data-marker="12"], .pl-marker-swatch[data-marker="12"] { --marker-ink: var(--marker-12-ink); --marker-surface: var(--marker-12-surface); }
+.pl-marker[data-marker="13"], .pl-marker-swatch[data-marker="13"] { --marker-ink: var(--marker-13-ink); --marker-surface: var(--marker-13-surface); }
+.pl-marker[data-marker="14"], .pl-marker-swatch[data-marker="14"] { --marker-ink: var(--marker-14-ink); --marker-surface: var(--marker-14-surface); }
+.pl-marker[data-marker="15"], .pl-marker-swatch[data-marker="15"] { --marker-ink: var(--marker-15-ink); --marker-surface: var(--marker-15-surface); }
+.pl-marker[data-marker="16"], .pl-marker-swatch[data-marker="16"] { --marker-ink: var(--marker-16-ink); --marker-surface: var(--marker-16-surface); }
+.pl-marker[data-marker="17"], .pl-marker-swatch[data-marker="17"] { --marker-ink: var(--marker-17-ink); --marker-surface: var(--marker-17-surface); }
+.pl-marker[data-marker="18"], .pl-marker-swatch[data-marker="18"] { --marker-ink: var(--marker-18-ink); --marker-surface: var(--marker-18-surface); }
+.pl-marker[data-marker="19"], .pl-marker-swatch[data-marker="19"] { --marker-ink: var(--marker-19-ink); --marker-surface: var(--marker-19-surface); }
+.pl-marker[data-marker="20"], .pl-marker-swatch[data-marker="20"] { --marker-ink: var(--marker-20-ink); --marker-surface: var(--marker-20-surface); }
+
+.pl-marker-palette {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0 24px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.pl-marker-swatch {
+  min-width: 0;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border, #DCE4DD);
+  overflow-wrap: anywhere;
+}
+/* Let a swatch own the variables and an ordinary span present its colors. */
+.pl-marker-swatch > span { display: inline-block; max-width: 100%; padding: .12em .45em; color: var(--marker-ink); background: var(--marker-surface); border-radius: 5px; font-weight: 600; }
+.pl-marker-swatch small { display: block; margin-top: 7px; font: 10px/1.6 var(--font-mono); color: var(--muted, #5F706C); }
+@media (max-width: 760px) { .pl-marker-palette { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 18px; } }
+@media (max-width: 360px) { .pl-marker-palette { gap: 0 12px; } .pl-priority { font-size: .75rem; } }
+@media (forced-colors: active) {
+  .pl-marker, .pl-priority, .pl-marker-swatch > span {
+    color: CanvasText;
+    background: Canvas;
+    outline: 1px solid CanvasText;
+    outline-offset: 1px;
+  }
+}

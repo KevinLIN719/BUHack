@@ -1,0 +1,104 @@
+/* Fixed dot geometry and character scans follow the supplied motion reference. */
+.concept-stage {
+  position: relative;
+  isolation: isolate;
+  height: 560px;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--primary);
+  background: var(--background);
+  --concept-clock: 0;
+  --concept-clarity: 0;
+}
+.concept-field {
+  position: absolute;
+  inset: 12px 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-rows: repeat(5, minmax(0, 1fr));
+  gap: 8px 12px;
+  color: var(--ink);
+  opacity: .78;
+  pointer-events: none;
+  user-select: none;
+  transition: opacity 380ms;
+}
+.concept-block { min-width: 0; align-self: start; overflow: hidden; max-width: 160px; }
+.concept-block:nth-child(even) { padding-top: 9px; }
+.concept-line { display: block; font: 9px/1.12 var(--font-sans); text-transform: uppercase; letter-spacing: -.025em; white-space: pre; }
+.concept-char {
+  opacity: min(clamp(0, calc((var(--concept-clock) - var(--char-at)) * 25), 1), clamp(0, calc((var(--char-end) - var(--concept-clock)) * 25), 1));
+}
+.concept-symbol { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 2; fill: currentColor; pointer-events: none; }
+.concept-icon { fill: currentColor; }
+.concept-dotword { fill: currentColor; opacity: calc(1 - var(--concept-clarity)); }
+.concept-title {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  opacity: var(--concept-clarity);
+  transform: translateY(calc((1 - var(--concept-clarity)) * 10px));
+  filter: blur(calc((1 - var(--concept-clarity)) * 5px));
+  pointer-events: none;
+}
+.concept-title strong { display: inline-block; font: 600 clamp(42px, 8.2vw, 86px)/1 var(--font-sans); letter-spacing: -.07em; white-space: nowrap; text-transform: uppercase; }
+.concept-name-accent { position: relative; isolation: isolate; }
+/* The product introduction reads whole insurer names once, then lets the
+ * field retire. It does not share the reference's character erase scan. */
+.concept-stage[data-concept-scan="quiet"] .concept-block {
+  --block-reveal: clamp(0, calc((var(--concept-clock) - var(--block-at)) * 3), 1);
+  opacity: var(--block-reveal);
+  transform: translateY(calc((1 - var(--block-reveal)) * 5px));
+}
+.concept-stage[data-concept-scan="quiet"] .concept-char { opacity: 1; }
+/* Retire dot type before solid type enters: their ink never crossfades on
+ * top of itself. The word's geometry stays still for the shared handoff. */
+.concept-stage[data-concept-scan="quiet"] .concept-dotword { opacity: clamp(0, calc(1 - var(--concept-clarity) * 2.5), 1); }
+.concept-stage[data-concept-scan="quiet"] .concept-title {
+  opacity: clamp(0, calc((var(--concept-clarity) - .45) * 1.818182), 1);
+  transform: none;
+  filter: none;
+}
+.concept-title p { position: absolute; top: calc(50% + 38px); font: 12px/1.6 var(--font-sans); color: var(--ink); margin: 0; letter-spacing: -.01em; }
+.concept-phase-label { position: absolute; bottom: 15px; left: 0; right: 0; z-index: 3; text-align: center; font: 8px/1.4 var(--font-mono); letter-spacing: .05em; text-transform: uppercase; color: var(--muted); pointer-events: none; }
+.concept-stage[data-concept-state="ready"] .concept-field { opacity: .19; }
+.concept-stage[data-concept-state="ready"] .concept-char { opacity: 1; }
+.concept-preview { max-width: 1100px; margin: 0 auto; min-width: 0; }
+.concept-meta { display: flex; justify-content: space-between; gap: 20px; padding: 12px 0 15px; font: 8px/1.5 var(--font-mono); color: var(--primary-ink, var(--primary)); }
+.concept-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 15px; flex-wrap: wrap; padding: 17px 0; border-top: 1px solid var(--border); }
+.concept-toolbar-actions { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.concept-note { color: var(--muted); font-size: 9px; line-height: 1.8; max-width: 500px; }
+.concept-note a { color: inherit; text-underline-offset: 3px; }
+.concept-dialog { width: min(1000px, 100%); max-height: calc(100% - 36px); overflow: auto; padding: 24px; background: var(--background); border: 1px solid var(--border); }
+.concept-dialog:focus { outline: none; }
+.concept-dialog .dialog-heading { margin-bottom: 8px; }
+.concept-dialog .dialog-heading h2 { font-size: 26px; }
+.concept-dialog .concept-stage { height: 430px; }
+.concept-dialog .concept-title strong { font-size: clamp(39px, 7vw, 76px); }
+.concept-dialog .concept-toolbar { padding-bottom: 0; }
+@media (max-width: 600px) {
+  .concept-stage { height: 500px; }
+  .concept-field { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(7, minmax(0, 1fr)); gap: 8px 10px; }
+  .concept-line { font-size: 7px; }
+  .concept-block { max-width: 118px; }
+  .concept-title strong { font-size: clamp(36px, 10.5vw, 56px); }
+  .concept-title p { font-size: 10px; top: calc(50% + 30px); }
+  .concept-meta { font-size: 7px; gap: 12px; }
+  .concept-toolbar { gap: 12px; }
+  .concept-note { font-size: 8px; }
+  .concept-dialog { padding: 16px; max-height: calc(100% - 24px); }
+  .concept-dialog .concept-stage { height: 370px; }
+  .concept-dialog .concept-title strong { font-size: clamp(30px, 9vw, 48px); }
+}
+@media (max-height: 560px) {
+  .concept-dialog .concept-stage { height: 220px; }
+  .concept-dialog .concept-field { grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(5, minmax(0, 1fr)); }
+  .concept-dialog .concept-line { font-size: 6px; }
+  .concept-dialog .dialog-heading h2 { font-size: 22px; }
+}
+@media (prefers-reduced-motion: reduce) { .concept-field { transition: none; } }
+@media (forced-colors: active) { .concept-stage { color: CanvasText; background: Canvas; } .concept-field { color: CanvasText; } }

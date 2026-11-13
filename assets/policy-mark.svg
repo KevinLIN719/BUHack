@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="56" viewBox="0 0 48 56" fill="none">
+  <title>Policy Lens</title>
+  <desc>A folded policy sheet with a small lens and a marker stroke.</desc>
+  <path d="M10 4h20l10 10v36H10V4Z" fill="#FBFCF8" stroke="#1F5E60" stroke-width="2.4" stroke-linejoin="round"/>
+  <path d="M30 4v10h10" stroke="#1F5E60" stroke-width="2.4" stroke-linejoin="round"/>
+  <path d="M17 21h13M17 27h8" stroke="#1F5E60" stroke-width="2.4" stroke-linecap="round"/>
+  <path d="M16 39h10" stroke="#DCE4DD" stroke-width="7" stroke-linecap="round"/>
+  <circle cx="29" cy="36" r="7" fill="#FBFCF8" stroke="#1F5E60" stroke-width="2.4"/>
+  <path d="m34 41 6 6" stroke="#1F5E60" stroke-width="3" stroke-linecap="round"/>
+</svg>

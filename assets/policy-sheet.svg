@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="760" viewBox="0 0 1000 760" fill="none">
+  <title>斜向展示的紙本保單</title>
+  <desc>帶細線紋理與橙色 POLICY LENS 字樣的米白保單，以摺角保單與附件清單展示摘要。</desc>
+  <defs>
+    <linearGradient id="paper" x1="45" y1="0" x2="800" y2="630" gradientUnits="userSpaceOnUse"><stop stop-color="#ffffff"/><stop offset=".52" stop-color="#fcfcfa"/><stop offset="1" stop-color="#f2f3f0"/></linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="0" y2="630" gradientUnits="userSpaceOnUse"><stop stop-color="#ededeb"/><stop offset="1" stop-color="#fdfdfb"/></linearGradient>
+    <linearGradient id="small" x1="240" y1="245" x2="430" y2="445" gradientUnits="userSpaceOnUse"><stop stop-color="#fff"/><stop offset="1" stop-color="#efefec"/></linearGradient>
+    <pattern id="ruling" width="18" height="18" patternUnits="userSpaceOnUse"><path d="M1 0v18" stroke="#e6e0d8" stroke-width="1"/><path d="M3 0v18" stroke="#fff" stroke-width="1.5"/></pattern>
+    <clipPath id="clip"><rect width="900" height="630" rx="18"/></clipPath>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="125%"><feDropShadow dx="0" dy="6" stdDeviation="5" flood-color="#74766d" flood-opacity=".10"/></filter>
+    <filter id="small-shadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="1" dy="5" stdDeviation="4" flood-color="#72766a" flood-opacity=".14"/></filter>
+  </defs>
+  <g transform="matrix(.86 -.47 .62 .50 35 420)">
+    <rect x="0" y="14" width="900" height="630" rx="18" fill="url(#edge)" stroke="#cfd1cb" stroke-width="1.5"/>
+    <rect x="0" y="9" width="900" height="630" rx="18" fill="#f6f6f3" stroke="#d5d7d1" stroke-width="1"/>
+    <rect x="0" y="4" width="900" height="630" rx="18" fill="#fafaf7" stroke="#d7d9d3" stroke-width="1"/>
+    <rect width="900" height="630" rx="18" fill="url(#paper)" stroke="#d6d8d1" stroke-width="1.6" filter="url(#shadow)"/>
+    <g clip-path="url(#clip)"><rect width="900" height="630" fill="url(#ruling)" opacity=".70"/>
+      <text x="62" y="122" fill="#E85A3A" font-family="Arial,Helvetica,PingFang TC,Noto Sans CJK TC,Microsoft JhengHei,sans-serif" font-size="66" letter-spacing="-4">Policy Lens</text>
+      <text x="66" y="164" fill="#94978f" font-family="Arial,Helvetica,PingFang TC,Noto Sans CJK TC,Microsoft JhengHei,sans-serif" font-size="11" letter-spacing="3">旅遊保險／示例條款</text>
+      <text x="666" y="74" fill="#b0b3a9" font-family="Arial,Helvetica,PingFang TC,Noto Sans CJK TC,Microsoft JhengHei,sans-serif" font-size="11" letter-spacing="2">PL—001／共 06 頁</text>
+      <g stroke="#d3ccbf" opacity=".7"><path d="M66 195h768M66 214h768M66 233h768M66 527h768M66 549h768M66 571h768"/></g>
+      <g filter="url(#small-shadow)">
+        <path d="M521 285h245l23 23v188H521V285Z" fill="#f3f0e8" stroke="#d1c9bd" stroke-width="1.2"/>
+        <path d="M535 273h245l23 23v189H535V273Z" fill="#faf8f1" stroke="#cfc7bb" stroke-width="1.2"/>
+        <path d="M549 260h237l24 24v189H549V260Z" fill="#fffdf8" stroke="#c5bdb1" stroke-width="1.3"/>
+        <path d="M786 260v24h24" fill="#eee9df" stroke="#c5bdb1" stroke-width="1.3"/>
+        <text x="568" y="291" fill="#B94328" font-family="Arial,Helvetica,PingFang TC,Noto Sans CJK TC,Microsoft JhengHei,sans-serif" font-size="10" letter-spacing="1.3">投保前確認／附件</text>
+        <path d="M568 303h194" stroke="#d2cabe" stroke-width="1"/>
+        <g stroke="#afa696" stroke-width="1" fill="none">
+          <rect x="568" y="319" width="10" height="10" rx="1"/><path d="m570 324 2 2 4-4"/>
+          <rect x="568" y="355" width="10" height="10" rx="1"/>
+          <rect x="568" y="391" width="10" height="10" rx="1"/>
+        </g>
+        <g fill="#776e63" font-family="Arial,Helvetica,PingFang TC,Noto Sans CJK TC,Microsoft JhengHei,sans-serif" font-size="9" letter-spacing=".7">
+          <text x="589" y="328">保障範圍與條件</text>
+          <text x="589" y="364">申請所需文件</text>
+          <text x="589" y="400">需要確認的問題</text>
+        </g>
+        <g stroke="#d7d0c5" stroke-width="1">
+          <path d="M589 338h153M589 374h153M589 410h119M568 432h194M568 444h146"/>
+        </g>
+        <text x="760" y="458" fill="#9a9082" font-family="Arial,Helvetica,PingFang TC,Noto Sans CJK TC,Microsoft JhengHei,sans-serif" font-size="7" letter-spacing="1">03</text>
+      </g>
+      <g filter="url(#small-shadow)" transform="translate(-235 0) translate(346 380) scale(.7) translate(-346 -380)"><path d="M255 276h151l31 31v176H255V276Z" fill="url(#small)" stroke="#b8bdb0" stroke-width="1.5"/><path d="M406 276v31h31" fill="#e8ebe3" stroke="#b8bdb0" stroke-width="1.5"/>
+        <text x="277" y="323" fill="#E85A3A" font-family="Arial,Helvetica,PingFang TC,Noto Sans CJK TC,Microsoft JhengHei,sans-serif" font-size="18" letter-spacing="2">保單</text>
+        <text x="277" y="345" fill="#7d8275" font-family="Arial,Helvetica,PingFang TC,Noto Sans CJK TC,Microsoft JhengHei,sans-serif" font-size="9" letter-spacing="2">旅遊／01</text>
+        <path d="M277 369h138M277 381h138M277 393h102M277 419h138M277 431h121M277 443h138" stroke="#c2c8ba" stroke-width="1"/>
+        <text x="277" y="465" fill="#a5ab9c" font-family="Arial,Helvetica,PingFang TC,Noto Sans CJK TC,Microsoft JhengHei,sans-serif" font-size="8" letter-spacing="1.5">虛構示例</text>
+      </g>
+      <text x="67" y="606" fill="#969d8d" font-family="Arial,Helvetica,PingFang TC,Noto Sans CJK TC,Microsoft JhengHei,sans-serif" font-size="9" letter-spacing="2">讀清條款，知道保障界線。</text>
+    </g>
+  </g>
+</svg>

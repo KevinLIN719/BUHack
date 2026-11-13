@@ -1,0 +1,97 @@
+/* Reusable paper/list primitives and visual overrides for the existing prototype.
+ * Controls, paper dragging and animation engines stay with their owning modules. */
+.pl-grid-paper {
+  background-color: var(--paper, #FBFCF8);
+  background-image:
+    linear-gradient(var(--paper-grid, #EBF0E8) 1px, transparent 1px),
+    linear-gradient(90deg, var(--paper-grid, #EBF0E8) 1px, transparent 1px);
+  background-size: 24px 24px;
+  background-position: -1px -1px;
+}
+.pl-ruled-list { list-style: none; padding: 0; margin: 0; border-top: 1px solid var(--notebook-rule, #DCE4DD); }
+.pl-ruled-list > * { min-width: 0; padding-block: 20px; border-bottom: 1px solid var(--notebook-rule, #DCE4DD); }
+.pl-ruled-list :is(p, li, dd, blockquote) { overflow-wrap: anywhere; }
+
+/* Plain text brand; no folded-paper/lens badge or decorative fallback. */
+.wordmark { display:inline-block; width:auto; min-width:0; height:auto; padding:4px 0; color:var(--primary); font:600 20px/1.1 var(--font-sans); letter-spacing:-.045em; white-space:nowrap; }
+.wordmark::before { content:none; }
+.wordmark-dot { display:none; }
+
+/* Ordinary information reads down a single ruled list rather than a card grid. */
+.coverage-grid { display: block; margin-bottom: 20px; border-top: 1px solid var(--border); }
+.coverage-grid .coverage-item,
+.coverage-grid .coverage-item:nth-child(even) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+  column-gap: clamp(20px, 4vw, 48px);
+  row-gap: 10px;
+  min-width: 0;
+  padding: 24px 0;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.coverage-item .item-top { grid-column: 1 / -1; margin-bottom: 4px; }
+.coverage-item h2 { grid-column: 1; font-size: clamp(23px, 3vw, 30px); }
+.coverage-item .coverage-amount { grid-column: 1; margin: 0; font-size: 21px; }
+.coverage-item .body-copy { grid-column: 2; grid-row: 2 / span 2; min-height: 0; margin: 0; }
+.coverage-item .item-actions { grid-column: 2; min-width: 0; margin-top: 2px; }
+.coverage-item :is(h2, p) { overflow-wrap: anywhere; }
+
+.dropzone {
+  min-height: 280px;
+  padding: 26px 0;
+  border: 0;
+  border-block: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.dropzone.drag { border-color: var(--primary); background: var(--secondary); }
+.dropzone .drop-plus { font-size: 42px; margin-bottom: 18px; }
+.completion-preview-stage { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+
+/* Preserve the dialog/composer boundaries; soften only the surrounding desk. */
+.agent-workspace { box-shadow: 0 8px 24px rgb(37 59 61 / 5%); }
+.agent-desk { background: transparent; }
+.agent-composer { background: var(--paper-raised, #FFFFFF); box-shadow: 0 1px 4px rgb(37 59 61 / 4%); }
+.agent-message.user { color: var(--ink); background: var(--secondary); }
+
+/* Keep intrinsic text sizes and natural scroll at narrow webpage widths. */
+:is(.masthead, .workflow-page, .documents-layout, .page-heading, .page-actions, .comparison-row, .agent-composer-toolbar) > * { min-width: 0; }
+@media (max-width: 600px) {
+  .masthead { grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 16px; }
+  .wordmark { font-size:18px; }
+  .masthead-end { grid-column:1 / -1; flex-direction:row; flex-wrap:wrap; align-items:center; justify-content:space-between; text-align:left; }
+  .coverage-grid .coverage-item,
+  .coverage-grid .coverage-item:nth-child(even) { grid-template-columns: minmax(0, 1fr); row-gap: 11px; padding: 22px 0; }
+  .coverage-item :is(.item-top, h2, .coverage-amount, .body-copy, .item-actions) { grid-column: 1; grid-row: auto; }
+  .coverage-item .item-top { margin-bottom: 1px; }
+  .coverage-item .body-copy { font-size: 12px; }
+  .dropzone { padding: 24px 0; }
+  .completion-preview-stage { padding: 0; }
+  .pl-ruled-list > * { padding-block: 17px; }
+}
+@media (max-width: 400px) {
+  .masthead { grid-template-columns: minmax(0,1fr) minmax(0,1.4fr); row-gap: 18px; padding-bottom: 12px; }
+  .masthead-copy { max-width: none; }
+  .masthead-end { grid-column: 1 / -1; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; text-align: left; }
+  .masthead-end .text-action { max-width: 100%; white-space: normal; }
+  .poster-caption { flex-wrap: wrap; gap: 16px; }
+  .poster-caption .item-actions { gap: 8px 12px; }
+  .poster-bottom { grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr); }
+  .poster-bottom > p:last-child { display: none; }
+  .landing-note { flex-direction: column; gap: 12px; }
+  .landing-note > p, .landing-note > p:last-child { max-width: none; text-align: left; }
+  .report-tabs { gap: 14px; }
+  .report-tabs > button { min-width: 0; white-space: normal; }
+  .review-meta { flex-wrap: wrap; }
+  .review-tools { justify-content: flex-start; }
+}
+@media (forced-colors: active) {
+  .pl-grid-paper { background: Canvas; }
+  .agent-workspace, .agent-composer { background: Canvas; color: CanvasText; border-color: CanvasText; box-shadow: none; }
+  .agent-message.user { background: Canvas; color: CanvasText; border: 1px solid CanvasText; }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "policy-lens-prototype",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Policy Lens interactive frontend notebook with fictional policy examples and standalone offline delivery",
+  "scripts": {
+    "dev": "node scripts/serve.mjs",
+    "build": "node scripts/build-preview.mjs",
+    "check": "node --check app.js && node --check demo-data.js && node --check agent-replies.js && node --check agent-motion.js && node --check completion-motion.js && node --check completion-preview.js && node --check concept-motion.js && node --check concept-data.js && node --check concept-preview.js && node --check scripts/serve.mjs && node --check scripts/build-preview.mjs && node --check surface-motion.js && node --check viewport-layout.js && node --check experience.js && node --check experience-data.js && node --check experience-chat.js && node --check showcase.js && node --check showcase-chat.js && node --check hero-transition.js && node --check liquid-controls.js && node --check policy-fixtures.js && node --check policy-deck.js && node --check policy-pull.js && node --check policy-workbench.js && node --check toggle-motion.js"
+  }
+}
