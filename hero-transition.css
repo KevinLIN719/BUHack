@@ -1,11 +1,9 @@
 /* A stable stage with one visual owner; no second title or handoff layer. */
-.ht-stage { position: relative; isolation: isolate; min-height: 400px; overflow: hidden; border-block: 1px solid var(--border); }
+.ht-stage { position: relative; isolation: isolate; container-type: inline-size; min-height: 400px; overflow: hidden; border-block: 1px solid var(--border); }
 .ht-concept { position: absolute; inset: 0; height: auto; background: transparent; }
 .ht-home { display: grid; place-items: center; min-height: 400px; padding: 48px 24px; text-align: center; }
 .ht-home[hidden], .ht-concept[hidden] { display: none; }
-.ht-copy h2 { margin: 0; font-size: clamp(32px,5vw,66px); font-weight: 500; line-height: 1.4; letter-spacing: -.03em; }
 .ht-heading-mark { display: inline; }
 @media (max-width:600px) {
   .ht-stage,.ht-home { min-height: 340px; }
-  .ht-copy h2 { font-size: clamp(27px,7vw,40px); }
 }

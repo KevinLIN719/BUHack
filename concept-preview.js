@@ -10,7 +10,9 @@
   if(!data||!window.PolicyConceptMotion){
     host.dataset.conceptState='ready';
     const title=document.createElement('div');title.className='concept-title';
-    const tagline=document.createElement('p');tagline.className='concept-tagline';tagline.textContent=(data?.tagline||'你的保單，付款前看清。').replace('，','，\n');title.appendChild(tagline);host.appendChild(title);
+    const lockup=document.createElement('div');lockup.className='concept-lockup';
+    const name=document.createElement('strong');name.className='concept-name';name.textContent=(data?.name||'POLICY LENS').toUpperCase();
+    const tagline=document.createElement('p');tagline.className='concept-tagline';tagline.textContent=(data?.tagline||'你的保單，付款前看清。').replace('，','，\n');lockup.append(name,tagline);title.appendChild(lockup);host.appendChild(title);
     document.querySelectorAll('[data-concept-replay],[data-concept-pause],[data-concept-skip]').forEach(button=>{button.disabled=true;});return;
   }
   const controller=window.PolicyConceptMotion.mount(host,{...data,autoplay:false,onPhase:update});

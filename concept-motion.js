@@ -1,4 +1,4 @@
-/* A short symbol sequence and one persistent tagline. Only the active layer
+/* A short symbol sequence and one persistent brand/tagline group. Only the active layer
  * animates, using compositor opacity/transform; there is no per-frame DOM scan. */
 (() => {
   'use strict';
@@ -23,6 +23,8 @@
     const doc = host.ownerDocument, view = doc.defaultView || window;
     const tagline = typeof options.tagline === 'string' && options.tagline.trim()
       ? options.tagline.trim() : '你的保單，付款前看清。';
+    const name = typeof options.name === 'string' && options.name.trim()
+      ? options.name.trim().toUpperCase() : 'POLICY LENS';
     const originalAttributes = new Map();
     const cleanups = [], autoPauses = new Set();
     let state = 'ready', phase = 'name', destroyed = false, manualPaused = false;
@@ -45,11 +47,17 @@
     const title = doc.createElement('div');
     title.className = 'concept-title';
     title.setAttribute('aria-hidden', 'true');
+    const lockup = doc.createElement('div');
+    lockup.className = 'concept-lockup';
+    const wordmark = doc.createElement('strong');
+    wordmark.className = 'concept-name';
+    wordmark.setAttribute('data-concept-name', '');
+    wordmark.textContent = name;
     const copy = doc.createElement('p');
     copy.className = 'concept-tagline';
     copy.textContent = tagline.replace('，', '，\n');
-    title.appendChild(copy); host.append(symbol, title);
-    ownAttribute('role', 'img'); ownAttribute('aria-label', tagline);
+    lockup.append(wordmark, copy); title.appendChild(lockup); host.append(symbol, title);
+    ownAttribute('role', 'img'); ownAttribute('aria-label', `${name}／${tagline}`);
 
     function setStatus(next, nextPhase = phase) {
       const changed = state !== next || phase !== nextPhase;

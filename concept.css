@@ -1,7 +1,8 @@
-/* One active symbol, then one persistent line of copy. */
+/* One active symbol, then one brand/tagline group animated as a single layer. */
 .concept-stage {
   position: relative;
   isolation: isolate;
+  container-type: inline-size;
   height: 420px;
   min-width: 0;
   overflow: hidden;
@@ -25,14 +26,32 @@
   padding: 24px;
   pointer-events: none;
 }
-.concept-title .concept-tagline {
+.concept-lockup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(16px, 3cqw, 28px);
+  width: 100%;
+  min-width: 0;
+  text-align: center;
+}
+.concept-lockup .concept-name {
+  display: block;
+  max-width: 100%;
+  margin: 0;
+  color: var(--primary);
+  font: 800 clamp(30px, 10cqw, 104px)/1 var(--font-sans);
+  letter-spacing: -.055em;
+  white-space: nowrap;
+}
+.concept-lockup .concept-tagline {
   position: static;
   margin: 0;
   max-width: 100%;
   white-space: pre-line;
   text-align: center;
   color: var(--foreground, var(--ink));
-  font: 500 clamp(32px, 5vw, 66px)/1.4 var(--font-sans);
+  font: 600 clamp(20px, 3.4cqw, 34px)/1.45 var(--font-sans);
   letter-spacing: -.03em;
   overflow-wrap: break-word;
 }
@@ -54,7 +73,8 @@
 @media (max-width: 600px) {
   .concept-stage { height: 360px; }
   .concept-title { padding: 16px; }
-  .concept-title .concept-tagline { font-size: clamp(27px, 7vw, 40px); }
+  .concept-lockup .concept-name { font-size: clamp(30px, 12cqw, 54px); }
+  .concept-lockup .concept-tagline { font-size: clamp(20px, 6cqw, 26px); }
   .concept-meta { font-size: 7px; gap: 12px; }
   .concept-toolbar { gap: 12px; }
   .concept-dialog { padding: 16px; max-height: calc(100% - 24px); }
@@ -63,5 +83,8 @@
 @media (max-height: 560px) {
   .concept-dialog .concept-stage { height: 220px; }
   .concept-dialog .dialog-heading h2 { font-size: 22px; }
+  .concept-dialog .concept-name { font-size: clamp(30px, 8cqw, 60px); }
+  .concept-dialog .concept-tagline { font-size: 20px; }
+  .concept-dialog .concept-lockup { gap: 14px; }
 }
 @media (forced-colors: active) { .concept-stage { color: CanvasText; background: Canvas; } }
