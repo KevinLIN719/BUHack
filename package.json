@@ -5,7 +5,31 @@
   "description": "Policy Lens interactive frontend notebook with fictional policy examples and standalone offline delivery",
   "scripts": {
     "dev": "node scripts/serve.mjs",
+    "dev:api": "tsx watch server/index.ts",
     "build": "node scripts/build-preview.mjs",
-    "check": "node --check app.js && node --check demo-data.js && node --check agent-replies.js && node --check agent-motion.js && node --check completion-motion.js && node --check completion-preview.js && node --check concept-motion.js && node --check concept-data.js && node --check concept-preview.js && node --check scripts/serve.mjs && node --check scripts/build-preview.mjs && node --check surface-motion.js && node --check viewport-layout.js && node --check experience.js && node --check experience-data.js && node --check experience-chat.js && node --check showcase.js && node --check showcase-chat.js && node --check hero-transition.js && node --check liquid-controls.js && node --check policy-fixtures.js && node --check policy-deck.js && node --check policy-pull.js && node --check policy-workbench.js && node --check toggle-motion.js"
+    "check": "node --check app.js && node --check demo-data.js && node --check agent-replies.js && node --check agent-motion.js && node --check completion-motion.js && node --check completion-preview.js && node --check concept-motion.js && node --check concept-data.js && node --check concept-preview.js && node --check scripts/serve.mjs && node --check scripts/build-preview.mjs && node --check surface-motion.js && node --check viewport-layout.js && node --check experience.js && node --check experience-data.js && node --check experience-chat.js && node --check showcase.js && node --check showcase-chat.js && node --check hero-transition.js && node --check liquid-controls.js && node --check policy-fixtures.js && node --check policy-deck.js && node --check policy-pull.js && node --check policy-workbench.js && node --check toggle-motion.js && node --check materials.js && node --check scripts/create-sample.mjs",
+    "check:api": "tsc -p tsconfig.server.json",
+    "test:api": "node --import tsx --test server/tests/api.test.ts",
+    "sample:pdf": "node --import tsx scripts/create-sample.mjs"
+  },
+  "dependencies": {
+    "@ai-sdk/deepseek": "^3.0.86",
+    "ai": "^7.0.172",
+    "dotenv": "^18.0.10",
+    "express": "^5.3.0",
+    "multer": "^2.5.0",
+    "pdfjs-dist": "^6.5.438",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/json-schema": "^7.0.15",
+    "@types/multer": "^2.3.0",
+    "@types/node": "^24.19.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  },
+  "engines": {
+    "node": ">=24.14.0"
   }
 }

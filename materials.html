@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-Hant-HK">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>我的保單原文 · Policy Lens</title>
+  <link rel="stylesheet" href="materials.css" />
+  <script defer src="materials.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">跳至內容</a>
+  <header class="masthead"><a class="brand" href="experience.html">Policy Lens</a><a href="experience.html">返回示例體驗 ↗</a></header>
+  <main id="main">
+    <header class="intro"><p class="eyebrow">我的材料／原文閱讀</p><h1>先把保單，<br />讀清楚。</h1><p>上傳合同或附表，逐頁查看原文和出處。</p></header>
+    <div id="offline" class="notice" hidden>此頁需要本地後端服務。離線版本可返回示例體驗；請透過本地網站使用上傳功能。</div>
+    <section class="upload panel" aria-labelledby="upload-title">
+      <h2 id="upload-title">加入一份材料</h2>
+      <p>目前支援有文字層的 PDF，每份最多 10 MB、30 頁，每次最多 8 份。掃描頁會標記為需要文字識別。</p>
+      <p class="privacy">材料保存在這台電腦，此步驟不會傳送給 AI。請先遮蓋身份證號碼等不必要的個人資料。</p>
+      <form id="upload-form">
+        <label>材料類型<select id="role" name="role"><option value="contract">保險合同</option><option value="schedule">保障／活動附表</option><option value="endorsement">批單</option><option value="promotion">宣傳材料</option><option value="broker_reply">經紀回覆</option></select></label>
+        <label class="file-label">選擇 PDF<input id="file" name="file" type="file" accept="application/pdf,.pdf" required /></label>
+        <button type="submit" id="upload-button">上傳材料 ↗</button>
+      </form>
+      <p id="status" role="status" aria-live="polite">正在連接你的材料空間……</p>
+      <button type="button" id="refresh" class="secondary">重新整理</button>
+    </section>
+    <div class="workspace">
+      <section class="panel documents" aria-labelledby="documents-title"><h2 id="documents-title">已上傳材料</h2><p id="empty">尚未上傳材料。</p><ul id="documents"></ul></section>
+      <section class="panel reader" aria-labelledby="reader-title"><h2 id="reader-title">逐頁原文</h2><p id="reader-note">選擇一份材料，查看其原文。</p>
+        <div id="reader-controls" hidden><label>PDF 頁碼<select id="page"></select></label><a id="original" target="_blank" rel="noopener">打開原 PDF ↗</a></div>
+        <p id="page-status" role="status"></p>
+        <pre id="page-text" data-i18n-ignore></pre><div id="sources" data-i18n-ignore></div>
+      </section>
+    </div>
+    <footer><p>文字提取可能受表格、分欄和字體影響，請對照原 PDF。此頁顯示原文，尚未提供 AI 分析。</p><button type="button" id="delete-review" class="secondary">刪除本次所有材料</button></footer>
+  </main>
+</body>
+</html>
