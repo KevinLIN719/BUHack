@@ -80,27 +80,31 @@
     min-height: calc(var(--oc-h) + 62px);
   }
   .oc-masthead { grid-row: 1; }
-  /* Poster composition: the sheet is the hero object. It rises from the
-   * first title line to just under the masthead, bleeds off the right edge
-   * and tucks its front corner behind "POLICY LENS" down to the foot of the line; the title stays on top,
+  /* Poster composition: the portrait sheet rises from the first title line
+   * to just under the masthead. Its right edge stays inside the viewport
+   * and the front corner tucks behind "POLICY LENS"; the title stays on top,
    * so every letter remains readable. The layer spans rows 1–4 as a size
    * container and never sizes the grid. Geometry (viewBox units) of the wide
-   * artwork: front corner (358, 640), right corner (1165, 278), sheet height
-   * from far corner to front corner 620. */
+   * artwork: A4 paper 630 × 891, front corner (321, 1022), top-right
+   * corner (628, 31). Both axes keep nearly equal scale. */
   .oc-art { grid-row: 1 / 5; margin-inline: calc(-1 * var(--oc-g)); container-type: size; --oc-t: var(--oc-type); }
   .oc-art img {
     /* Front corner at the foot of line one (title height is 1.6em). */
     --oc-corner-y: calc(100cqh - var(--oc-t) * .76);
-    --u: min(calc((var(--oc-corner-y) - 22px) / 620), calc(100cqw * .00074));
+    --u: min(calc((var(--oc-corner-y) - var(--oc-paper-top, 28px)) / 991), calc(100cqw * .00082));
     position: absolute; max-width: none;
-    width: calc(var(--u) * 1200); height: calc(var(--u) * 670);
-    top: calc(var(--oc-corner-y) - var(--u) * 640);
-    left: calc(104cqw - var(--u) * 1165);
+    width: calc(var(--u) * 1000); height: calc(var(--u) * 1060);
+    top: calc(var(--oc-corner-y) - var(--u) * 1022);
+    left: min(calc(72cqw - var(--u) * 321), calc(100cqw - 28px - var(--u) * 914));
   }
-  .oc-caption { grid-row: 3; margin-bottom: calc(var(--oc-type) * .1); }
+  .oc-caption { grid-row: 3; justify-content: flex-start; gap: 32px; margin-bottom: calc(var(--oc-type) * .1); }
+  .oc-caption > span:last-child { align-self: flex-end; text-align: left; }
   .oc-title { grid-row: 4; }
   .oc-bottom { grid-row: 5; margin-top: clamp(22px, 3.6vh, 40px); padding-bottom: clamp(22px, 3.4vh, 36px); }
   .oc-note { grid-row: 6; }
+}
+@media (min-width: 901px) and (max-width: 1100px) {
+  .oc-art { --oc-paper-top: 100px; }
 }
 
 /* Tablet and phone: a calm single column. Nothing is hidden. */
@@ -110,12 +114,11 @@
   .oc-mark { grid-column: 1 / span 6; }
   .oc-access { grid-column: 7 / span 6; }
   .oc-masthead-copy { grid-column: 1 / -1; grid-row: 2; }
-  /* The poster angle: the sheet bleeds right and its front corner (viewBox
-   * y 755 of 790, i.e. 35/1220 of the image width above its foot) dips
-   * behind the first title line. Phones bleed further than tablets. */
-  .oc-art { --oc-art-w: 1.25; margin: clamp(12px, 3vw, 24px) calc(-1 * var(--oc-g)) calc(-.0287 * var(--oc-art-w) * (100cqw + 2 * var(--oc-g)) - var(--oc-type) * .45); }
+  /* The portrait paper stays legible on phones. Its front corner is 38
+   * units above the canvas foot and slightly overlaps the first title. */
+  .oc-art { --oc-art-width: min(110vw, 760px); margin: clamp(12px, 3vw, 24px) calc(-1 * var(--oc-g)) calc(-.038 * var(--oc-art-width) - var(--oc-type) * .2); }
   .oc-art picture { display: block; }
-  .oc-art img { width: calc(var(--oc-art-w) * 100%); max-width: none; }
+  .oc-art img { width: var(--oc-art-width); max-width: none; margin-inline: auto; }
   /* Caption follows the title so the paper meets the type directly. */
   .oc-caption { order: 1; margin: 16px 0 0; font-size: 13px; }
   .oc-bottom, .oc-note { order: 2; }
@@ -125,7 +128,6 @@
   .oc-bottom > p:last-child { grid-column: 7 / span 6; grid-row: 2; }
   .oc-note { flex-direction: column; align-items: flex-start; gap: 10px; }
 }
-@media (max-width: 600px) { .oc-art { --oc-art-w: 1.5; } }
 @media (max-width: 480px) {
   .oc-mark, .oc-access { font-size: 15px; }
   .oc-masthead-copy { font-size: 13px; }
