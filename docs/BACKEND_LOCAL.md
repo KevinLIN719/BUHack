@@ -69,6 +69,7 @@ curl -s -b /tmp/policy-lens.cookies \
 - 单文件最多 10 MB、最多 30 页、每次审阅最多 8 份文件；这是当前工程预算。超过页数整份失败，不静默截断。
 - 状态：queued → parsing → ready / partial / needs_ocr / failed。ready 只表示每页有可提取文字，不表示条款内容已审核或版面读取绝对准确。
 - 无文字页标记 needs_ocr，也可能是空白页；部分页可读时文档为 partial，逐页状态会明确列出。当前不调用 OCR 或模型。
+- 提取按版面分块：先按坐标拼行，剔除页眉页脚（页面上下各 6% 之外的整行），检测分栏时把整页切成左/右栏后按栏顺序阅读，表格同一基线的单元格合并成一行，段间距与缩进决定段落边界，行尾连字符接回。分块结果按 b1..bN 编号存为来源，引用的 quote 必须是这些分块原文的子串。解析只读取文本层，不推测缺失内容；扫描件仍标 needs_ocr。
 - 原始字节存于私有 SQLite BLOB，不放公开静态目录。相同 review、文件哈希和 role 的重复上传返回同一 document（200）。
 - 解析终态提交时增加 review revision；旧 run 保持原输入版本，不能把新文件偷偷混入旧任务。创建新任务前 GET review 读取最新 revision。
 - 中断的解析在服务重启时重排队；删除审阅/文件后，迟到结果不得重新写入。
@@ -114,7 +115,7 @@ GET /api/reviews/:id/documents/:docId/content 返回原 PDF。目前提供完整
 比较由服务端确定性计算，不由模型推算：工具 `evaluateScenario` 只接受已读过的原文，`thresholdQuote` 必须是该原文的逐字子串，返回的 `status` / `thresholdMinutes` / `actualMinutes` / `marginMinutes` 由 `server/scenario.ts` 计算；模型只能照抄该 status。报告落盘前会再算一次，若模型声称的 status 与计算结果不一致，该条被拒绝；重试后仍不一致的整条丢弃并计入 `droppedScenarios`（不使任务失败）。`caveats` 固定提醒：只比较字面门槛、事件定义与起算时点/除外/证明仍需确认、上限与币种未计算。情景假设只属于该次任务，不会写回审阅背景。情景任务产出的报告同样包含 findings 与 requests，`currentReport` 取最近一次已发布报告。
 SSE 当前仅重放已保存事件；awaiting_input/cancelled 时关闭连接。消费端收到这种状态应主动关闭 EventSource，避免自动重连。接入持续运行的 Agent 时，再增加实时订阅和心跳。
 
-模型容错：schema 不使用 maxItems / maxLength 这类上限（DeepSeek 兼容模式会把 schema 写进 system prompt，超限会直接解析失败）；模型返回不符合 schema 的 JSON 时自动重试一次并给更严格的输出要求；仍失败则任务置 failed，服务端日志额外打印 finishReason、底层原因和最多 600 字的原始输出，便于定位。
+模型容错：schema 不使用 maxItems / maxLength 这类上限（DeepSeek 兼容模式会把 schema 写进 system prompt，超限会直接解析失败）；模型返回不符合 schema 的 JSON 时自动重试一次并给更严格的输出要求；仍失败则任务置 failed，服务端日志额外打印 finishReason、底层原因和最多 600 字的原始输出，便于定位。工具输出按预算截断（searchSources 每条 320 字、readSource 目标段 1600 字、相邻段 480 字），instructions 要求读到关键条款就收手，调查循环上限 14 步；模型在步数用尽后没有给出最终报告时，会重新开一次调查并要求 6 次工具调用内输出报告。
 
 本阶段仅供单机本地开发，监听 127.0.0.1。对外部署前需要补充 HTTPS/安全 cookie、会话生命周期和速率/容量限制等配置。API 不开放跨域调用，前端联调时使用同源服务或开发代理。
 

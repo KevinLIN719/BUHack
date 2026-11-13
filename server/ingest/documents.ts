@@ -12,6 +12,8 @@ export type DocumentRow = {
 };
 export type ParsedPage = {
   pageIndex: number; printedPageLabel: string | null; text: string;
+  // Layout-aware paragraphs from the worker. Optional so an older worker cannot break ingest.
+  blocks?: string[];
   status: "ready" | "needs_ocr" | "failed";
 };
 type ParseResult = { pages: ParsedPage[]; error?: never } | { error: string; pages?: never };
@@ -101,7 +103,7 @@ export class DocumentQueue {
           for (const page of result.pages) {
             this.store.db.prepare("INSERT INTO pages (documentId, pageIndex, printedPageLabel, text, status) VALUES (?, ?, ?, ?, ?)")
               .run(document.id, page.pageIndex, page.printedPageLabel, page.text, page.status);
-            blocks(page.text).forEach((quote, index) => {
+            (page.blocks?.length ? page.blocks : blocks(page.text)).forEach((quote, index) => {
               const sourceId = `${document.id}:p${page.pageIndex}:b${index + 1}`;
               this.store.db.prepare("INSERT INTO sources (id, documentId, pageIndex, blockId, quote) VALUES (?, ?, ?, ?, ?)")
                 .run(sourceId, document.id, page.pageIndex, `b${index + 1}`, quote);

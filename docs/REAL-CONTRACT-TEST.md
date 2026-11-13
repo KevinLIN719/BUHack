@@ -63,5 +63,18 @@ citations: 1（已核对原文）
 
 ## 遗留观察
 
+## 2026-11-14 版面感知抽取后复验
+
+提取改为按版面分块后（页眉页脚剔除、分栏顺序、表格行合并、段落边界、连字符接回），同一份 QBE 保单重跑：
+
+- 页 1 首块是 `Annual Travel Insurance Policy`，`Page 1 of 9` 这类页眉不再进入引用；
+- 页 2 的左栏条款与右栏赔付表被正确分到不同块，赔付表还原成一行：`1. Medical Expenses  500,000  1,000,000  3,000,000`、`Silver Gold Diamond`；
+- investigate（同一问题）：`awaiting_input`、7 条结论、`citationIntegrity {cited 10, verified 10, missing 0}`、`review: checked`、约 21 秒；
+- scenario（行李延误 9 小时）：`insufficient_information`，门槛片段是赔付表里的 `(6 full hrs)  (6 full hrs)  (5 full hrs)`（按计划档位不同），工具不猜档次，明确说明无法确定门槛。
+
+仍然做不到的：表格里「每满 N 小时 +M」的递增规则仍无法计算，只能指出缺什么；这是设计内的保守行为。
+
+## 遗留观察
+
 - 保单附表数字是表格排版，被拆成多个文本块（如 `full hrs, 1,000 every 6 full hrs thereafter`），模型能引用但无法还原表格结构；这类「每 N 小时递增」的累计规则目前按设计返回 `insufficient_information`。
 - 该 PDF 只有 9 页，未触及 30 页上限与 10MB 上限。
