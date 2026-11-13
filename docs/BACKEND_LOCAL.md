@@ -114,6 +114,8 @@ GET /api/reviews/:id/documents/:docId/content 返回原 PDF。目前提供完整
 比较由服务端确定性计算，不由模型推算：工具 `evaluateScenario` 只接受已读过的原文，`thresholdQuote` 必须是该原文的逐字子串，返回的 `status` / `thresholdMinutes` / `actualMinutes` / `marginMinutes` 由 `server/scenario.ts` 计算；模型只能照抄该 status。报告落盘前会再算一次，若模型声称的 status 与计算结果不一致，该条被拒绝；重试后仍不一致的整条丢弃并计入 `droppedScenarios`（不使任务失败）。`caveats` 固定提醒：只比较字面门槛、事件定义与起算时点/除外/证明仍需确认、上限与币种未计算。情景假设只属于该次任务，不会写回审阅背景。情景任务产出的报告同样包含 findings 与 requests，`currentReport` 取最近一次已发布报告。
 SSE 当前仅重放已保存事件；awaiting_input/cancelled 时关闭连接。消费端收到这种状态应主动关闭 EventSource，避免自动重连。接入持续运行的 Agent 时，再增加实时订阅和心跳。
 
+模型容错：schema 不使用 maxItems / maxLength 这类上限（DeepSeek 兼容模式会把 schema 写进 system prompt，超限会直接解析失败）；模型返回不符合 schema 的 JSON 时自动重试一次并给更严格的输出要求；仍失败则任务置 failed，服务端日志额外打印 finishReason、底层原因和最多 600 字的原始输出，便于定位。
+
 本阶段仅供单机本地开发，监听 127.0.0.1。对外部署前需要补充 HTTPS/安全 cookie、会话生命周期和速率/容量限制等配置。API 不开放跨域调用，前端联调时使用同源服务或开发代理。
 
 

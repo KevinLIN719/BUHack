@@ -32,14 +32,17 @@ export const scenarioSchema = z.object({
   detail: z.string(),
   unknowns: z.array(z.string()),
 });
+// No .max()/length bounds anywhere: DeepSeek's compatibility mode writes the schema into the
+// system prompt, and a maxItems the model overshoots (or a maxLength it ignores) fails the whole
+// run at parse time instead of producing a report we could validate and repair.
 export const answerSchema = z.object({
-  findings: z.array(z.object({ explanation: z.string().max(2000),
+  findings: z.array(z.object({ explanation: z.string(),
     evidenceStatus: z.enum(["document_supported", "interpretation", "unknown"]),
-    sourceIds: z.array(z.string()).max(12) })).max(15),
-  openQuestions: z.array(z.string().max(1000)).max(15),
-  requests: z.array(z.object({ message: z.string().max(1000), requestedRole: z.enum(["schedule", "endorsement", "contract", "clarification"]) })).max(8),
-  comparisons: z.array(comparisonSchema).max(8).optional(),
-  scenarios: z.array(scenarioSchema).max(4).optional(),
+    sourceIds: z.array(z.string()) })),
+  openQuestions: z.array(z.string()),
+  requests: z.array(z.object({ message: z.string(), requestedRole: z.enum(["schedule", "endorsement", "contract", "clarification"]) })),
+  comparisons: z.array(comparisonSchema).optional(),
+  scenarios: z.array(scenarioSchema).optional(),
 });
 type Source = {sourceId: string; documentId: string; pageIndex: number; quote: string; role: string};
 export type ReviewVerdict = "supported" | "partial" | "unsupported" | "quote_mismatch";
@@ -47,10 +50,10 @@ export type SemanticReview = { status: "checked" | "issues_found" | "unavailable
   items: {index: number; verdict: ReviewVerdict; note: string}[]; checkedAt: string };
 export const reviewSchema = z.object({
   items: z.array(z.object({
-    index: z.number().int().min(0).max(20),
+    index: z.number().int(),
     verdict: z.enum(["supported", "partial", "unsupported", "quote_mismatch"]),
-    note: z.string().max(300),
-  })).max(15),
+    note: z.string(),
+  })),
 });
 type Report = z.infer<typeof answerSchema> & {sources?: Source[]; review?: SemanticReview; verification?: string;
   droppedComparisons?: number; comparisons?: z.infer<typeof comparisonSchema>[];
@@ -235,6 +238,20 @@ export class Investigator {
       droppedSources,
     };
   }
+  // The model sometimes answers in a shape the schema cannot accept (markdown fences, a missing
+  // required field, an item it padded past the allowed count). That happens before our validators
+  // run, so give it one explicit "return strict JSON" retry instead of failing the whole run.
+  private async generateWithRetry(agent: {generate: (args: {prompt: string; abortSignal: AbortSignal}) => Promise<{output: unknown}>},
+    prompt: string, controller: AbortSignal) {
+    try {
+      return await agent.generate({prompt, abortSignal: controller});
+    } catch (error) {
+      const name = error instanceof Error ? error.name : "";
+      if (!name.includes("NoObjectGenerated")) throw error;
+      console.warn(`[agent] output did not match the schema once (${name}); retrying with a stricter instruction.`);
+      return await agent.generate({prompt: `${prompt}\n\n上一次输出无法被解析为符合要求的 JSON。这次只输出一个 JSON 对象，不要代码块、不要解释文字；findings、openQuestions、requests 三个字段必须都存在（没有内容时用空数组）；comparisons、scenarios 在没有宣传材料或情景假设时可以省略，但不能写成字符串或对象。`, abortSignal: controller});
+    }
+  }
   // One corrective attempt when the model breaks the citation invariant. The invariant itself
   // stays: an uncited finding is downgraded to unknown instead of being accepted.
   private async validateWithRepair(output: unknown, agent: {generate: (args: {prompt: string; abortSignal: AbortSignal}) => Promise<{output: unknown}>},
@@ -290,7 +307,7 @@ export class Investigator {
       const prompt = JSON.stringify(prior
         ? { goal: run.goal, context: snapshot.context, prior: { findings: prior.findings, openQuestions: prior.openQuestions, requests: prior.requests }, newDocuments: prior.newDocuments, droppedSources: prior.droppedSources }
         : { goal: run.goal, context: snapshot.context });
-      const result = await agent.generate({prompt, abortSignal:controller.signal});
+      const result = await this.generateWithRetry(agent, prompt, controller.signal);
       assertActive();
       const report = await this.validateWithRepair(result.output, agent, prompt, snapshot, scoped.seen, controller);
       const review = await semanticReview(report, async reviewPrompt => {
@@ -320,6 +337,17 @@ export class Investigator {
     } catch (error) {
       // Keep the failure inspectable in the server log without leaking material content.
       console.error(`[agent] run ${run.id} failed:`, error instanceof Error ? `${error.name}: ${error.message}` : "unknown error");
+      // AI SDK throws before our validators run when the model's JSON does not match the schema,
+      // so log what actually came back (truncated) plus the underlying zod/parse reason.
+      const details = error as {cause?: unknown; text?: unknown; finishReason?: unknown};
+      if (details && typeof details === "object" && ("text" in details || "cause" in details)) {
+        const cause = details.cause instanceof Error ? `${details.cause.name}: ${details.cause.message}` : details.cause;
+        console.error("[agent] model output diagnostics:", JSON.stringify({
+          finishReason: details.finishReason ?? null,
+          cause: cause ?? null,
+          text: typeof details.text === "string" ? details.text.slice(0, 600) : null,
+        }));
+      }
       const current = this.store.getRun(run.id, run.reviewId);
       if (current && current.status !== "cancelled") {
         this.store.db.prepare("UPDATE runs SET status = 'failed' WHERE id = ?").run(run.id);
