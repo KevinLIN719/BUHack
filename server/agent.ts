@@ -55,6 +55,16 @@ export const answerSchema = z.object({
   comparisons: z.array(comparisonSchema).optional(),
   scenarios: z.array(scenarioSchema).optional(),
   brokerClaims: z.array(brokerClaimSchema).optional(),
+  // Only meaningful for a successor run: says what happened to each earlier conclusion now that
+  // more material arrived. previousIndex points into the parent report, currentIndex into this
+  // report (-1 when the conclusion is withdrawn).
+  supersedes: z.array(z.object({
+    previousIndex: z.number().int(),
+    verdict: z.enum(["unchanged", "strengthened", "weakened", "reversed", "withdrawn"]),
+    explanation: z.string(),
+    currentIndex: z.number().int(),
+    newSourceIds: z.array(z.string()),
+  })).optional(),
 });
 type Source = {sourceId: string; documentId: string; pageIndex: number; quote: string; role: string};
 export type ReviewVerdict = "supported" | "partial" | "unsupported" | "quote_mismatch";
@@ -72,7 +82,16 @@ type Report = z.infer<typeof answerSchema> & {sources?: Source[]; review?: Seman
   droppedComparisons?: number; comparisons?: z.infer<typeof comparisonSchema>[];
   droppedScenarios?: number; scenarios?: z.infer<typeof scenarioSchema>[];
   droppedBrokerClaims?: number; brokerClaims?: z.infer<typeof brokerClaimSchema>[];
+  supersedes?: EnrichedSupersede[]; supersedesUnchecked?: number;
   coverage?: {id: string; status: string; pageCount: number | null}[]};
+// The stored entry keeps the previous conclusion itself, so the report can show "before → after"
+// even after the parent run is long finished.
+type SupersedeVerdict = "unchanged" | "strengthened" | "weakened" | "reversed" | "withdrawn";
+type EnrichedSupersede = {
+  previousIndex: number; previousConclusion: string; previousEvidenceStatus: string;
+  previousSourceIds: string[]; verdict: SupersedeVerdict; explanation: string;
+  currentIndex: number; newSourceIds: string[];
+};
 export function snapshotFor(store: Store, reviewId: string) {
   const review = store.db.prepare("SELECT context FROM reviews WHERE id = ?").get(reviewId)!;
   const documents = documentsFor(store, reviewId);
@@ -233,7 +252,34 @@ function validateBrokerClaims(claims: NonNullable<z.infer<typeof answerSchema>["
   });
 }
 
-export function validateAnswer(value: unknown, snapshot: Snapshot, seen: Set<string>) {
+// A successor run must be able to point at the earlier conclusion it is talking about and at the
+// wording it read this time. Indices are checked against the parent report and this report, so a
+// model cannot claim to have revised a conclusion that never existed.
+function validateSupersedes(items: NonNullable<z.infer<typeof answerSchema>["supersedes"]>,
+  prior: {findings: {explanation: string; evidenceStatus: string; sourceIds: string[]}[]},
+  findings: {sourceIds: string[]}[], snapshot: Snapshot, seen: Set<string>): EnrichedSupersede[] {
+  const byId = new Map(snapshot.sources.map(source => [source.sourceId, source]));
+  const used = new Set<number>();
+  return items.map((item, index) => {
+    const previous = prior.findings[item.previousIndex];
+    if (!previous) throw new Error(`SUPERSEDES_INVALID:previous_index_${index}`);
+    if (used.has(item.previousIndex)) throw new Error(`SUPERSEDES_INVALID:duplicate_index_${index}`);
+    used.add(item.previousIndex);
+    if (item.currentIndex < -1 || item.currentIndex >= findings.length) throw new Error(`SUPERSEDES_INVALID:current_index_${index}`);
+    if (item.verdict === "withdrawn" && item.currentIndex !== -1) throw new Error(`SUPERSEDES_INVALID:withdrawn_index_${index}`);
+    if (item.verdict !== "withdrawn" && item.currentIndex < 0) throw new Error(`SUPERSEDES_INVALID:current_index_${index}`);
+    for (const id of item.newSourceIds) {
+      if (!seen.has(id) || !byId.has(id)) throw new Error(`SUPERSEDES_INVALID:source_${index}`);
+    }
+    return { previousIndex: item.previousIndex, previousConclusion: previous.explanation,
+      previousEvidenceStatus: previous.evidenceStatus, previousSourceIds: previous.sourceIds,
+      verdict: item.verdict, explanation: item.explanation,
+      currentIndex: item.currentIndex, newSourceIds: item.newSourceIds };
+  });
+}
+
+export function validateAnswer(value: unknown, snapshot: Snapshot, seen: Set<string>,
+  prior?: {findings: {explanation: string; evidenceStatus: string; sourceIds: string[]}[]} | null) {
   const answer = answerSchema.parse(value);
   if (!answer.findings.length && !answer.openQuestions.length && !answer.requests.length && !(answer.comparisons ?? []).length && !(answer.scenarios ?? []).length && !(answer.brokerClaims ?? []).length) throw new Error("EMPTY_REPORT");
   for (const finding of answer.findings) {
@@ -243,11 +289,19 @@ export function validateAnswer(value: unknown, snapshot: Snapshot, seen: Set<str
   const comparisons = validateComparisons(answer.comparisons ?? [], snapshot, seen);
   const scenarios = validateScenarios(answer.scenarios ?? [], snapshot, seen);
   const brokerClaims = validateBrokerClaims(answer.brokerClaims ?? [], snapshot, seen);
+  // A first investigation has nothing to compare against; only a successor run may report changes.
+  let supersedes: EnrichedSupersede[] = [];
+  if (prior) supersedes = validateSupersedes(answer.supersedes ?? [], prior, answer.findings, snapshot, seen);
+  else if ((answer.supersedes ?? []).length) throw new Error("SUPERSEDES_INVALID:no_prior");
   const ids = new Set([...answer.findings.flatMap(f => f.sourceIds),
     ...comparisons.flatMap(c => [...c.marketingSourceIds, ...(c.contractSourceIds ?? [])]),
     ...scenarios.flatMap(s => s.ruleSourceIds),
-    ...brokerClaims.flatMap(c => [...c.brokerSourceIds, ...(c.contractSourceIds ?? [])])]);
-  return { ...answer, comparisons, scenarios, brokerClaims, sources: snapshot.sources.filter(s => ids.has(s.sourceId)),
+    ...brokerClaims.flatMap(c => [...c.brokerSourceIds, ...(c.contractSourceIds ?? [])]),
+    ...supersedes.flatMap(s => s.newSourceIds)]);
+  const covered = new Set(supersedes.map(s => s.previousIndex));
+  return { ...answer, comparisons, scenarios, brokerClaims, supersedes,
+    supersedesUnchecked: prior ? prior.findings.filter((_, index) => !covered.has(index)).length : 0,
+    sources: snapshot.sources.filter(s => ids.has(s.sourceId)),
     droppedComparisons: 0, droppedScenarios: 0, droppedBrokerClaims: 0,
     coverage: snapshot.documents.map(d => ({id:d.id, status:d.status, pageCount:d.pageCount})),
     verification: "source_ids_checked_semantics_not_independently_verified" };
@@ -344,21 +398,22 @@ export class Investigator {
   // One corrective attempt when the model breaks the citation invariant. The invariant itself
   // stays: an uncited finding is downgraded to unknown instead of being accepted.
   private async validateWithRepair(output: unknown, agent: {generate: (args: {prompt: string; abortSignal: AbortSignal}) => Promise<{output: unknown}>},
-    prompt: string, snapshot: Snapshot, seen: Set<string>, controller: AbortController) {
-    try { return validateAnswer(output, snapshot, seen); }
+    prompt: string, snapshot: Snapshot, seen: Set<string>, controller: AbortController,
+    prior: {findings: {explanation: string; evidenceStatus: string; sourceIds: string[]}[]} | null = null) {
+    try { return validateAnswer(output, snapshot, seen, prior); }
     catch (error) {
       const code = error instanceof Error ? error.message.split(":")[0] : "";
-      if (!["MISSING_CITATION", "INVALID_CITATION", "EMPTY_REPORT", "COMPARISON_INVALID", "SCENARIO_INVALID", "BROKER_CLAIM_INVALID"].includes(code)) throw error;
+      if (!["MISSING_CITATION", "INVALID_CITATION", "EMPTY_REPORT", "COMPARISON_INVALID", "SCENARIO_INVALID", "BROKER_CLAIM_INVALID", "SUPERSEDES_INVALID"].includes(code)) throw error;
       const repair = `上一次输出被校验拒绝（${code}）。修正要求：findings 中 evidenceStatus 为 document_supported 或 interpretation 的条目，sourceIds 必须非空且只能使用本次工具实际返回过的 sourceId；没有引用就改为 unknown 并清空 sourceIds；如果确实没有可引用结论，请在 openQuestions 或 requests 里说明还缺什么。comparisons 的 marketingQuote 与 contractQuote 必须逐字摘自工具返回的原文，不得改写或拼接；marketingSourceIds 只能用 role=promotion 的来源，contractSourceIds 只能用合同/附表/批单来源，且这两类来源都必须先用工具读过；无法核对的对照请整条删除。scenarios 的 thresholdQuote 必须逐字摘自工具返回过的原文，status 必须与 evaluateScenario 工具返回的 status 完全一致，actualUnit 只能是 minutes、hours 或 days；不确定就整条删除。brokerClaims 的 brokerQuote 必须逐字摘自 role=broker_reply 的材料，verdict 为 not_in_contract 时不要给合同侧引用，其余 verdict 的 contractQuote 必须逐字摘自合同/附表/批单且 contractSourceIds 非空；无法核对的整条删除。本次实际返回过的 sourceId 示例（只能从这里选，不要使用文档 id 本身，sourceId 形如「<文档id>:p<页>:b<块>」）：${[...seen].slice(0, 10).join("、") || "（尚未读取任何来源）"}。`;
       const second = await agent.generate({ prompt: `${prompt}\n\n${repair}`, abortSignal: controller.signal });
-      try { return validateAnswer(second.output, snapshot, seen); }
+      try { return validateAnswer(second.output, snapshot, seen, prior); }
       catch (again) {
         // Entries that still cannot be quoted are dropped instead of failing the whole run: the
         // investigation itself is valid, and the report says how many were removed.
         const dropCode = again instanceof Error ? again.message.split(":")[0] : "";
-        if (!["COMPARISON_INVALID", "SCENARIO_INVALID", "BROKER_CLAIM_INVALID"].includes(dropCode)) throw again;
-        const raw = (second.output ?? {}) as {comparisons?: unknown[]; scenarios?: unknown[]; brokerClaims?: unknown[]};
-        const report = validateAnswer({...(second.output as Record<string, unknown>), comparisons: [], scenarios: [], brokerClaims: []}, snapshot, seen);
+        if (!["COMPARISON_INVALID", "SCENARIO_INVALID", "BROKER_CLAIM_INVALID", "SUPERSEDES_INVALID"].includes(dropCode)) throw again;
+        const raw = (second.output ?? {}) as {comparisons?: unknown[]; scenarios?: unknown[]; brokerClaims?: unknown[]; supersedes?: unknown[]};
+        const report = validateAnswer({...(second.output as Record<string, unknown>), comparisons: [], scenarios: [], brokerClaims: [], supersedes: []}, snapshot, seen, prior);
         return {...report,
           droppedComparisons: Array.isArray(raw.comparisons) ? raw.comparisons.length : 0,
           droppedScenarios: Array.isArray(raw.scenarios) ? raw.scenarios.length : 0,
@@ -383,7 +438,7 @@ export class Investigator {
       const scoped = sourceTools(snapshot, name => this.store.addEvent(run.id, "tool.started", {name}), assertActive);
       const provider = createDeepSeek({ apiKey: process.env.DEEPSEEK_API_KEY, baseURL: process.env.DEEPSEEK_BASE_URL ?? "https://api.deepseek.com" });
       const rescuerRule = prior
-        ? "本次是补件续查。prompt 里的 prior 是上次调查的结论与待补材料请求，newDocuments 是此后新加入的材料。先检查新材料是否回应了 prior.requests，再决定还缺什么。prior 里的引用可能在材料变更后失效，必须用工具重新确认后才能引用，不得凭记忆引用。本次输出一份完整的当前报告：旧结论仍成立时简要保留，证据已变化时更新或明确降级，不能只给增量片段；不必重复无关检索，但所有保留引用仍须重新确认。材料足够时 requests 留空。"
+        ? "本次是补件续查。prompt 里的 prior 是上次调查的结论与待补材料请求，newDocuments 是此后新加入的材料。先检查新材料是否回应了 prior.requests，再决定还缺什么。prior 里的引用可能在材料变更后失效，必须用工具重新确认后才能引用，不得凭记忆引用。本次输出一份完整的当前报告：旧结论仍成立时简要保留，证据已变化时更新或明确降级，不能只给增量片段；不必重复无关检索，但所有保留引用仍须重新确认。材料足够时 requests 留空。同时输出 supersedes：逐条说明上次的哪些结论因为新材料而改变。previousIndex 是 prior.findings 里该条的下标（从 0 开始）；verdict 五选一：unchanged（仍成立）、strengthened（新证据更明确）、weakened（仍可能但条件更多）、reversed（被新材料推翻）、withdrawn（原结论已不适用）；currentIndex 指向本次 findings 中对应的结论，撤回时用 -1；newSourceIds 是本次实际读过的、支持这个判断的 sourceId；explanation 用一句中文说明变化原因。没被提及的旧结论会计入「未复核」，所以只写真正有变化的或需要明确保留的条目。首次调查不要输出 supersedes。"
         : "";
       const scenarioRule = run.kind === "scenario"
         ? "本次是情景测试：goal 是用户想验证的假设。先读取与该假设相关的条款原文，找到其中写明的门槛（例如时长），调用 evaluateScenario 工具计算，status 只能照抄工具返回值，不得自行推算。scenarios 输出 1–2 条：question 是用户的问题，assumption 是假设的数值与单位，thresholdQuote 是门槛原文的逐字片段，ruleSourceIds 是那段原文的 sourceId，actualValue 与 actualUnit 是用户假设，status 来自工具，detail 用一句话说明差距，unknowns 列出仍需确认的事项（事件定义、起算时点、除外、证明、上限与币种）。不得承诺赔付，不得编写赔付公式或金额。"
@@ -400,7 +455,9 @@ export class Investigator {
         : { goal: run.goal, context: snapshot.context });
       const result = await this.generateWithRetry(agent, prompt, controller.signal);
       assertActive();
-      const validated = await this.validateWithRepair(result, agent, prompt, snapshot, scoped.seen, controller);
+      const validated = await this.validateWithRepair(result, agent, prompt, snapshot, scoped.seen, controller,
+        prior ? {findings: prior.findings.map(finding => ({explanation: finding.explanation,
+          evidenceStatus: finding.evidenceStatus, sourceIds: finding.sourceIds}))} : null);
       const boundaryIds = new Set(scoped.boundaryExperiments.map(item => item.sourceId));
       const report: Report = {...validated, boundaryExperiments: scoped.boundaryExperiments,
         sources: snapshot.sources.filter(source => boundaryIds.has(source.sourceId) || validated.sources?.some(item => item.sourceId === source.sourceId))};

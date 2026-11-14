@@ -1,5 +1,7 @@
 # Policy Lens · 当前交付检查点
 
+> 2026-11-14：本文记录**前端**交付检查点（仍然有效）。全仓进度与后端接口事实已统一到 [docs/PLAN.md](docs/PLAN.md)。
+
 更新：2026-11-13。供压缩上下文或新会话续接。先读 MASTER_PLAN.md、TASK_BOARD.md、FINAL_ACCEPTANCE.md；原串行队列建议已由统一模块计划取代。
 
 ## 当前状态

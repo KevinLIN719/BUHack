@@ -50,6 +50,10 @@ test("successor report exposes exact changes and scoped persistent history witho
     const old = await (await api.request(`${path}/reports/${oldId}`,{headers})).json();
     assert.equal(old.findings[1].explanation,"缺少附表");
     assert.equal(old.changes,null);
+    const exportedOld = await (await api.request(`${path}/questions/export?format=md&reportId=${oldId}`,{headers})).text();
+    assert.match(exportedOld,/缺少附表/);
+    assert.doesNotMatch(exportedOld,/附表有新的限制/);
+    assert.equal((await api.request(`${path}/questions/export?format=md&reportId=${oldId}`,{headers:otherHeaders})).status,404);
     assert.equal((await api.request(`${path}/reports/${randomUUID()}`,{headers})).status,404);
   } finally {await api.close();await rm(dir,{recursive:true,force:true});}
 });
@@ -798,5 +802,82 @@ test("a pasted chat record becomes citable material with provenance", async () =
     assert.equal((await missing.json()).error.code, "INVALID_INPUT");
   } finally {
     await api.close();
+  }
+});
+
+test("the newest material version keeps the report slot and lists what changed", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "policy-lens-supersede-"));
+  const dbPath = join(dir, "test.sqlite");
+  const api = await start(dbPath);
+  try {
+    const created = await api.request("/api/reviews", { method: "POST" });
+    const cookie = created.headers.get("set-cookie")!.split(";")[0];
+    const review = await created.json();
+    const headers = { Cookie: cookie };
+    const db = api.store.db;
+    const now = new Date().toISOString();
+    const contractId = "66666666-6666-4666-8666-666666666666";
+    db.prepare(`INSERT INTO documents (id, reviewId, role, name, sha256, byteSize, content, status, pageCount, createdAt)
+      VALUES (?, ?, 'contract', 'policy.pdf', ?, 1, ?, 'ready', 1, ?)`)
+      .run(contractId, review.id, "d".repeat(64), new Uint8Array([0x25, 0x50, 0x44, 0x46]), now);
+    db.prepare("INSERT INTO pages (documentId, pageIndex, text, status) VALUES (?, 1, ?, 'complete')")
+      .run(contractId, "Delay exceeding 6 hours.");
+    const sourceId = `${contractId}:p1:b1`;
+    db.prepare("INSERT INTO sources (id, documentId, pageIndex, blockId, quote) VALUES (?, ?, 1, 'b1', ?)")
+      .run(sourceId, contractId, "Delay exceeding 6 hours.");
+    const insertRun = db.prepare(`INSERT INTO runs (id, reviewId, inputRevision, kind, goal, status, requestHash, createdAt, updatedAt)
+      VALUES (?, ?, ?, 'investigate', '延误多久才赔', 'partial', ?, ?, ?)`);
+    const insertReport = db.prepare("INSERT INTO investigations (runId, snapshot, output) VALUES (?, ?, ?)");
+    const newerRun = "77777777-7777-4777-8777-777777777777";
+    const olderRun = "88888888-8888-4888-8888-888888888888";
+    insertRun.run(newerRun, review.id, 2, "h3", now, now);
+    insertReport.run(newerRun, JSON.stringify({context:{},documents:[],sources:[]}), JSON.stringify({
+      findings: [{explanation: "附表把门槛写成 8 小时。", evidenceStatus: "document_supported", sourceIds: [sourceId]}],
+      openQuestions: ["起算点如何计算？"],
+      requests: [{message: "请提供完整附表。", requestedRole: "schedule"}],
+      supersedes: [{previousIndex: 0, previousConclusion: "旧版说门槛是 6 小时。",
+        previousEvidenceStatus: "document_supported", previousSourceIds: [sourceId],
+        verdict: "reversed", explanation: "新材料把门槛改成 8 小时。", currentIndex: 0, newSourceIds: [sourceId]}],
+      supersedesUnchecked: 1, sources: [], coverage: [], verification: "source_ids_checked_semantics_reviewed",
+    }));
+    // The older run finishes last: the newer revision must still be the published one.
+    insertRun.run(olderRun, review.id, 1, "h4", now, now);
+    insertReport.run(olderRun, JSON.stringify({context:{},documents:[],sources:[]}), JSON.stringify({
+      findings: [{explanation: "旧版说门槛是 6 小时。", evidenceStatus: "document_supported", sourceIds: [sourceId]}],
+      openQuestions: [], requests: [], sources: [], coverage: [],
+    }));
+
+    const view = (await (await api.request(`/api/reviews/${review.id}`, { headers })).json()).currentReport;
+    assert.equal(view.runId, newerRun, "a late run from an older revision must not take the slot");
+    assert.equal(view.supersedes.length, 1);
+    assert.equal(view.supersedes[0].verdict, "reversed");
+    assert.equal(view.supersedes[0].previousConclusion, "旧版说门槛是 6 小时。");
+    assert.equal(view.supersedes[0].previous[0].status, "verified");
+    assert.equal(view.supersedes[0].current[0].documentName, "policy.pdf");
+    assert.equal(view.supersedesUnchecked, 1);
+
+    const exported = await api.request(`/api/reviews/${review.id}/questions/export?format=md`, { headers });
+    assert.equal(exported.status, 200);
+    assert.match(exported.headers.get("content-type") ?? "", /text\/markdown/);
+    const markdown = await exported.text();
+    assert.match(markdown, /# 提問清單/);
+    assert.match(markdown, /起算点如何计算？/);
+    assert.match(markdown, /\[schedule\] 请提供完整附表。/);
+    assert.match(markdown, /旧版说门槛是 6 小时。/);
+    assert.match(markdown, /policy\.pdf/);
+
+    const badFormat = await api.request(`/api/reviews/${review.id}/questions/export?format=pdf`, { headers });
+    assert.equal(badFormat.status, 400);
+    assert.equal((await badFormat.json()).error.code, "UNSUPPORTED_FORMAT");
+
+    const empty = await api.request("/api/reviews", { method: "POST" });
+    const emptyCookie = empty.headers.get("set-cookie")!.split(";")[0];
+    const emptyReview = await empty.json();
+    const noReport = await api.request(`/api/reviews/${emptyReview.id}/questions/export`, { headers: { Cookie: emptyCookie } });
+    assert.equal(noReport.status, 404);
+    assert.equal((await noReport.json()).error.code, "REPORT_NOT_FOUND");
+  } finally {
+    await api.close();
+    await rm(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
   }
 });

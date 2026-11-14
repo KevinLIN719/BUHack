@@ -65,3 +65,17 @@ blockquote{margin:0;padding:9px 12px;border-left:3px solid #d8d2c3;background:#f
 .broker .badge.bad{border-color:#e3c4c0;background:#faf0ee;color:#8d3b34}
 .workspace-steps{display:flex;gap:12px;flex-wrap:wrap;margin-top:24px}.workspace-steps a{padding:9px 13px;border:1px solid var(--line);border-radius:30px;text-decoration:none;font-size:13px}.context-fields{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:18px}.context-fields input,.context-fields textarea{width:100%;min-width:0;padding:10px;border:1px solid var(--line);background:#fff;font:inherit;border-radius:5px}.context-fields label,.context-fields>*{min-width:0}.context-fields p{margin:0;font-size:13px}.report-changes{background:#f5eee0;border:1px solid #e5d6b9;padding:20px;border-radius:8px}.report-changes h3{margin-top:0}.version-columns{display:grid;grid-template-columns:1fr 1fr;gap:20px}.version-columns>*{min-width:0}.version-finding{border-top:1px solid var(--line);padding:10px 0;overflow-wrap:anywhere}.version-finding p{margin:5px 0}.boundary-card{border:1px solid var(--line);border-radius:8px;padding:18px;display:grid;gap:10px}.boundary-card h4,.boundary-card p{margin:0}.boundary-cases{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.boundary-cases>div{display:grid;gap:8px;background:#f5f3ec;padding:14px;font-size:13px}.boundary-cases b{font-size:18px}#activity{padding-left:24px;max-height:240px;overflow:auto;list-style:decimal}#activity li{font-size:13px;padding:6px 0}#history-label{max-width:100%}#report-history{width:100%}#report-version{margin:12px 0;color:#75664c;font-size:13px}.analysis,.reader,.documents,#report-area,#report{min-width:0}#report{overflow-wrap:anywhere}textarea:focus-visible{outline:3px solid #176c89;outline-offset:4px}
 @media(max-width:760px){.context-fields,.version-columns{grid-template-columns:1fr}.boundary-cases{grid-template-columns:1fr}.report-changes,.boundary-card{padding:14px}.masthead{gap:14px}.masthead>a:last-child{font-size:12px}}
+
+/* What changed between the previous report and this one. */
+.compare.changes .change { border-color: var(--line); }
+.compare.changes .change .side-label { color: var(--muted); }
+.compare.changes .change blockquote { margin: 4px 0 8px; }
+.export-link {
+  display: inline-block;
+  margin-top: 14px;
+  font-size: 13px;
+  color: var(--accent, #b8492f);
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+}
+.export-link:hover { opacity: .75; }

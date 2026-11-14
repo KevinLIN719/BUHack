@@ -6,6 +6,7 @@ import { Investigator, snapshotFor } from "./agent.js";
 import { DocumentQueue, documentsFor, documentFor, publicDocument, createTextMaterial, MAX_FILE_BYTES } from "./ingest/documents.js";
 import { Store, type Review, type Run } from "./store.js";
 import { reportView } from "./report.js";
+import { buildQuestionChecklist } from "./export.js";
 
 class ApiError extends Error {
   constructor(readonly status: number, readonly code: string, message: string) { super(message); }
@@ -109,7 +110,7 @@ export function createApp(store: Store) {
       currentReport: reportView(store, review.id),
       reportHistory: store.db.prepare(`SELECT r.id AS runId, r.kind, r.goal, r.inputRevision, r.parentRunId, r.createdAt
         FROM runs r JOIN investigations i ON i.runId = r.id
-        WHERE r.reviewId = ? AND i.output IS NOT NULL ORDER BY r.rowid DESC`).all(review.id) });
+        WHERE r.reviewId = ? AND i.output IS NOT NULL ORDER BY r.inputRevision DESC, r.rowid DESC`).all(review.id) });
   });
 
   app.get("/api/reviews/:id/reports/:reportId", (req, res) => {
@@ -124,6 +125,20 @@ export function createApp(store: Store) {
     // Public activity contains only recorded actions, never model reasoning or material text.
     res.json({runId: run.id, status: run.status, events: store.events(run).filter(event =>
       ["tool.started", "run.status", "run.resumed", "report.published"].includes(event.type))});
+  });
+
+  // The checklist is a plain download: no state changes, so a link is enough.
+  app.get("/api/reviews/:id/questions/export", (req, res) => {
+    const review = requireReview(req);
+    const format = String(req.query.format ?? "md");
+    if (format !== "md") throw new ApiError(400, "UNSUPPORTED_FORMAT", "目前只支持 format=md。");
+    const selected = req.query.reportId;
+    if (selected !== undefined && (typeof selected !== "string" || !/^[0-9a-f-]{36}$/i.test(selected))) throw new ApiError(400, "INVALID_REPORT_ID", "报告编号格式不正确。");
+    const view = reportView(store, review.id, selected);
+    if (!view) throw new ApiError(404, "REPORT_NOT_FOUND", "还没有可导出的调查结果，请先开始一次调查。");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Content-Disposition", 'attachment; filename="policy-questions.md"');
+    res.type("text/markdown; charset=utf-8").send(buildQuestionChecklist(view));
   });
 
   function requireDocument(req: Request) {
