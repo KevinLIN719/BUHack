@@ -37,13 +37,16 @@
 | 正式前端接入（材料页「條款調查」区块） | ✅ 完成 | commit `32afe28` + `report.js` |
 | 版本变化对照（`supersedes`，旧结论被新材料改变） | ✅ 完成，真实联调 3 条对照 | 本批次，`server/agent.ts` 校验 + `server/report.ts` 按材料版本发布 |
 | 提问清单导出（`GET /api/reviews/:id/questions/export?format=md`） | ✅ 完成，材料页有下载链接 | 本批次，`server/export.ts` + `report.js` |
+| 主页真实调查入口、背景保存、实际活动与取消 | ✅ 完成，主按钮进入材料工作台；原示例仍保留 | `experience.html`、`report.js` |
+| 历史报告与续查精确对照 | ✅ 完成，逐版本查看、新增文件/背景、前后结论与出处 | `server/report.ts`、`report-changes.ts` |
+| Agent 主动时长边界测试 | ✅ 完成，模型选条款，程序测门槛前/等于/后 | `server/boundary.ts`、`testBoundary` |
 | 一页概览（报告顶部「先看這幾件事」） | ✅ 完成，服务端确定性排序（模型不参与） | 本批次，`server/overview.ts` + `report.js` |
 | OCR（扫描件） | ⛔ 未做（只标 `needs_ocr`） | — |
-| SSE 实时推送、run 重启恢复、失败原因分类 | ✅ 完成，服务端推送 + 心跳 + 断线续传；重启中的 run 标 `interrupted` | commit `f091353`（服务端）+ `9fbf380`（材料页改用 EventSource） |
+| SSE 实时推送、重启中断标记、失败原因分类 | ✅ 完成，服务端推送 + 心跳 + 断线续传；重启中的 run 标 `interrupted` | commit `f091353`（服务端）+ `9fbf380`（材料页改用 EventSource） |
 | 材料页进度由事件驱动 | ✅ 完成，进度行显示「已讀取第 N 段材料」 | commit `9fbf380` |
 | 报告文字语言 | ✅ 默認繁體中文（香港用語），跟隨瀏覽器 `Accept-Language`（en / zh-CN / zh-HK）；引用原文不翻譯 | 本批次，`server/agent.ts` `parseLanguage` + `languageRule` |
 | 真实公开保单复验 | ✅ 完成（QBE 香港 9 页，13 处引用全 verified） | `REAL-CONTRACT-TEST.md` |
-| `experience.html` 主流程接真实后端 | ⛔ 未做（仍是 mock，属前端队友） | — |
+| `experience.html` 内部示例聊天接真实后端 | ⛔ 未做；主页真实入口已完成，示例仍为独立 mock | — |
 | 语言切换（i18n）词典覆盖率 | ⚠️ 有缺陷（见 `I18N-TEST-REPORT.md`） | commit `28148da` |
 
 ---
@@ -81,7 +84,7 @@ npm run dev       # 终端 2：前端 http://localhost:4173
 ```bash
 npm run check       # 全部 js 语法
 npm run check:api   # tsc 类型
-npm run test:api    # 22 组后端测试（本地 mock 模型，不花钱）
+npm run test:api    # 35 组后端测试（本地 mock 模型，不花钱）
 npm run build       # 静态构建
 ```
 
@@ -124,7 +127,7 @@ npm run build       # 静态构建
 | --- | --- | --- |
 | GET | `/api/health` | 健康检查 |
 | POST | `/api/reviews` | 建审阅 + 匿名会话 cookie |
-| GET | `/api/reviews/:id` | 恢复审阅：材料、版本、任务、`currentReport` |
+| GET | `/api/reviews/:id` | 恢复审阅：材料、版本、任务、`currentReport`、`reportHistory` |
 | PATCH | `/api/reviews/:id/context` | `expectedRevision` + context |
 | POST | `/api/reviews/:id/documents` | multipart `role` + `file` → 202 排队解析 |
 | GET | `/api/reviews/:id/documents/:docId` | 状态、页数、逐页完整性 |
@@ -135,8 +138,10 @@ npm run build       # 静态构建
 | POST | `/api/reviews/:id/text-materials` | 粘贴沟通记录（`role`/`fromWhom`/`capturedAt`/`text`）→ 一页原文材料 |
 | POST | `/api/reviews/:id/runs` | `expectedRevision` + `kind`(`investigate`/`scenario`) + `goal`，可选 `resumeFromRunId` |
 | GET | `/api/reviews/:id/runs/:runId` | 状态、`report`、`inputRequests` |
-| GET | `/api/reviews/:id/runs/:runId/events` | SSE：先重放（`after` / `Last-Event-ID` 续传），未结束则持续推送 + 15s 心跳，终态自动关闭 |
-| GET | `/api/reviews/:id/questions/export?format=md` | 提问清单导出（Markdown 附件；无报告时 404 `REPORT_NOT_FOUND`） |
+| GET | `/api/reviews/:id/reports/:reportId` | 按 runId 读取历史报告，绑定会话与 review |
+| GET | `/api/reviews/:id/runs/:runId/activity` | 公开动作记录，不含内部推理与材料正文 |
+| GET | `/api/reviews/:id/runs/:runId/events` | SSE：重放、实时推送、心跳、终态关闭；支持 after / Last-Event-ID |
+| GET | `/api/reviews/:id/questions/export?format=md` | 提问清单导出（可选 `reportId` 指定历史版本；无报告时 404） |
 | POST | `/api/reviews/:id/runs/:runId/cancel` | 取消，可重复调用 |
 | DELETE | `/api/reviews/:id` | 删除审阅及其派生数据 |
 
@@ -160,6 +165,8 @@ npm run build       # 静态构建
 | `supersedes[]` | 版本变化对照：`previousIndex` / `previousConclusion`（父报告结论原文）/ `verdict`（`unchanged` / `strengthened` / `weakened` / `reversed` / `withdrawn`）/ `currentIndex`（撤回为 -1）/ `explanation` / 新旧引用；`supersedesUnchecked` = 这次没重新核对的旧结论数 |
 | `citationIntegrity` | `cited` / `verified` / `missing`（原文已被删除的引用仍列出，标 `missing`，不改写结论） |
 | `requests[]` / `openQuestions[]` | 补充请求与待问清单 |
+| `boundaryExperiments[]` | 主动时长边界测试：原文、假设原因、程序计算三组分钟数与状态、引用 |
+| `changes` | 与父报告的精确文字/引用对照、新材料、背景变化；不把未再出现的内容视为已解决 |
 | `verification` | 一句话说明本次做了哪些校验 |
 
 边界（写进 UI 也要写进文档）：不判断条款是否合法、不判断是否赔付、不核实说话人身份、不把粘贴记录当官方文件。
@@ -184,7 +191,7 @@ npm run build       # 静态构建
 
 ### 8.3 Agent（用户）
 
-- 工具：`listDocuments` / `searchSources` / `readSource` / `evaluateScenario`；`readSource` 容忍被截断的 sourceId 并返回可用列表。
+- 工具：`listDocuments` / `searchSources` / `readSource` / `evaluateScenario` / `testBoundary`；`readSource` 容忍被截断的 sourceId 并返回可用列表。
 - 报告校验：引用逐字子串 + role 白名单 + 服务端重算 + 空态优先；无法核对的条目整条丢弃并计数，不使 run 失败。
 - 补件续查：`parentRunId`、`run.resumed` 事件、`prior{findings, openQuestions, requests}`、新文件清单、旧引用须重读。
 - 真实样本复验：QBE 香港全年旅游险 9 页真实保单，13 处引用全部 verified，正确识别除外 (k) 但括号豁免滑雪（见 `REAL-CONTRACT-TEST.md`）。
@@ -224,13 +231,14 @@ npm run build       # 静态构建
 
 ## 9. 未完成（按优先级）
 
-后端与 Agent 的能力清单已全部交付；下表只剩**可省略项**，删掉也不影响演示与验收（理由列在判据里）。
+完整 issue/evidence dependency 档案、按 requestId 回答/跳过闭环、任意非数值反事实研究尚未实现；主动边界工具当前只处理明确的时长下限。
 
 | # | 事项 | 判据 | 量级 |
 | --- | --- | --- | --- |
 | 1 | OCR | 扫描件走独立 OCR，低质量结果标「待核验」并给页图；不静默丢弃页。**可省略**：HANDOFF 已把「不做 OCR」写成已知边界，验收只要求「低质量 OCR 显示待核验」，当前策略是直接标 `needs_ocr` 不猜测 | 大 |
-| 2 | 专题子 Agent / 限定官方资料搜索 | 只读子 Agent 返回证据与反例；官方域名白名单搜索。**可省略**：`AGENT_V2_PLAN.md:283` 原文为「再加入……**或**……，每项需能证明提高调查质量」，属加分实验项 | 大 |
-| 3 | 工程打磨（可选） | 多实例 worker 租约、限流退避重试、`experience.html` 主流程接真后端（见 §10 第 1 条） | 中 |
+| 2 | 系统健壮性 | ✅ 已完成本批次：SSE 实时推送 + 心跳 + 断线续传、重启中的 run 标 `interrupted`、失败原因分类（`timeout` / `budget_exhausted` / `rate_limited` / `model_unreachable` / `model_output_invalid` / `model_failed`）、步数上限 14 与 120s 预算；仍未做模型逐步检查点恢复；多实例 worker 租约、限流退避重试后续增加 | 中 |
+| 3 | 专题子 Agent / 限定官方资料搜索 | 只读子 Agent 返回证据与反例；官方域名白名单搜索。**可省略**：`AGENT_V2_PLAN.md:283` 原文为「再加入……**或**……，每项需能证明提高调查质量」，属加分实验项 | 大 |
+| 4 | 工程打磨（可选） | 多实例 worker 租约、限流退避重试、内部示例聊天接真后端 | 中 |
 
 验收标准原文见 `AGENT_V2_PLAN.md:287`（自主性、反例、续查、证据、增量、情景、回复、系统、安全、告知）。逐条对照见 §11 之后的「验收对照」小节。
 
@@ -238,7 +246,7 @@ npm run build       # 静态构建
 
 ## 10. 移交给前端队友的事项
 
-1. **`experience.html` 主流程接真实后端**（最重要）：`experience.js` 把 fixtures 状态改为 review/report 状态，`renderReading()` 渲染后端 findings/sources/scenarios；`experience-chat.js` 的 `submit()` 从本地 `PolicyExperienceData.reply` 改为创建 run 并订阅事件，`showSource()` 用 `sourceId` 而不是 `findingId`；`policy-workbench.js` 的「quote 必须在单一 excerpt 内」改为多来源查看器。
+1. **主页真实入口已完成，内部示例流程仍可继续改造**：`experience.js` 把 fixtures 状态改为 review/report 状态，`renderReading()` 渲染后端 findings/sources/scenarios；`experience-chat.js` 的 `submit()` 从本地 `PolicyExperienceData.reply` 改为创建 run 并订阅事件，`showSource()` 用 `sourceId` 而不是 `findingId`；`policy-workbench.js` 的「quote 必须在单一 excerpt 内」改为多来源查看器。
 2. **i18n 词典修复**：按 `I18N-TEST-REPORT.md` 的修法 A（加 `data-i18n` 标记 + 整句重写词典）或 B（先补 `materials.html`）；`materials.html` 目前未加载 `i18n.js`。
 3. **新模块接入**：建议 `api-client.js` / `review-store.js` / `agent-run.js` / `document-upload.js` / `source-viewer.js` / `scenario-lab.js`；新增根目录静态文件要同步 `scripts/serve.mjs` 白名单。
 4. **可复用**：材料页的 `report.js` 已实现报告渲染，可直接抽成模块；`assets/demo-contract.pdf` + `assets/demo-promotion.pdf` 是虚构演示素材。
@@ -305,3 +313,8 @@ npm run build       # 静态构建
 - 2026-11-14：系统健壮性完成：`GET events` 改为持续 SSE（重放 + 心跳 + 终态关闭 + `after`/`Last-Event-ID` 续传）；服务重启中的 run 由 `failed` 改标 `interrupted`（保留材料，提示重新开始）；新增 `classifyFailure`（`timeout`/`budget_exhausted`/`rate_limited`/`model_unreachable`/`model_output_invalid`/`model_failed`）与 `stopReason` 对外暴露，材料页按原因给一句可操作提示；步数预算 14、时间预算 120s 显式化。
 - 2026-11-13：PR #1（`feat/backend-pdf-handoff`）交付后端基础；用户接替队友在 `feat/deepseek-live` 继续。
 
+
+
+### 调查工作台增量（2026-11-14）
+
+具体操作与接口约束见 [INVESTIGATION_WORKBENCH.md](INVESTIGATION_WORKBENCH.md)（实现附录，进度仍以本文为准）。已与队友截至 `f091353` 的模型变化判断、清单导出、概览与 SSE 更新合并；页面区分程序精确对照与模型判断。35 项自动测试通过；本次主动边界和工作台浏览器验收使用本地模拟模型与虚构 PDF，未重做真实 DeepSeek 付费验证。

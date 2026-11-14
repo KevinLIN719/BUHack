@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>我的保單原文 · Policy Lens</title>
+  <title>保單調查工作台 · Policy Lens</title>
   <link rel="stylesheet" href="materials.css" />
   <link rel="stylesheet" href="report.css" />
   <script defer src="materials.js"></script>
@@ -13,7 +13,9 @@
   <a class="skip" href="#main">跳至內容</a>
   <header class="masthead"><a class="brand" href="experience.html">Policy Lens</a><a href="experience.html">返回示例體驗 ↗</a></header>
   <main id="main">
-    <header class="intro"><p class="eyebrow">我的材料／原文閱讀</p><h1>先把保單，<br />讀清楚。</h1><p>上傳合同或附表，逐頁查看原文和出處。</p></header>
+    <header class="intro"><p class="eyebrow">我的保單／調查工作台</p><h1>把疑問，<br />查到有出處。</h1><p>加入材料，說明你的打算。調查員會找條款、測試邊界，缺少資料時請你補充，再接著查。</p>
+      <nav class="workspace-steps" aria-label="調查步驟"><a href="#upload-title">01 加入材料</a><a href="#analysis">02 提出目標</a><a href="#report-area">03 結果與續查</a></nav>
+    </header>
     <div id="offline" class="notice" hidden>此頁需要本地後端服務。離線版本可返回示例體驗；請透過本地網站使用上傳功能。</div>
     <section class="upload panel" aria-labelledby="upload-title">
       <h2 id="upload-title">加入一份材料</h2>
@@ -47,18 +49,30 @@
     </div>
     <section class="panel analysis" id="analysis" aria-labelledby="analysis-title">
       <h2 id="analysis-title">條款調查</h2>
-      <p class="analysis-intro">材料就緒後，調查員會逐頁讀取並標出原文出處。分析只根據已上傳的材料：找不到不代表不存在，宣傳材料不等於合同。</p>
+      <p class="analysis-intro">調查員會按問題搜尋相關條款並閱讀上下文，不代表已逐頁完整審核。找不到不代表不存在，宣傳材料不等於合同。</p>
+      <details id="context-details"><summary>補充實際情況（可選，不知道可以留空）</summary><div class="context-fields">
+        <label>目的地<input id="context-destination" maxlength="120" placeholder="例如：日本" /></label>
+        <label>投保對象<input id="context-traveller" maxlength="120" placeholder="例如：自己，28 歲" /></label>
+        <label>計劃活動<input id="context-activities" maxlength="500" placeholder="用逗號分隔，例如：滑雪、潛水" /></label>
+        <label>特別關心<textarea id="context-concerns" rows="2" maxlength="2000" placeholder="例如：普通雪道和越野滑雪的差別"></textarea></label>
+        <button id="save-context" type="button" class="secondary">儲存情況</button><p id="context-status" role="status"></p>
+      </div></details>
       <label class="analysis-goal">你想問什麼<textarea id="goal" rows="3">這份保單是否承保我打算做的活動？有哪些除外責任？我還需要補充什麼材料？</textarea></label>
       <div class="analysis-actions">
         <button type="button" id="start">開始調查 ↗</button>
         <button type="button" id="resume" class="secondary" hidden>用新材料續查 ↗</button>
+        <button type="button" id="cancel-run" class="secondary" hidden>取消調查</button>
       </div>
+      <p class="privacy">開始調查或情境測試時，相關材料與問題會交給伺服器設定的 AI 平台分析。</p>
       <p id="run-status" role="status" aria-live="polite">正在讀取材料狀態……</p>
+      <details id="activity-panel" hidden><summary>實際調查活動</summary><ol id="activity"></ol></details>
       <div class="scenario-actions" id="scenario-actions" hidden>
         <label class="analysis-goal">情境假設<input id="scenario" type="text" placeholder="例如：如果延誤 8 小時" /></label>
         <button type="button" id="scenario-run" class="secondary">測試情境 ↗</button>
       </div>
-      <div id="report" hidden></div>
+      <div id="report-area"><label id="history-label" hidden>調查版本<select id="report-history"></select></label>
+        <p id="report-version" role="status"></p><div id="report" hidden></div>
+      </div>
     </section>
     <footer><p>文字提取可能受表格、分欄和字體影響，請對照原 PDF。</p><button type="button" id="delete-review" class="secondary">刪除本次所有材料</button></footer>
   </main>

@@ -1,5 +1,7 @@
 import { buildOverview, type Overview } from "./overview.js";
 import type { Store } from "./store.js";
+import { compareReports } from "./report-changes.js";
+import type { BoundaryExperiment } from "./boundary.js";
 
 // The stored report only carries source ids. The web client needs to place every claim on a
 // page, so this module resolves the ids against the material that is still in the review.
@@ -11,6 +13,7 @@ export type ResolvedCitation = {
   status: "verified" | "missing";
 };
 type StoredReport = {
+  boundaryExperiments?: BoundaryExperiment[];
   findings: {explanation: string; evidenceStatus: string; sourceIds: string[]}[];
   openQuestions: string[];
   requests: {message: string; requestedRole: string}[];
@@ -46,6 +49,11 @@ function sourceLookup(store: Store, reviewId: string) {
 }
 
 export type ReportView = {
+  kind: string; goal: string; parentRunId: string | null;
+  boundaryExperiments: (BoundaryExperiment & {citations: ResolvedCitation[]})[];
+  changes: (ReturnType<typeof compareReports> & {previousRunId: string; previousRevision: number;
+    previousFindings: ReportView["findings"]; newDocuments: {id: string; name: string; role: string}[];
+    changedContextFields: string[]}) | null;
   runId: string; runStatus: string; inputRevision: number; createdAt: string;
   findings: (StoredReport["findings"][number] & {citations: ResolvedCitation[]})[];
   comparisons: (NonNullable<StoredReport["comparisons"]>[number] & {marketing: ResolvedCitation[]; contract: ResolvedCitation[]})[];
@@ -81,8 +89,10 @@ export function latestReportRun(store: Store, reviewId: string) {
 
 // Returns null when the review has no published report yet, so the client can keep its
 // empty state instead of inventing content.
-export function reportView(store: Store, reviewId: string): ReportView | null {
-  const run = latestReportRun(store, reviewId);
+export function reportView(store: Store, reviewId: string, runId?: string): ReportView | null {
+  const selected = runId ?? latestReportRun(store, reviewId)?.runId;
+  const row = selected && store.getRun(selected, reviewId);
+  const run = row && {...row, runId: row.id};
   if (!run) return null;
   const saved = store.db.prepare("SELECT output FROM investigations WHERE runId = ?").get(run.runId) as {output: string} | undefined;
   if (!saved?.output) return null;
@@ -110,8 +120,34 @@ export function reportView(store: Store, reviewId: string): ReportView | null {
     current: item.newSourceIds.map(resolve)}));
   // Keep the report's own source list (with order) but resolve each entry as well.
   const sources = (report.sources ?? []).map(source => resolve(source.sourceId));
-  const missing = [...cited].filter(id => !lookup.has(id)).length;
+  const boundaryExperiments = (report.boundaryExperiments ?? []).map(item => ({...item, citations: [resolve(item.sourceId)]}));
+  let changes: ReportView["changes"] = null;
+  if (run.parentRunId) {
+    const parent = store.getRun(run.parentRunId, reviewId);
+    const prior = parent && store.db.prepare("SELECT output, snapshot FROM investigations WHERE runId = ?").get(parent.id) as {output: string | null; snapshot: string} | undefined;
+    const current = store.db.prepare("SELECT snapshot FROM investigations WHERE runId = ?").get(run.id) as {snapshot: string};
+    if (parent && prior?.output) {
+      const before = JSON.parse(prior.output) as StoredReport;
+      const oldInput = JSON.parse(prior.snapshot);
+      const newInput = JSON.parse(current.snapshot);
+      const oldIds = new Set(oldInput.documents.map((doc: {id: string}) => doc.id));
+      const contextValue = (value: unknown) => value === undefined || value === "" || (Array.isArray(value) && !value.length) ? null : value;
+      changes = {...compareReports({...before, requests: before.requests ?? []}, {...report, requests: report.requests ?? []}),
+        previousRunId: parent.id, previousRevision: parent.inputRevision,
+        previousFindings: before.findings.map(finding => ({...finding, citations: finding.sourceIds.map(id => {
+          const source = lookup.get(id);
+          return source ? {...source, status: "verified" as const} : {sourceId:id, documentId:"", documentName:"", role:"", pageIndex:0, pageLabel:null, quote:"", status:"missing" as const};
+        })})),
+        newDocuments: newInput.documents.filter((doc: {id: string}) => !oldIds.has(doc.id)).map((doc: {id: string; name: string; role: string}) => ({id:doc.id, name:doc.name, role:doc.role})),
+        changedContextFields: [...new Set([...Object.keys(oldInput.context), ...Object.keys(newInput.context)])]
+          .filter(field => JSON.stringify(contextValue(oldInput.context[field])) !== JSON.stringify(contextValue(newInput.context[field]))),
+      };
+    }
+  }
+  const allMissing = [...cited].filter(id => !lookup.has(id)).length;
   const view = {
+    kind: run.kind, goal: run.goal, parentRunId: run.parentRunId,
+    boundaryExperiments, changes,
     runId: run.runId, runStatus: run.status, inputRevision: run.inputRevision, createdAt: run.createdAt,
     findings, comparisons, droppedComparisons: report.droppedComparisons ?? 0,
     scenarios, droppedScenarios: report.droppedScenarios ?? 0,
@@ -120,7 +156,7 @@ export function reportView(store: Store, reviewId: string): ReportView | null {
     openQuestions: report.openQuestions, requests: report.requests ?? [],
     sources, coverage: report.coverage ?? [], verification: report.verification ?? null,
     review: report.review ?? null,
-    citationIntegrity: {cited: cited.size, verified: cited.size - missing, missing},
+    citationIntegrity: {cited: cited.size, verified: cited.size - allMissing, missing: allMissing},
   };
   return {...view, overview: buildOverview(view)};
 }
