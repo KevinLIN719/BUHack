@@ -11,7 +11,8 @@ const dotenv = require('dotenv');
 dotenv.config({ path: resolve(backendDir, '.env'), quiet: true });
 dotenv.config({ path: resolve(frontendDir, '.env'), quiet: true });
 const express = require('express');
-const port = Number(process.env.POLICY_LENS_PORT ?? 4185);
+const port = Number(process.env.PORT ?? process.env.POLICY_LENS_PORT ?? 4185);
+const host = process.env.POLICY_LENS_HOST ?? '127.0.0.1';
 if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('POLICY_LENS_PORT must be between 1 and 65535.');
 
 process.umask(0o077);
@@ -33,8 +34,8 @@ site.use('/js', express.static(resolve(frontendDir, 'js'), { dotfiles: 'deny', i
 site.use('/css', express.static(resolve(frontendDir, 'css'), { dotfiles: 'deny', index: false }));
 site.use((_req, res) => res.status(404).send('Not found'));
 
-const server = site.listen(port, '127.0.0.1', () => {
-  console.log(`Policy Lens 已启动：http://localhost:${port}`);
+const server = site.listen(port, host, () => {
+  console.log(`Policy Lens 已启动：http://${host === '127.0.0.1' ? 'localhost' : host}:${port}`);
   console.log('关闭此窗口或按 Control-C 可停止服务。');
 });
 

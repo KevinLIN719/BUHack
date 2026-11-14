@@ -1,0 +1,16 @@
+# Render blueprint for Policy Lens.
+# Import this repository in Render → "New +" → "Blueprint", then set DEEPSEEK_API_KEY.
+services:
+  - type: web
+    name: policy-lens
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: singapore
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: DEEPSEEK_API_KEY
+        sync: false # set in the dashboard, never in Git
+      - key: POLICY_LENS_HOST
+        value: 0.0.0.0
