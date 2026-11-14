@@ -1,3 +1,4 @@
+import { buildOverview, type Overview } from "./overview.js";
 import type { Store } from "./store.js";
 
 // The stored report only carries source ids. The web client needs to place every claim on a
@@ -64,6 +65,8 @@ export type ReportView = {
   verification: string | null;
   review: NonNullable<StoredReport["review"]> | null;
   citationIntegrity: {cited: number; verified: number; missing: number};
+  // The three things worth reading first. Derived from the report above, never model-written.
+  overview: Overview;
 };
 
 // Newest material version wins: a report built from revision 3 must keep the slot even when an
@@ -108,7 +111,7 @@ export function reportView(store: Store, reviewId: string): ReportView | null {
   // Keep the report's own source list (with order) but resolve each entry as well.
   const sources = (report.sources ?? []).map(source => resolve(source.sourceId));
   const missing = [...cited].filter(id => !lookup.has(id)).length;
-  return {
+  const view = {
     runId: run.runId, runStatus: run.status, inputRevision: run.inputRevision, createdAt: run.createdAt,
     findings, comparisons, droppedComparisons: report.droppedComparisons ?? 0,
     scenarios, droppedScenarios: report.droppedScenarios ?? 0,
@@ -119,4 +122,5 @@ export function reportView(store: Store, reviewId: string): ReportView | null {
     review: report.review ?? null,
     citationIntegrity: {cited: cited.size, verified: cited.size - missing, missing},
   };
+  return {...view, overview: buildOverview(view)};
 }

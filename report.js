@@ -81,6 +81,46 @@
     return button;
   }
 
+  const overviewTitles = {
+    broker_conflict: '經紀說法',
+    broker_overstated: '經紀說法',
+    promotion_conflict: '宣傳材料',
+    unsupported_claim: '引用核對',
+    cannot_confirm: '尚未確認',
+    scenario_caveat: '情境假設',
+    need_material: '待補材料'
+  };
+
+  // The list comes from the server so the order cannot drift from the evidence; the client only
+  // decides how to lay it out. Empty when nothing needs a decision, in which case nothing renders.
+  function renderOverview(report) {
+    const overview = report.overview;
+    if (!overview?.items?.length) return node('span');
+    const section = node('section', undefined, 'overview');
+    section.append(node('h3', '先看這幾件事'));
+    section.append(node('p', '按「會影響判斷的程度」排出的前幾項，完整內容在下面。', 'muted'));
+    const list = node('ol', undefined, 'overview-list');
+    for (const item of overview.items) {
+      const row = node('li', undefined, 'overview-item');
+      row.append(node('span', overviewTitles[item.kind] ?? item.kind, 'badge overview-kind'));
+      row.append(node('b', item.title));
+      row.append(node('div', item.detail, 'finding-text'));
+      const seen = new Set();
+      for (const citation of item.citations ?? []) {
+        if (seen.has(citation.sourceId)) continue;
+        seen.add(citation.sourceId);
+        row.append(citationButton(citation));
+      }
+      list.append(row);
+    }
+    section.append(list);
+    if (overview.remaining > 0) section.append(node('p', `另有 ${overview.remaining} 項同樣需要確認，見下方分節。`, 'muted'));
+    if (overview.integrity?.missing > 0) {
+      section.append(node('p', `注意：有 ${overview.integrity.missing} 處引用所指的原文已不在這次材料中。`, 'muted'));
+    }
+    return section;
+  }
+
   function renderReport(report) {
     const host = $('report');
     host.replaceChildren();
@@ -99,6 +139,7 @@
       kpis.append(cell);
     }
     host.append(kpis);
+    host.append(renderOverview(report));
 
     const review = report.review;
     host.append(node('p', review ? `${reviewLabels[review.status] ?? review.status}${review.items?.length ? `（逐條檢查 ${review.items.length} 條）` : ''}` : '這份報告尚未做語意複核。', 'review-line'));
