@@ -386,7 +386,11 @@
     const reviewId = state.reviewId;
     const deadline = Date.now() + 240000;
     let run;
-    while (Date.now() < deadline) {
+    // The server streams the run, so the progress line can be driven by real events instead of a
+    // 1.5s poll. If the stream cannot be kept open the old polling loop still finishes the job.
+    const live = typeof EventSource === 'function' ? await watch() : null;
+    if (live?.terminal) run = await api(`/reviews/${reviewId}/runs/${state.runId}`).catch(() => null);
+    while ((!run || ['queued','running'].includes(run.status)) && Date.now() < deadline) {
       run = await api(`/reviews/${reviewId}/runs/${state.runId}`).catch(error => {
         if (error.status === 404) throw new Error('這次調查已不存在，請重新開始。');
         return null;
@@ -401,6 +405,50 @@
     await load();
     if (run?.status === 'failed' || run?.status === 'interrupted') status(`調查沒有完成：${stopReasons[run.stopReason] ?? '請看後端日誌。'}`);
     else if (run) status(`${runLabels[run.status] ?? run.status}。`);
+  }
+
+  // Follows one run over SSE. Resolves with the terminal status once the server announces it, or
+  // with {terminal: null} when the stream never opened / went quiet, so the caller can fall back to
+  // polling. Nothing here decides whether the run succeeded: the server sends the final status.
+  function watch() {
+    return new Promise(resolve => {
+      let source;
+      try { source = new EventSource(`/api/reviews/${state.reviewId}/runs/${state.runId}/events`); }
+      catch { resolve({terminal: null}); return; }
+      let settled = false;
+      let tools = 0;
+      let idle;
+      const finish = terminal => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(idle);
+        source.close();
+        resolve({terminal});
+      };
+      // A quiet stream must not leave the button disabled forever; 20s of silence hands over to
+      // the polling loop.
+      const keepAlive = () => { clearTimeout(idle); idle = setTimeout(() => finish(null), 20000); };
+      keepAlive();
+      source.addEventListener('run.status', event => {
+        keepAlive();
+        let payload;
+        try { payload = JSON.parse(event.data); } catch { return; }
+        const next = payload?.data?.status;
+        if (!next) return;
+        if (['awaiting_input','partial','failed','interrupted','cancelled'].includes(next)) { finish(next); return; }
+        status(`調查進行中：${runLabels[next] ?? next}…`);
+      });
+      source.addEventListener('tool.started', () => {
+        keepAlive();
+        tools += 1;
+        status(`調查進行中：已讀取第 ${tools} 段材料…`);
+      });
+      source.addEventListener('report.published', () => {
+        keepAlive();
+        status('結論已發布，正在整理…');
+      });
+      source.onerror = () => { if (source.readyState === EventSource.CLOSED) finish(null); };
+    });
   }
 
   async function start(resume) {
