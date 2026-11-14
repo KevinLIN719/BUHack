@@ -106,7 +106,24 @@ export function createApp(store: Store) {
     const review = requireReview(req);
     const runs = store.db.prepare("SELECT * FROM runs WHERE reviewId = ? ORDER BY rowid DESC").all(review.id) as Run[];
     res.json({ ...publicReview(review), documents: documentsFor(store, review.id).map(publicDocument), runs: runs.map(presentRun),
-      currentReport: reportView(store, review.id) });
+      currentReport: reportView(store, review.id),
+      reportHistory: store.db.prepare(`SELECT r.id AS runId, r.kind, r.goal, r.inputRevision, r.parentRunId, r.createdAt
+        FROM runs r JOIN investigations i ON i.runId = r.id
+        WHERE r.reviewId = ? AND i.output IS NOT NULL ORDER BY r.rowid DESC`).all(review.id) });
+  });
+
+  app.get("/api/reviews/:id/reports/:reportId", (req, res) => {
+    const review = requireReview(req);
+    const report = reportView(store, review.id, String(req.params.reportId));
+    if (!report) throw new ApiError(404, "REPORT_NOT_FOUND", "找不到这份调查报告。");
+    res.json(report);
+  });
+
+  app.get("/api/reviews/:id/runs/:runId/activity", (req, res) => {
+    const run = requireRun(req);
+    // Public activity contains only recorded actions, never model reasoning or material text.
+    res.json({runId: run.id, status: run.status, events: store.events(run).filter(event =>
+      ["tool.started", "run.status", "run.resumed", "report.published"].includes(event.type))});
   });
 
   function requireDocument(req: Request) {

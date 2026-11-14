@@ -4,6 +4,8 @@
 
 已接入初步调查运行器。没有可用合同时进入 awaiting_input；有合同但未配置 Key 时返回 503 AGENT_NOT_CONNECTED。配置模型后运行真实调查，结果由 GET run 的 `report` 字段提供，GET review 的 `currentReport` 提供带页码解析的同款报告（含 `review` 语义复核结论）。补件续查（`resumeFromRunId`）已实现；宣传与条款对照（`comparisons`）、情景实验（`scenarios`，`kind=scenario`）与经纪回复核验（`brokerClaims`）已实现；沟通记录可以文字粘贴（`sourceType=pasted`），不必先转成 PDF。正式前端 `materials.html` 已接入调查、续查、情境与经纪核验，其余示例页仍为模板。
 
+新增报告历史、续查对照、活动查询与主动边界工具见 [调查工作台说明](INVESTIGATION_WORKBENCH.md)。
+
 ## 启动与检查
 
 需要 Node.js >= 24.14。项目根目录运行：

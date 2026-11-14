@@ -10,6 +10,49 @@ import { createApp } from "../app.js";
 import { Store } from "../store.js";
 import { pdfFixture } from "./pdf-fixture.js";
 import { semanticReview, sourceTools, validateAnswer, type Snapshot } from "../agent.js";
+import { randomUUID } from "node:crypto";
+
+test("successor report exposes exact changes and scoped persistent history without rewriting old output", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "policy-lens-history-"));
+  const dbPath = join(dir, "test.sqlite");
+  let api = await start(dbPath);
+  try {
+    const response = await api.request("/api/reviews",{method:"POST"});
+    const headers = {Cookie:response.headers.get("set-cookie")!.split(";")[0]};
+    const review = await response.json(), path = `/api/reviews/${review.id}`;
+    const oldId = randomUUID(), nextId = randomUUID();
+    const same = {explanation:"此条仍成立",evidenceStatus:"unknown",sourceIds:[]};
+    const oldReport = {findings:[same,{explanation:"缺少附表",evidenceStatus:"unknown",sourceIds:[]}],requests:[{message:"补充附表",requestedRole:"schedule"}],openQuestions:["运动范围？"]};
+    const nextReport = {findings:[same,{explanation:"附表有新的限制",evidenceStatus:"unknown",sourceIds:[]}],requests:[],openQuestions:["越野滑雪？"]};
+    const now = new Date().toISOString();
+    for (const [id, revision, parent, output, snapshot] of [
+      [oldId,1,null,oldReport,{context:{},documents:[]}],
+      [nextId,3,oldId,nextReport,{context:{destination:"日本"},documents:[{id:"schedule-1",name:"附表.pdf",role:"schedule"}]}],
+    ] as const) {
+      api.store.db.prepare(`INSERT INTO runs (id,reviewId,inputRevision,kind,goal,status,requestHash,parentRunId,createdAt,updatedAt)
+        VALUES (?,?,?,'investigate','检查滑雪','partial','test',?,?,?)`).run(id,review.id,revision,parent,now,now);
+      api.store.db.prepare("INSERT INTO investigations (runId,snapshot,output) VALUES (?,?,?)").run(id,JSON.stringify(snapshot),JSON.stringify(output));
+    }
+    const stranger = await api.request("/api/reviews",{method:"POST"});
+    const otherHeaders = {Cookie:stranger.headers.get("set-cookie")!.split(";")[0]};
+    assert.equal((await api.request(`${path}/reports/${oldId}`,{headers:otherHeaders})).status,404);
+    assert.equal((await api.request(`${path}/runs/${nextId}/activity`,{headers:otherHeaders})).status,404);
+    await api.close(); api = await start(dbPath);
+    const view = await (await api.request(path,{headers})).json();
+    assert.equal(view.reportHistory.length,2);
+    const changes = view.currentReport.changes;
+    assert.equal(changes.unchanged,1);
+    assert.equal(changes.added[0].explanation,"附表有新的限制");
+    assert.equal(changes.notRepeated[0].explanation,"缺少附表");
+    assert.equal(changes.previousRequestsNotRepeated[0].message,"补充附表");
+    assert.equal(changes.newDocuments[0].name,"附表.pdf");
+    assert.deepEqual(changes.changedContextFields,["destination"]);
+    const old = await (await api.request(`${path}/reports/${oldId}`,{headers})).json();
+    assert.equal(old.findings[1].explanation,"缺少附表");
+    assert.equal(old.changes,null);
+    assert.equal((await api.request(`${path}/reports/${randomUUID()}`,{headers})).status,404);
+  } finally {await api.close();await rm(dir,{recursive:true,force:true});}
+});
 
 async function start(path = ":memory:") {
   const store = new Store(path);
@@ -344,17 +387,17 @@ test("model adapter drives a real tool loop against a local mock endpoint", asyn
     for await (const chunk of req) body += chunk;
     const request = JSON.parse(body);
     calls++;
-    const name = calls === 1 ? "searchSources" : "readSource";
+    const name = calls === 1 ? "searchSources" : calls === 2 ? "readSource" : "testBoundary";
     const isReview = body.includes("核对每条结论");
     const message = isReview ? {role:"assistant",content:JSON.stringify({items:[{index:0,verdict:"supported",note:"原文直接陈述6小时延误条件"}]})}
-      : calls <= 2 ? {role:"assistant",content:null,tool_calls:[{
-      id:`call_${calls}`,type:"function",function:{name,arguments:JSON.stringify(calls === 1 ? {query:"Delay"} : {sourceId})}
+      : calls <= 3 ? {role:"assistant",content:null,tool_calls:[{
+      id:`call_${calls}`,type:"function",function:{name,arguments:JSON.stringify(calls === 1 ? {query:"Delay"} : calls === 2 ? {sourceId} : {sourceId, thresholdQuote:"Delay exceeding 6 hours.",question:"恰好六小时是否够？",rationale:"测试严格门槛"})}
     }]} : {role:"assistant",content:JSON.stringify({findings:[{
       explanation:"条款使用超过6小时的条件，仍需核对适用定义。",evidenceStatus:"interpretation",sourceIds:[sourceId]
     }],openQuestions:["起算点需进一步确认"],requests:[]})};
     res.setHeader("Content-Type", "application/json");
     res.end(JSON.stringify({id:`mock_${calls}`,object:"chat.completion",created:1,model:request.model,
-      choices:[{index:0,message,finish_reason:calls <= 2 ? "tool_calls" : "stop"}],
+      choices:[{index:0,message,finish_reason:calls <= 3 ? "tool_calls" : "stop"}],
       usage:{prompt_tokens:10,completion_tokens:10,total_tokens:20}}));
   }).listen(0,"127.0.0.1");
   await once(model,"listening");
@@ -384,7 +427,12 @@ test("model adapter drives a real tool loop against a local mock endpoint", asyn
     assert.equal(finished.report.sources[0].sourceId,sourceId);
     assert.equal(finished.report.review.status,"checked");
     assert.equal(finished.report.review.items[0].verdict,"supported");
-    assert.equal(calls,4);
+    assert.equal(calls,5);
+    assert.deepEqual(finished.report.boundaryExperiments[0].cases.map((item: {status: string}) => item.status), ["not_satisfied","boundary","satisfied"]);
+    const displayed = await (await api.request(`${path}/reports/${run.id}`,{headers})).json();
+    assert.equal(displayed.boundaryExperiments[0].citations[0].sourceId,sourceId);
+    const activity = await (await api.request(`${path}/runs/${run.id}/activity`,{headers})).json();
+    assert.ok(activity.events.some((event: {data:{name?:string}}) => event.data.name === "testBoundary"));
   } finally {
     if (previous.key === undefined) delete process.env.DEEPSEEK_API_KEY; else process.env.DEEPSEEK_API_KEY=previous.key;
     if (previous.base === undefined) delete process.env.DEEPSEEK_BASE_URL; else process.env.DEEPSEEK_BASE_URL=previous.base;

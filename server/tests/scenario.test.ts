@@ -2,6 +2,29 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { evaluateThreshold, scenarioCaveats } from "../scenario.js";
 import { validateAnswer } from "../agent.js";
+import { testDurationBoundary } from "../boundary.js";
+import { sourceTools } from "../agent.js";
+
+test("proactive boundaries test both sides and refuse ambiguous, multiple and upper thresholds", async () => {
+  assert.deepEqual(testDurationBoundary("Delay exceeding 6 hours.").cases.map(item => [item.minutes,item.status]),
+    [[359,"not_satisfied"],[360,"boundary"],[361,"satisfied"]]);
+  assert.equal(testDurationBoundary("至少 6 小时").cases[1].status, "satisfied");
+  for (const quote of ["Delay 6 hours.", "within 6 hours", "not exceeding 6 hours", "exceeding 6 hours and 12 hours", "见附表"]) {
+    assert.equal(testDurationBoundary(quote).status,"insufficient_information");
+  }
+  const scoped = sourceTools(snapshot, () => {}, () => {});
+  const options = {toolCallId:"boundary-test",messages:[],context:{}};
+  const input = {sourceId:"doc1:p2:b1",thresholdQuote:"Delay exceeding 6 hours.",question:"恰好六小时呢？",rationale:"区分超过与等于"};
+  assert.deepEqual(await scoped.tools.testBoundary.execute!(input,options),{error:"READ_SOURCE_FIRST"});
+  await scoped.tools.searchSources.execute!({query:"Delay"},options);
+  assert.deepEqual(await scoped.tools.testBoundary.execute!(input,options),{error:"READ_SOURCE_FIRST"});
+  await scoped.tools.readSource.execute!({sourceId:input.sourceId},options);
+  const result = await scoped.tools.testBoundary.execute!(input,options);
+  assert.equal("status" in result && result.status,"tested");
+  await scoped.tools.testBoundary.execute!(input,options);
+  assert.equal(scoped.boundaryExperiments.length,1);
+  assert.deepEqual(await scoped.tools.testBoundary.execute!({...input,thresholdQuote:"Delay exceeding 3 hours."},options),{error:"THRESHOLD_NOT_VERBATIM"});
+});
 
 // The comparison is the only place where a scenario gets a verdict, so it is tested on its own:
 // boundary semantics differ between "超过 6 小时" and "至少 6 小时", and an unparseable threshold

@@ -22,7 +22,7 @@
   const scenarioUnitLabels = {minutes:'分鐘',hours:'小時',days:'天'};
   const brokerLabels = {supported:'與條款一致',overstated:'說大了，漏了條件',not_in_contract:'條款裡找不到依據',contradicted:'與條款原文衝突'};
   const brokerTone = {supported:'ok',overstated:'warn',not_in_contract:'warn',contradicted:'bad'};
-  const state = {reviewId:null, review:null, runId:null, busy:false};
+  const state = {reviewId:null, review:null, runId:null, busy:false, selectedReport:null, contextDirty:false, goalDirty:false, epoch:0};
 
   const node = (tag, text, className) => {
     const element = document.createElement(tag);
@@ -59,12 +59,16 @@
 
   function lock(value) {
     state.busy = value;
-    const ready = (state.review?.documents ?? []).some(doc => ['ready','partial'].includes(doc.status));
+    const ready = (state.review?.documents ?? []).some(doc => doc.role === 'contract' && ['ready','partial'].includes(doc.status));
     $('start').disabled = value || !ready;
-    $('resume').disabled = value;
+    const pending = (state.review?.documents ?? []).some(doc => ['queued','parsing'].includes(doc.status));
+    $('start').disabled ||= pending;
+    $('resume').disabled = value || pending || !ready;
     $('goal').disabled = value;
     $('scenario').disabled = value;
     $('scenario-run').disabled = value;
+    $('cancel-run').hidden = !value || !state.runId;
+    $('save-context').disabled = value;
   }
 
   function citationButton(citation) {
@@ -77,6 +81,89 @@
       button.addEventListener('click', () => { void window.openPageAt(citation.documentId, citation.pageIndex); });
     } else { button.disabled = true; }
     return button;
+  }
+
+  function renderChanges(report, host) {
+    const changes = report.changes;
+    if (!changes) return;
+    const section = node('section', undefined, 'report-changes');
+    section.append(node('h3', `續查前後 · 材料版本 ${changes.previousRevision} → ${report.inputRevision}`));
+    section.append(node('p', '按原文引用與結論文字比較；改寫會列入新增與未再出現，不代表舊問題已解決或舊結論錯誤。', 'muted'));
+    section.append(node('p', `${changes.unchanged} 條文字與引用相同 · ${changes.added.length} 條新增或改寫 · ${changes.notRepeated.length} 條本次未再出現`));
+    if (changes.newDocuments.length) section.append(node('p', '新增材料：' + changes.newDocuments.map(doc => doc.name).join('、')));
+    const contextLabels = {destination:'目的地',traveller:'投保對象',activities:'計劃活動',concerns:'特別關心'};
+    if (changes.changedContextFields.length) section.append(node('p', '更新情況：' + changes.changedContextFields.map(key => contextLabels[key] ?? key).join('、')));
+    const columns = node('div', undefined, 'version-columns');
+    for (const [title, findings] of [['上一次的結論',changes.previousFindings],['本次的結論',report.findings]]) {
+      const column = node('section'); column.append(node('h4', title));
+      for (const finding of findings) {
+        const item = node('article', undefined, 'version-finding');
+        item.append(node('p', finding.explanation));
+        for (const citation of finding.citations ?? []) item.append(citationButton(citation));
+        column.append(item);
+      }
+      if (!findings.length) column.append(node('p', '沒有已發布的結論。', 'muted'));
+      columns.append(column);
+    }
+    const details = node('details'); details.append(node('summary', '展開前後原文與結論'), columns); section.append(details);
+    if (changes.previousRequestsNotRepeated.length) {
+      section.append(node('p', '以下舊補件要求本次未再提出，仍需自行核對是否已回答：', 'muted'));
+      const list = node('ul'); for (const item of changes.previousRequestsNotRepeated) list.append(node('li', item.message)); section.append(list);
+    }
+    host.append(section);
+  }
+
+  function renderBoundaries(report, host) {
+    if (!report.boundaryExperiments?.length) return;
+    const section = node('section', undefined, 'compare');
+    section.append(node('h3', '調查員主動測試的邊界'), node('p', '以下是假設，不是你的實際情況。調查員選擇條款，數值比較由程式計算；達到門檻不代表一定賠付。', 'muted'));
+    for (const experiment of report.boundaryExperiments) {
+      const card = node('article', undefined, 'boundary-card');
+      card.append(node('h4', experiment.question), node('p', experiment.rationale));
+      card.append(node('blockquote', experiment.thresholdQuote));
+      for (const citation of experiment.citations) card.append(citationButton(citation));
+      if (experiment.status === 'tested') {
+        const cases = node('div', undefined, 'boundary-cases');
+        for (const item of experiment.cases) {
+          const cell = node('div'); cell.append(node('b', `${item.minutes} 分鐘`), node('span', scenarioLabels[item.status] ?? item.status)); cases.append(cell);
+        }
+        card.append(cases);
+      } else card.append(node('p', experiment.reason || '原文不足以計算。', 'muted'));
+      for (const caveat of experiment.caveats) card.append(node('p', caveat, 'disclaimer'));
+      section.append(card);
+    }
+    host.append(section);
+  }
+
+  function renderHistory() {
+    const select = $('report-history'); select.replaceChildren();
+    const history = state.review?.reportHistory ?? [];
+    $('history-label').hidden = !history.length;
+    for (const item of history) {
+      const label = `${item.kind === 'scenario' ? '情境測試' : item.parentRunId ? '補件續查' : '條款調查'} · 材料版本 ${item.inputRevision} · ${new Date(item.createdAt).toLocaleString()}`;
+      const option = node('option', label); option.value = item.runId; select.append(option);
+    }
+    if (state.selectedReport && history.some(item => item.runId === state.selectedReport)) select.value = state.selectedReport;
+    else state.selectedReport = null;
+  }
+
+  async function saveContext() {
+    if (!state.review || state.busy) return;
+    const context = {
+      destination: $('context-destination').value.trim(), traveller: $('context-traveller').value.trim(),
+      activities: $('context-activities').value.split(/[,，、;；]/).map(value => value.trim()).filter(Boolean),
+      concerns: $('context-concerns').value.trim()
+    };
+    $('save-context').disabled = true;
+    try {
+      await api(`/reviews/${state.reviewId}/context`, {method:'PATCH', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({expectedRevision:state.review.revision, context})});
+      state.contextDirty = false;
+      await load();
+      $('context-status').textContent = '已儲存。下一次調查會使用這些情況；已有報告需要續查。';
+      document.dispatchEvent(new Event('policy-review-changed'));
+    } catch (error) { $('context-status').textContent = error.message; }
+    finally { $('save-context').disabled = state.busy; }
   }
 
   function renderReport(report) {
@@ -96,7 +183,9 @@
       cell.append(node('b', String(value)), node('span', label));
       kpis.append(cell);
     }
+    renderChanges(report, host);
     host.append(kpis);
+    renderBoundaries(report, host);
 
     const review = report.review;
     host.append(node('p', review ? `${reviewLabels[review.status] ?? review.status}${review.items?.length ? `（逐條檢查 ${review.items.length} 條）` : ''}` : '這份報告尚未做語意複核。', 'review-line'));
@@ -253,7 +342,10 @@
     $('resume').hidden = !hasNewInput;
     $('scenario-actions').hidden = !report;
     if (report) {
-      renderReport(report);
+      if (!state.selectedReport || state.selectedReport === report.runId) renderReport(report);
+      $('report-version').textContent = state.selectedReport && state.selectedReport !== report.runId
+        ? '正在查看歷史版本；續查會使用最新的正式調查。'
+        : `目前報告使用材料版本 ${report.inputRevision}，最新材料版本 ${review.revision}。${hasNewInput ? '材料已更新，舊結論尚未重新核對。' : ''}`;
       status(pending ? '新材料仍在解析，完成後可續查。'
         : hasNewInput ? '有新加入的材料，可接續上一次結論再查一次，不用重複調查。'
         : review.documents.length ? '已完成一次調查。可重新開始，或補充材料後續查。'
@@ -274,59 +366,93 @@
     if (!reviewId) { state.reviewId = null; state.review = null; render(); return; }
     state.reviewId = reviewId;
     try {
+      const previousId = state.review?.id;
       state.review = await api(`/reviews/${reviewId}`);
+      if (!state.contextDirty || previousId !== state.review.id) {
+        const context = state.review.context ?? {};
+        for (const field of ['destination','traveller','concerns']) $('context-' + field).value = context[field] ?? '';
+        $('context-activities').value = (context.activities ?? []).join('、');
+        state.contextDirty = false;
+      }
+      renderHistory();
+      const lastInvestigation = state.review.reportHistory?.find(item => item.kind === 'investigate');
+      if (!state.goalDirty && lastInvestigation) $('goal').value = lastInvestigation.goal;
     } catch (error) {
       if (error.status === 404) { state.review = null; render(); return; }
       throw error;
     }
     render();
     // A run started before a reload keeps running on the server; follow it again.
-    const tracked = lastRunId();
+    const active = state.review?.runs?.find(run => ['queued','running'].includes(run.status));
+    const tracked = active?.id ?? lastRunId() ?? state.review?.currentReport?.runId;
     if (tracked && !state.busy) {
       const run = await api(`/reviews/${reviewId}/runs/${tracked}`).catch(() => null);
-      if (run && ['queued','running'].includes(run.status)) { state.runId = tracked; void poll(); }
+      if (run) {state.runId = tracked; await showActivity(reviewId, tracked);}
+      if (run && ['queued','running'].includes(run.status)) { state.runId = tracked; void poll().catch(error => {lock(false);status(error.message);}); }
     }
   }
 
+  async function showActivity(reviewId, runId) {
+    const activity = await api(`/reviews/${reviewId}/runs/${runId}/activity`);
+    if (state.runId !== runId) return;
+    const labels = {listDocuments:'查看材料清單',searchSources:'搜尋原文',readSource:'閱讀條款上下文',evaluateScenario:'計算情境門檻',testBoundary:'主動驗證條款邊界'};
+    const list = $('activity'); list.replaceChildren();
+    for (const event of activity.events) {
+      const text = event.type === 'tool.started' ? labels[event.data.name] ?? '執行調查工具'
+        : event.type === 'report.published' ? '已保存初步報告'
+        : event.type === 'run.resumed' ? '接續上一次調查'
+        : runLabels[event.data.status] ?? '更新任務狀態';
+      list.append(node('li', text));
+    }
+    $('activity-panel').hidden = false;
+  }
+
   async function poll() {
-    const reviewId = state.reviewId;
+    const reviewId = state.reviewId, runId = state.runId;
+    const epoch = ++state.epoch;
+    lock(true);
     const deadline = Date.now() + 240000;
     let run;
-    while (Date.now() < deadline) {
-      run = await api(`/reviews/${reviewId}/runs/${state.runId}`).catch(error => {
-        if (error.status === 404) throw new Error('這次調查已不存在，請重新開始。');
-        return null;
-      });
-      if (run) {
-        status(`調查進行中：${runLabels[run.status] ?? run.status}…`);
-        if (!['queued','running'].includes(run.status)) break;
-      }
+    while (Date.now() < deadline && state.epoch === epoch) {
+      run = await api(`/reviews/${reviewId}/runs/${runId}`);
+      await showActivity(reviewId, runId);
+      if (state.epoch !== epoch) return;
+      status(`調查進行中：${runLabels[run.status] ?? run.status}…`);
+      if (!['queued','running'].includes(run.status)) break;
       await sleep(1500);
     }
-    state.busy = false;
+    if (state.epoch !== epoch) return;
+    lock(false);
+    // Avoid spawning another polling loop after the local wait budget is exhausted.
+    if (run && ['queued','running'].includes(run.status)) {
+      status('等待時間較長。任務仍在伺服器執行；重新整理可以繼續查看。'); return;
+    }
+    state.selectedReport = null;
     await load();
-    if (run?.status === 'failed') status(`調查失敗：${run.error?.message ?? '請看後端日誌。'}`);
+    if (run?.status === 'failed') status(`調查失敗：${run.error?.message ?? '請重試或查看後端日誌。'}`);
     else if (run) status(`${runLabels[run.status] ?? run.status}。`);
   }
 
   async function start(resume) {
     if (state.busy) return;
+    if (state.contextDirty) { status('實際情況有未儲存的修改，請先按「儲存情況」。'); $('save-context').focus(); return; }
     const review = state.review;
     if (!review) return;
     const goal = $('goal').value.trim();
     if (!goal) { status(errors.EMPTY_GOAL); $('goal').focus(); return; }
     const body = {expectedRevision: review.revision, kind: 'investigate', goal};
     if (resume) {
-      const previous = review.currentReport?.runId ?? lastRunId();
+      const previous = review.reportHistory?.find(report => report.kind === 'investigate')?.runId ?? review.currentReport?.runId ?? lastRunId();
       if (!previous) { status('找不到上一次調查，請重新開始。'); return; }
       body.resumeFromRunId = previous;
     }
+    state.selectedReport = null;
     state.busy = true;
     lock(true);
     status(resume ? '正在接續上一次調查……' : '正在建立調查……');
     try {
       const run = await api(`/reviews/${state.reviewId}/runs`, {
-        method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)
+        method: 'POST', headers: {'Content-Type':'application/json','Idempotency-Key':crypto.randomUUID()}, body: JSON.stringify(body)
       });
       state.runId = run.id;
       rememberRun(run.id);
@@ -345,16 +471,18 @@
   // review's context: the assumption belongs to this run only.
   async function startScenario() {
     if (state.busy) return;
+    if (state.contextDirty) { status('實際情況有未儲存的修改，請先儲存。'); return; }
     const review = state.review;
     if (!review?.currentReport) { status('請先完成一次調查，再有情境可測試。'); return; }
     const assumption = $('scenario').value.trim();
     if (!assumption) { status('請先寫下想假設的情境，例如「如果延誤 8 小時」。'); $('scenario').focus(); return; }
+    state.selectedReport = null;
     state.busy = true;
     lock(true);
     status('正在比對情境與條款門檻……');
     try {
       const run = await api(`/reviews/${state.reviewId}/runs`, {
-        method: 'POST', headers: {'Content-Type':'application/json'},
+        method: 'POST', headers: {'Content-Type':'application/json','Idempotency-Key':crypto.randomUUID()},
         body: JSON.stringify({expectedRevision: review.revision, kind: 'scenario', goal: `情景測試：${assumption}`})
       });
       state.runId = run.id;
@@ -370,6 +498,28 @@
   }
 
   $('start').addEventListener('click', () => void start(false));
+  $('goal').addEventListener('input', () => { state.goalDirty = true; });
+  $('save-context').addEventListener('click', () => void saveContext());
+  for (const field of ['destination','traveller','activities','concerns']) $('context-' + field).addEventListener('input', () => {
+    state.contextDirty = true;
+    $('context-status').textContent = '情況已修改，請先儲存再開始調查。';
+  });
+  $('report-history').addEventListener('change', async () => {
+    const selected = $('report-history').value;
+    state.selectedReport = selected;
+    try {
+      const report = await api(`/reviews/${state.reviewId}/reports/${selected}`);
+      if (state.selectedReport !== selected) return;
+      renderReport(report);
+      if (!state.busy) {state.runId = report.runId; await showActivity(state.reviewId, report.runId);}
+      $('report-version').textContent = `查看材料版本 ${report.inputRevision} 的報告。${report.runId === state.review.currentReport?.runId ? '' : '這是歷史報告；續查會使用最新的正式調查。'}`;
+    } catch (error) { status(error.message); }
+  });
+  $('cancel-run').addEventListener('click', async () => {
+    if (!state.runId || !state.busy) return;
+    try { await api(`/reviews/${state.reviewId}/runs/${state.runId}/cancel`, {method:'POST'}); status('已請求取消調查。'); }
+    catch (error) { status(error.message); }
+  });
   $('resume').addEventListener('click', () => void start(true));
   $('scenario-run').addEventListener('click', () => void startScenario());
   $('scenario').addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); void startScenario(); } });
