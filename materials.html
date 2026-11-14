@@ -25,6 +25,16 @@
         <button type="submit" id="upload-button">上傳材料 ↗</button>
       </form>
       <p id="status" role="status" aria-live="polite">正在連接你的材料空間……</p>
+      <details class="paste">
+        <summary>沒有 PDF？貼上經紀的溝通記錄</summary>
+        <p class="paste-note">貼上的文字只按原文保存，作為溝通記錄，不算官方文件；核驗只說明「與條款是否一致」，不判斷銷售是否合規。</p>
+        <form id="paste-form">
+          <label>來源<input id="paste-from" name="from" type="text" maxlength="120" placeholder="例如：WhatsApp 經紀 Ken" required /></label>
+          <label>對話時間<input id="paste-at" name="at" type="text" maxlength="40" placeholder="例如：2026-11-13 21:30" required /></label>
+          <label>對話內容<textarea id="paste-text" name="text" rows="6" maxlength="20000" placeholder="貼上原話，不要改寫；不同段落之間空一行。" required></textarea></label>
+          <button type="submit" id="paste-button" class="secondary">加入溝通記錄 ↗</button>
+        </form>
+      </details>
       <button type="button" id="refresh" class="secondary">重新整理</button>
     </section>
     <div class="workspace">

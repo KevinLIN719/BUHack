@@ -3,7 +3,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { z } from "zod";
 import multer from "multer";
 import { Investigator, snapshotFor } from "./agent.js";
-import { DocumentQueue, documentsFor, documentFor, publicDocument, MAX_FILE_BYTES } from "./ingest/documents.js";
+import { DocumentQueue, documentsFor, documentFor, publicDocument, createTextMaterial, MAX_FILE_BYTES } from "./ingest/documents.js";
 import { Store, type Review, type Run } from "./store.js";
 import { reportView } from "./report.js";
 
@@ -143,6 +143,24 @@ export function createApp(store: Store) {
     documentQueue.wake();
   });
 
+  // Pasted chat records: same review, same source/citation rules as an uploaded PDF, but the
+  // provenance is recorded instead of inferred from a file.
+  app.post("/api/reviews/:id/text-materials", (req, res) => {
+    const review = requireReview(req);
+    const input = z.object({
+      role: z.enum(["contract", "promotion", "schedule", "endorsement", "broker_reply"]),
+      fromWhom: z.string().trim().min(1).max(120),
+      capturedAt: z.string().trim().min(1).max(40),
+      text: z.string().trim().min(1).max(20_000),
+    }).strict().parse(req.body);
+    const sha256 = createHash("sha256").update(input.text).digest("hex");
+    const existing = documentsFor(store, review.id);
+    const same = existing.find(doc => doc.sha256 === sha256 && doc.role === input.role);
+    if (same) return void res.status(200).json(publicDocument(same));
+    if (existing.length >= 8) throw new ApiError(413, "DOCUMENT_LIMIT", "一次审阅最多保留 8 份材料，请先删除不需要的文件。");
+    res.status(201).json(publicDocument(createTextMaterial(store, { reviewId: review.id, ...input })));
+  });
+
   app.get("/api/reviews/:id/documents/:docId", (req, res) => {
     const document = requireDocument(req);
     const pages = store.db.prepare("SELECT pageIndex, printedPageLabel, status FROM pages WHERE documentId = ? ORDER BY pageIndex").all(document.id);
@@ -173,9 +191,14 @@ export function createApp(store: Store) {
   app.get("/api/reviews/:id/documents/:docId/content", (req, res) => {
     const document = requireDocument(req);
     const row = store.db.prepare("SELECT content FROM documents WHERE id = ?").get(document.id) as {content: Uint8Array};
-    res.setHeader("Content-Disposition", 'inline; filename="policy.pdf"');
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("Content-Security-Policy", "sandbox");
+    if (document.mediaType === "text/plain") {
+      // A pasted record has no PDF to point at: serve the stored text itself.
+      res.setHeader("Content-Disposition", 'inline; filename="pasted-text.txt"');
+      return void res.type("text/plain; charset=utf-8").send(Buffer.from(row.content));
+    }
+    res.setHeader("Content-Disposition", 'inline; filename="policy.pdf"');
     res.type("application/pdf").send(Buffer.from(row.content));
   });
 

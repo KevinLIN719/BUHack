@@ -1,14 +1,17 @@
 import { Worker } from "node:worker_threads";
 import { resolve } from "node:path";
+import { createHash, randomUUID } from "node:crypto";
 import { Store } from "../store.js";
 
 export const MAX_FILE_BYTES = 10 * 1024 * 1024;
 export const MAX_PAGES = 30;
 export type DocumentRole = "contract" | "promotion" | "schedule" | "endorsement" | "broker_reply";
+export type MaterialSource = "upload" | "pasted";
 export type DocumentRow = {
   id: string; reviewId: string; role: DocumentRole; name: string; sha256: string;
   byteSize: number; status: "queued" | "parsing" | "ready" | "partial" | "needs_ocr" | "failed";
   pageCount: number | null; errorCode: string | null; createdAt: string;
+  sourceType: MaterialSource; mediaType: string; fromWhom: string | null; capturedAt: string | null;
 };
 export type ParsedPage = {
   pageIndex: number; printedPageLabel: string | null; text: string;
@@ -19,14 +22,40 @@ export type ParsedPage = {
 type ParseResult = { pages: ParsedPage[]; error?: never } | { error: string; pages?: never };
 
 export function documentsFor(store: Store, reviewId: string) {
-  return store.db.prepare("SELECT id, reviewId, role, name, sha256, byteSize, status, pageCount, errorCode, createdAt FROM documents WHERE reviewId = ? ORDER BY rowid")
+  return store.db.prepare("SELECT id, reviewId, role, name, sha256, byteSize, status, pageCount, errorCode, createdAt, sourceType, mediaType, fromWhom, capturedAt FROM documents WHERE reviewId = ? ORDER BY rowid")
     .all(reviewId) as DocumentRow[];
 }
 export function documentFor(store: Store, reviewId: string, documentId: string) {
   return documentsFor(store, reviewId).find(doc => doc.id === documentId);
 }
 export function publicDocument(doc: DocumentRow) {
-  return { ...doc, documentVersion: doc.sha256, method: "pdf_text" };
+  return { ...doc, documentVersion: doc.sha256, method: doc.mediaType === "text/plain" ? "pasted_text" : "pdf_text" };
+}
+
+// Pasted chat records are materials too: the text is stored verbatim as a single page and its
+// paragraphs become sources, so a quote can still be checked against what the user pasted.
+export function createTextMaterial(store: Store, input: {
+  reviewId: string; role: DocumentRole; fromWhom: string; capturedAt: string; text: string;
+}) {
+  const split = (value: string) => value.split("\r\n\r\n").flatMap(part => part.split("\n\n"));
+  const paragraphs = split(input.text).map(part => part.trim()).filter(Boolean);
+  const chunks = paragraphs.length > 1 ? paragraphs : blocks(input.text);
+  const id = randomUUID();
+  const name = `${input.fromWhom} · ${input.capturedAt}`.slice(0, 240);
+  const sha256 = createHash("sha256").update(input.text).digest("hex");
+  const bytes = Buffer.from(input.text, "utf8");
+  store.transaction(() => {
+    store.db.prepare("INSERT INTO documents (id, reviewId, role, name, sha256, byteSize, content, status, pageCount, sourceType, mediaType, fromWhom, capturedAt, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, 'ready', 1, 'pasted', 'text/plain', ?, ?, ?)")
+      .run(id, input.reviewId, input.role, name, sha256, bytes.length, bytes, input.fromWhom, input.capturedAt, new Date().toISOString());
+    store.db.prepare("INSERT INTO pages (documentId, pageIndex, printedPageLabel, text, status) VALUES (?, 1, ?, ?, 'ready')")
+      .run(id, "貼上文字", input.text);
+    chunks.forEach((quote, index) => {
+      store.db.prepare("INSERT INTO sources (id, documentId, pageIndex, blockId, quote) VALUES (?, ?, 1, ?, ?)")
+        .run(`${id}:p1:b${index + 1}`, id, `b${index + 1}`, quote);
+    });
+    store.db.prepare("UPDATE reviews SET revision = revision + 1 WHERE id = ?").run(input.reviewId);
+  });
+  return documentFor(store, input.reviewId, id)!;
 }
 
 function parsePdf(bytes: Uint8Array): { promise: Promise<ParseResult>; stop: () => void } {

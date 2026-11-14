@@ -52,3 +52,14 @@ blockquote{margin:0;padding:9px 12px;border-left:3px solid #d8d2c3;background:#f
 .scenario .badge.bad{border-color:#e3c4c0;background:#faf0ee;color:#8d3b34}
 .unknowns{margin:0;padding-left:18px;font-size:13px;line-height:1.75;color:#5a5347}
 .unknowns .side-label{list-style:none;margin-left:-18px;color:#8a8375}
+.paste{margin:6px 0 10px;border:1px solid var(--line);border-radius:8px;background:#fffdf7}
+.paste>summary{cursor:pointer;padding:10px 14px;font-size:13.5px;color:#5a5347}
+.paste-note{margin:0;padding:0 14px 8px;font-size:12.5px;line-height:1.7;color:#8a8375}
+#paste-form{display:grid;gap:10px;padding:0 14px 14px}
+#paste-form label{display:grid;gap:5px;font-size:13px;color:#5a5347}
+#paste-form input,#paste-form textarea{width:100%;padding:9px 11px;border:1px solid #d8d2c3;border-radius:6px;background:#fff;font:inherit;color:inherit}
+#paste-form textarea{resize:vertical;line-height:1.7}
+#paste-form button{justify-self:start}
+.broker .badge{border-color:#c3cdc9;background:#f1f6f4;color:#0f5f58}
+.broker .badge.warn{border-color:#e7d3b4;background:#fbf5ea;color:#8a5a12}
+.broker .badge.bad{border-color:#e3c4c0;background:#faf0ee;color:#8d3b34}

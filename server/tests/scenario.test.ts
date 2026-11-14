@@ -74,3 +74,56 @@ test("a scenario whose claimed status disagrees with the arithmetic is rejected"
   const boundary = {...base, scenarios: [{...base.scenarios[0], actualValue: 6, status: "not_satisfied" as const}]};
   assert.throws(() => validateAnswer(boundary, snapshot, seen), /SCENARIO_INVALID:status_0/);
 });
+
+// A broker promise is checked the same way as a promotion claim: the promise must be quoted from
+// the chat record, and every verdict except "not_in_contract" must quote the contract side too.
+const brokerSnapshot = {
+  context: {},
+  documents: [
+    {id: "doc1", role: "contract", status: "ready", pageCount: 2, name: "policy.pdf"},
+    {id: "chat1", role: "broker_reply", status: "ready", pageCount: 1, name: "Ken · 2026-11-13"},
+  ],
+  sources: [
+    {sourceId: "doc1:p2:b1", documentId: "doc1", pageIndex: 2,
+      quote: "Delay exceeding 6 hours. Maximum benefit 1000.", role: "contract"},
+    {sourceId: "chat1:p1:b1", documentId: "chat1", pageIndex: 1,
+      quote: "你延誤超過 3 小時就賠，最多兩萬。", role: "broker_reply"},
+  ],
+} as unknown as Parameters<typeof validateAnswer>[1];
+const claim = {
+  verdict: "overstated" as const,
+  brokerQuote: "你延誤超過 3 小時就賠，最多兩萬。",
+  contractQuote: "Delay exceeding 6 hours. Maximum benefit 1000.",
+  brokerSourceIds: ["chat1:p1:b1"], contractSourceIds: ["doc1:p2:b1"],
+  explanation: "经纪说 3 小时、两万，合同写 6 小时、上限 1000。",
+};
+const claimBase = {findings: [], openQuestions: [], requests: [], brokerClaims: [claim]};
+
+test("a broker claim must quote both the promise and the wording that limits it", () => {
+  const seen = new Set(["doc1:p2:b1", "chat1:p1:b1"]);
+  const ok = validateAnswer(claimBase, brokerSnapshot, seen);
+  assert.equal(ok.brokerClaims.length, 1);
+
+  const rewritten = {...claimBase, brokerClaims: [{...claim, brokerQuote: "延誤三小時就賠兩萬"}]};
+  assert.throws(() => validateAnswer(rewritten, brokerSnapshot, seen), /BROKER_CLAIM_INVALID:broker_quote_0/);
+
+  const wrongSide = {...claimBase, brokerClaims: [{...claim, brokerSourceIds: ["doc1:p2:b1"]}]};
+  assert.throws(() => validateAnswer(wrongSide, brokerSnapshot, seen), /BROKER_CLAIM_INVALID:broker_source_0/);
+
+  const noContract = {...claimBase, brokerClaims: [{...claim, contractSourceIds: [], contractQuote: ""}]};
+  assert.throws(() => validateAnswer(noContract, brokerSnapshot, seen), /BROKER_CLAIM_INVALID:contract_source_0/);
+
+  const unread = {...claimBase, brokerClaims: [{...claim, brokerSourceIds: ["chat1:p1:b9"]}]};
+  assert.throws(() => validateAnswer(unread, brokerSnapshot, seen), /BROKER_CLAIM_INVALID:broker_source_0/);
+});
+
+test("not_in_contract is the only verdict that may leave the contract side empty", () => {
+  const seen = new Set(["doc1:p2:b1", "chat1:p1:b1"]);
+  const nothing = {...claimBase, brokerClaims: [{...claim, verdict: "not_in_contract" as const,
+    contractSourceIds: [], contractQuote: ""}]};
+  const ok = validateAnswer(nothing, brokerSnapshot, seen);
+  assert.equal(ok.brokerClaims[0].verdict, "not_in_contract");
+
+  const stillQuoting = {...claimBase, brokerClaims: [{...claim, verdict: "not_in_contract" as const}]};
+  assert.throws(() => validateAnswer(stillQuoting, brokerSnapshot, seen), /BROKER_CLAIM_INVALID:contract_source_0/);
+});

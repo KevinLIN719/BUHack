@@ -78,7 +78,8 @@ npm run build
 2. ~~完成 input_requests 持久化及补件 successor run~~ 已完成，用法见上文「补件续查」。
 3. resolveReference 与独立语义复核已完成：`GET /api/reviews/:id` 返回的 `currentReport` 每条结论带 `citations`（documentName / role / pageIndex / pageLabel / quote / status，材料被删后标 `missing`），并带 `review`（逐条 `supported` / `partial` / `unsupported` / `quote_mismatch` + 一句话依据；复核失败记 `unavailable` 不影响运行）。**材料页已接上一次调查**：`materials.html` 底部「條款調查」区块由 `report.js` / `report.css` 驱动，填问题 → 开始调查 → 轮询 run → 读 `currentReport` 渲染结论、原文引用（点击跳到逐页原文）、语义复核结论、补充请求与提问清单；有新加入的材料时出现「用新材料續查」，带 `resumeFromRunId` 走 successor run，不重复调查旧内容。仍未接的是 `experience.html` 主流程（示意聊天的二次入口）与 OCR／经纪回复核验。
 4. 宣传与条款对照已完成：上传 `role=promotion` 的宣传单后，`currentReport.comparisons` 给出每条宣传主张对合同原文的 `supported_with_conditions` / `apparent_conflict` / `insufficient_basis`，两侧引文均为逐字摘录并带页码解析，无法核对的整条丢弃并记 `droppedComparisons`；`materials.html` 的「條款調查」区块在结论之后渲染「宣傳與條款」。演示素材：`assets/demo-contract.pdf` + `assets/demo-promotion.pdf`（均为虚构测试材料）。
-5. 情景实验（`kind=scenario`）已完成：材料页出现「情境實驗」输入框，假设的时长与原文门槛由服务端确定性比较，结果带 status、差距和仍待确认项；不推算赔款。剩余：OCR、经纪回复核验逐项增加。
+5. 情景实验（`kind=scenario`）已完成：材料页出现「情境實驗」输入框，假设的时长与原文门槛由服务端确定性比较，结果带 status、差距和仍待确认项；不推算赔款。
+5b. 经纪回复核验已完成：`role=broker_reply` 的沟通记录可以直接粘贴（来源 / 对话时间 / 对话内容三栏，存为一页原文材料，不必先转 PDF），报告在「經紀回覆核驗」里逐条给出 与条款一致 / 说大了 / 条款里找不到依据 / 与条款原文冲突，两侧都带逐字引用和页码；只说明一致性，不判断销售是否合规、不核实说话人身份。剩余：OCR、版本变化对照与 run 恢复。
 6. PDF 提取改为按版面分块（页眉页脚剔除、分栏顺序、表格行合并、段落边界、连字符接回），引用的 quote 取自整段而不是 1200 字硬切，因此「Page 1 of 9」这类页眉不会再混进引用，赔付表能还原成一行。代价是段落更长，工具输出加了预算截断（searchSources 320 字 / readSource 目标段 1600 字、相邻段 480 字）、调查循环上限提到 14 步并要求「读到关键条款就输出报告」。真实 QBE 保单复验见 REAL-CONTRACT-TEST.md。剩余：OCR、经纪回复核验逐项增加。
 
 ## 交接边界

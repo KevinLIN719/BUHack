@@ -2,7 +2,7 @@
 
 已实现：健康检查、匿名浏览器会话、审阅档案、背景版本、调查任务、状态查询、SSE 事件重放、取消与删除，以及 PDF 上传、后台分页提取、原件访问和原文引用。SQLite 保存数据，关闭服务后仍保留。
 
-已接入初步调查运行器。没有可用合同时进入 awaiting_input；有合同但未配置 Key 时返回 503 AGENT_NOT_CONNECTED。配置模型后运行真实调查，结果由 GET run 的 `report` 字段提供，GET review 的 `currentReport` 提供带页码解析的同款报告（含 `review` 语义复核结论）。补件续查（`resumeFromRunId`）已实现；宣传与条款对照（`comparisons`）与情景实验（`scenarios`，`kind=scenario`）已实现；正式前端 `materials.html` 已接入调查与续查，其余示例页仍为模板。
+已接入初步调查运行器。没有可用合同时进入 awaiting_input；有合同但未配置 Key 时返回 503 AGENT_NOT_CONNECTED。配置模型后运行真实调查，结果由 GET run 的 `report` 字段提供，GET review 的 `currentReport` 提供带页码解析的同款报告（含 `review` 语义复核结论）。补件续查（`resumeFromRunId`）已实现；宣传与条款对照（`comparisons`）、情景实验（`scenarios`，`kind=scenario`）与经纪回复核验（`brokerClaims`）已实现；沟通记录可以文字粘贴（`sourceType=pasted`），不必先转成 PDF。正式前端 `materials.html` 已接入调查、续查、情境与经纪核验，其余示例页仍为模板。
 
 ## 启动与检查
 
@@ -65,7 +65,8 @@ curl -s -b /tmp/policy-lens.cookies \
 
 202 返回 document 的 id，使用 GET /api/reviews/:id/documents/:docId 查询状态。不要手工设置 multipart 的 Content-Type，curl/浏览器会生成 boundary。
 
-- role：contract（合同）、promotion（宣传）、schedule（附表）、endorsement（批单）、broker_reply（经纪回复）。当前这些材料均只接收 PDF，图片 OCR 后续接入。
+- role：contract（合同）、promotion（宣传）、schedule（附表）、endorsement（批单）、broker_reply（经纪回复）。PDF 单份 10 MB、最多 30 页；图片 OCR 后续接入。
+- 沟通记录可以直接粘贴：`POST /api/reviews/:id/text-materials`，body 为 `{role, fromWhom, capturedAt, text}`（JSON）。文字原文保存为一页（`printedPageLabel = 貼上文字`），按空行切成多个 source，可像 PDF 原文一样被逐字引用和点击核对；`fromWhom`（来源）与 `capturedAt`（对话时间）随材料保存，前端显示为「来源 · 时间」。粘贴记录只当作沟通记录，不是官方文件。
 - 单文件最多 10 MB、最多 30 页、每次审阅最多 8 份文件；这是当前工程预算。超过页数整份失败，不静默截断。
 - 状态：queued → parsing → ready / partial / needs_ocr / failed。ready 只表示每页有可提取文字，不表示条款内容已审核或版面读取绝对准确。
 - 无文字页标记 needs_ocr，也可能是空白页；部分页可读时文档为 partial，逐页状态会明确列出。当前不调用 OCR 或模型。
@@ -94,6 +95,7 @@ GET /api/reviews/:id/documents/:docId/content 返回原 PDF。目前提供完整
 | GET | /api/reviews/:id/documents/:docId/content | 受会话保护的原 PDF |
 | DELETE | /api/reviews/:id/documents/:docId | 删除原件、页与引用 |
 | GET | /api/reviews/:id/sources/:sourceId | 原文、版本和页码出处 |
+| POST | /api/reviews/:id/text-materials | 粘贴沟通记录（JSON：role / fromWhom / capturedAt / text），保存为一页原文材料 |
 | POST | /api/reviews/:id/runs | expectedRevision + kind（investigate 或 scenario）+ goal，可选 resumeFromRunId；创建调查或情景任务 |
 | GET | /api/reviews/:id/runs/:runId | 查询状态 |
 | GET | /api/reviews/:id/runs/:runId/events | SSE；after 或 Last-Event-ID 重放 |
@@ -113,6 +115,8 @@ GET /api/reviews/:id/documents/:docId/content 返回原 PDF。目前提供完整
 `scenarios`：情景实验，可为空数组。`POST runs` 的 `kind=scenario` 会创建一个独立任务，goal 写用户想验证的假设（例如「情景測試：如果延誤 8 小時？」）。每条含 `question`（用户的问题）、`assumption`（假设的数值与单位）、`thresholdQuote`（门槛原文的逐字片段）、`ruleSourceIds`、`actualValue` / `actualUnit`（`minutes` / `hours` / `days`）、`status`、`detail`（一句差距说明）、`unknowns`（仍需确认的事项）、以及解析后的 `citations[]`（结构同 findings）。`status` 四值：`satisfied`（越过门槛）、`not_satisfied`（未达）、`boundary`（正好等于门槛，而原文用的是「超过」这类严格表述）、`insufficient_information`（门槛原文里没有可解析的时长，或单位无法识别）。
 
 比较由服务端确定性计算，不由模型推算：工具 `evaluateScenario` 只接受已读过的原文，`thresholdQuote` 必须是该原文的逐字子串，返回的 `status` / `thresholdMinutes` / `actualMinutes` / `marginMinutes` 由 `server/scenario.ts` 计算；模型只能照抄该 status。报告落盘前会再算一次，若模型声称的 status 与计算结果不一致，该条被拒绝；重试后仍不一致的整条丢弃并计入 `droppedScenarios`（不使任务失败）。`caveats` 固定提醒：只比较字面门槛、事件定义与起算时点/除外/证明仍需确认、上限与币种未计算。情景假设只属于该次任务，不会写回审阅背景。情景任务产出的报告同样包含 findings 与 requests，`currentReport` 取最近一次已发布报告。
+
+`brokerClaims`：经纪回复核验，可为空数组。当审阅里有 `role=broker_reply` 的材料（上传的 PDF 或粘贴的沟通记录）时，模型逐条提取经纪的承诺、条件、限额、除外与期限，再到合同/附表/批单原文里找对应条款。每条含 `verdict`（`supported` 与条款一致 / `overstated` 说法成立但漏了条件或限额 / `not_in_contract` 条款里找不到依据 / `contradicted` 与条款原文冲突）、`brokerQuote`（经纪原文逐字摘录）、`contractQuote`（合同原文逐字摘录，`not_in_contract` 时为空串）、`brokerSourceIds` / `contractSourceIds`、`explanation`（一句说明差在哪），以及解析后的 `broker[]` / `contract[]` 引用（结构同 findings 的 `citations`）。校验规则：经纪侧来源必须是本次运行已读过的 `broker_reply` 材料且引文逐字子串；除 `not_in_contract` 外合同侧必须非空、role 属于 `contract` / `schedule` / `endorsement`、引文逐字子串且 `not_in_contract` 时不得给合同引用；无法核对的整条丢弃并计入 `droppedBrokerClaims`，前端提示「有 N 条核验因原文无法逐字核对而未显示」。该核验只说明「经纪说法与条款是否一致」，不判断销售是否合规，也不核实说话人身份。
 SSE 当前仅重放已保存事件；awaiting_input/cancelled 时关闭连接。消费端收到这种状态应主动关闭 EventSource，避免自动重连。接入持续运行的 Agent 时，再增加实时订阅和心跳。
 
 模型容错：schema 不使用 maxItems / maxLength 这类上限（DeepSeek 兼容模式会把 schema 写进 system prompt，超限会直接解析失败）；模型返回不符合 schema 的 JSON 时自动重试一次并给更严格的输出要求；仍失败则任务置 failed，服务端日志额外打印 finishReason、底层原因和最多 600 字的原始输出，便于定位。工具输出按预算截断（searchSources 每条 320 字、readSource 目标段 1600 字、相邻段 480 字），instructions 要求读到关键条款就收手，调查循环上限 14 步；模型在步数用尽后没有给出最终报告时，会重新开一次调查并要求 6 次工具调用内输出报告。

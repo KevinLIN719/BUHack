@@ -19,7 +19,7 @@
     }
     return response.status===204 ? null : response.json();
   }
-  function lock(value) { busy=value; $('upload-button').disabled=value; $('delete-review').disabled=value; }
+  function lock(value) { busy=value; $('upload-button').disabled=value; $('delete-review').disabled=value; $('paste-button').disabled=value; }
   function clearReader() { pageEpoch++; viewKey=''; $('reader-controls').hidden=true; $('page-text').textContent=''; $('sources').replaceChildren(); $('page-status').textContent=''; }
   function renderDocs() {
     $('documents').replaceChildren(); $('empty').hidden=docs.length>0;
@@ -88,6 +88,21 @@
     lock(true);epoch++;clearTimeout(timer);status('正在上傳材料……');
     try{if(!reviewId)await connect();const form=new FormData();form.set('role',$('role').value);form.set('file',file);
       const doc=await api(`/reviews/${reviewId}/documents`,{method:'POST',body:form});selected=doc.id;pageNumber=1;viewKey='';$('file').value='';await refresh();
+    }catch(error){status(error.message);}finally{lock(false);renderDocs();}
+  });
+  // A pasted record goes through the same review as an upload; only the provenance fields differ.
+  $('paste-form').addEventListener('submit',async event=>{
+    event.preventDefault();if(busy)return;
+    const text=$('paste-text').value.trim();
+    if(!text){status('請貼上對話內容。');return;}
+    const fromWhom=$('paste-from').value.trim(), capturedAt=$('paste-at').value.trim();
+    if(!fromWhom || !capturedAt){status('請填寫來源和對話時間。');return;}
+    lock(true);epoch++;clearTimeout(timer);status('正在保存溝通記錄……');
+    try{
+      if(!reviewId)await connect();
+      const doc=await api(`/reviews/${reviewId}/text-materials`,{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({role:'broker_reply',fromWhom,capturedAt,text})});
+      selected=doc.id;pageNumber=1;viewKey='';$('paste-text').value='';await refresh();
     }catch(error){status(error.message);}finally{lock(false);renderDocs();}
   });
   $('page').addEventListener('change',()=>{pageNumber=Number($('page').value);void openPage();});

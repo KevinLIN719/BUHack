@@ -19,6 +19,9 @@ type StoredReport = {
   scenarios?: {question: string; assumption: string; thresholdQuote: string; ruleSourceIds: string[];
     actualValue: number; actualUnit: string; status: string; detail: string; unknowns: string[]}[];
   droppedScenarios?: number;
+  brokerClaims?: {verdict: string; brokerQuote: string; contractQuote: string; brokerSourceIds: string[];
+    contractSourceIds: string[]; explanation: string}[];
+  droppedBrokerClaims?: number;
   sources?: {sourceId: string; documentId: string; pageIndex: number; quote: string; role: string}[];
   coverage?: {id: string; status: string; pageCount: number | null}[];
   verification?: string;
@@ -44,6 +47,8 @@ export type ReportView = {
   droppedComparisons: number;
   scenarios: (NonNullable<StoredReport["scenarios"]>[number] & {citations: ResolvedCitation[]})[];
   droppedScenarios: number;
+  brokerClaims: (NonNullable<StoredReport["brokerClaims"]>[number] & {broker: ResolvedCitation[]; contract: ResolvedCitation[]})[];
+  droppedBrokerClaims: number;
   openQuestions: string[];
   requests: {message: string; requestedRole: string}[];
   sources: ResolvedCitation[];
@@ -83,6 +88,9 @@ export function reportView(store: Store, reviewId: string): ReportView | null {
     marketing: comparison.marketingSourceIds.map(resolve),
     contract: (comparison.contractSourceIds ?? []).map(resolve)}));
   const scenarios = (report.scenarios ?? []).map(scenario => ({...scenario, citations: scenario.ruleSourceIds.map(resolve)}));
+  const brokerClaims = (report.brokerClaims ?? []).map(claim => ({...claim,
+    broker: claim.brokerSourceIds.map(resolve),
+    contract: (claim.contractSourceIds ?? []).map(resolve)}));
   // Keep the report's own source list (with order) but resolve each entry as well.
   const sources = (report.sources ?? []).map(source => resolve(source.sourceId));
   const missing = [...cited].filter(id => !lookup.has(id)).length;
@@ -90,6 +98,7 @@ export function reportView(store: Store, reviewId: string): ReportView | null {
     runId: run.runId, runStatus: run.status, inputRevision: run.inputRevision, createdAt: run.createdAt,
     findings, comparisons, droppedComparisons: report.droppedComparisons ?? 0,
     scenarios, droppedScenarios: report.droppedScenarios ?? 0,
+    brokerClaims, droppedBrokerClaims: report.droppedBrokerClaims ?? 0,
     openQuestions: report.openQuestions, requests: report.requests ?? [],
     sources, coverage: report.coverage ?? [], verification: report.verification ?? null,
     review: report.review ?? null,

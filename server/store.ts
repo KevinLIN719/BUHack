@@ -72,6 +72,12 @@ export class Store {
     `);
     // A successor run points at the run whose report requested more material.
     ensureColumn(this.db, "runs", "parentRunId", "parentRunId TEXT");
+    // Materials can be pasted chat records, not only uploaded PDFs: keep where the text came
+    // from and when it was said, because a quote without provenance is not evidence.
+    ensureColumn(this.db, "documents", "sourceType", "sourceType TEXT NOT NULL DEFAULT 'upload'");
+    ensureColumn(this.db, "documents", "mediaType", "mediaType TEXT NOT NULL DEFAULT 'application/pdf'");
+    ensureColumn(this.db, "documents", "fromWhom", "fromWhom TEXT");
+    ensureColumn(this.db, "documents", "capturedAt", "capturedAt TEXT");
   }
 
   transaction<T>(work: () => T): T {

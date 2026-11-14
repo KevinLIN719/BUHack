@@ -20,6 +20,8 @@
   const scenarioLabels = {satisfied:'符合門檻',not_satisfied:'未達門檻',boundary:'剛好等於門檻',insufficient_information:'條件不足，無法比較'};
   const scenarioTone = {satisfied:'ok',not_satisfied:'warn',boundary:'warn',insufficient_information:'bad'};
   const scenarioUnitLabels = {minutes:'分鐘',hours:'小時',days:'天'};
+  const brokerLabels = {supported:'與條款一致',overstated:'說大了，漏了條件',not_in_contract:'條款裡找不到依據',contradicted:'與條款原文衝突'};
+  const brokerTone = {supported:'ok',overstated:'warn',not_in_contract:'warn',contradicted:'bad'};
   const state = {reviewId:null, review:null, runId:null, busy:false};
 
   const node = (tag, text, className) => {
@@ -177,6 +179,34 @@
       }
       if (report.droppedScenarios) {
         section.append(node('p', `有 ${report.droppedScenarios} 條情境因原文無法核對而未顯示。`, 'muted'));
+      }
+      host.append(section);
+    }
+
+    if (report.brokerClaims?.length || report.droppedBrokerClaims) {
+      const section = node('section', undefined, 'compare broker');
+      section.append(node('h3', '經紀回覆核驗'));
+      section.append(node('p', '左側是經紀的原話，右側是條款原文。這裡只說明兩者是否一致，不判斷銷售是否合規，也不核實說話人身份。', 'muted'));
+      for (const item of report.brokerClaims ?? []) {
+        const card = node('article', undefined, 'comparison');
+        card.append(node('span', brokerLabels[item.verdict] ?? item.verdict, `badge ${brokerTone[item.verdict] ?? ''}`));
+        const side = (label, citations) => {
+          const block = node('div', undefined, 'side');
+          block.append(node('p', label, 'side-label'));
+          for (const citation of citations ?? []) {
+            block.append(citationButton(citation));
+            if (citation.quote) block.append(node('blockquote', citation.quote));
+          }
+          return block;
+        };
+        card.append(side('經紀回覆原話', item.broker));
+        if (item.contract?.length) card.append(side('合同原文寫的', item.contract));
+        else card.append(node('p', '合同材料中暫未找到對應條款。', 'muted'));
+        if (item.explanation) card.append(node('div', item.explanation, 'finding-text'));
+        section.append(card);
+      }
+      if (report.droppedBrokerClaims) {
+        section.append(node('p', `有 ${report.droppedBrokerClaims} 條核驗因原文無法逐字核對而未顯示。`, 'muted'));
       }
       host.append(section);
     }

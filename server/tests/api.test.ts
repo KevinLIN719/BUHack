@@ -695,3 +695,60 @@ test("an unverifiable comparison is dropped instead of failing the run", async (
     await new Promise<void>(resolve => { model.close(() => resolve()); model.closeAllConnections(); });
   }
 });
+
+// A pasted chat record is a material like any other: the text is stored verbatim, its paragraphs
+// become citable sources, and the provenance travels with it so a quote keeps its context.
+test("a pasted chat record becomes citable material with provenance", async () => {
+  const api = await start();
+  try {
+    const response = await api.request("/api/reviews", { method: "POST" });
+    const cookie = response.headers.get("set-cookie")!.split(";")[0];
+    const review = await response.json();
+    const path = `/api/reviews/${review.id}`;
+    const headers = { Cookie: cookie, "Content-Type": "application/json" };
+    const body = JSON.stringify({
+      role: "broker_reply",
+      fromWhom: "WhatsApp · 經紀 Ken",
+      capturedAt: "2026-11-13 21:30",
+      text: "你延誤超過 3 小時就賠，最多兩萬。\n\n唔使填表，我幫你搞掂。",
+    });
+    const created = await api.request(`${path}/text-materials`, { method: "POST", headers, body });
+    assert.equal(created.status, 201);
+    const material = await created.json();
+    assert.equal(material.role, "broker_reply");
+    assert.equal(material.sourceType, "pasted");
+    assert.equal(material.mediaType, "text/plain");
+    assert.equal(material.method, "pasted_text");
+    assert.equal(material.fromWhom, "WhatsApp · 經紀 Ken");
+    assert.equal(material.capturedAt, "2026-11-13 21:30");
+    assert.equal(material.status, "ready");
+    assert.equal(material.pageCount, 1);
+    assert.equal(material.name, "WhatsApp · 經紀 Ken · 2026-11-13 21:30");
+
+    const docPath = `${path}/documents/${material.id}`;
+    const page = await (await api.request(`${docPath}/pages/1`, { headers })).json();
+    assert.equal(page.printedPageLabel, "貼上文字");
+    assert.equal(page.sources.length, 2, "one source per paragraph");
+    assert.equal(page.sources[0].quote, "你延誤超過 3 小時就賠，最多兩萬。");
+    const source = await (await api.request(`${path}/sources/${page.sources[0].sourceId}`, { headers })).json();
+    assert.equal(source.role, "broker_reply");
+    assert.equal(source.quoteCheck, "matched");
+
+    const restore = await (await api.request(`${docPath}/content`, { headers })).text();
+    assert.match(restore, /最多兩萬/);
+
+    const reviewAfter = await (await api.request(path, { headers })).json();
+    assert.equal(reviewAfter.revision, 2, "a new material bumps the revision");
+
+    const again = await api.request(`${path}/text-materials`, { method: "POST", headers, body });
+    assert.equal(again.status, 200, "the same text in the same role is not stored twice");
+    assert.equal((await again.json()).id, material.id);
+
+    const missing = await api.request(`${path}/text-materials`, { method: "POST", headers,
+      body: JSON.stringify({ role: "broker_reply", fromWhom: "Ken", capturedAt: "", text: "x" }) });
+    assert.equal(missing.status, 400);
+    assert.equal((await missing.json()).error.code, "INVALID_INPUT");
+  } finally {
+    await api.close();
+  }
+});
