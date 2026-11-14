@@ -1,5 +1,7 @@
 # Policy Lens
 
+> 全仓进度、后端接口、已完成/未完成与移交事项见 [docs/PLAN.md](docs/PLAN.md)。本 README 只说明前端页面的使用与打包。
+
 A Traditional Chinese, light-mode frontend with two views: a **connected mock experience** and a **single-page component notebook**. The POLICY LENS brand, selected decorative English, insurer proper names and technical code identifiers are retained. The default entry is `experience.html` (`dist/index.html` after building); every standalone component is on `showcase.html` (`dist/showcase.html`). Both pages link to each other.
 
 主要介面、提示、保單示例、中文問答、元件接入說明和匯出清單均使用繁體中文（香港用語）。保單引文與高亮仍逐字對應；英文機器值、DOM hooks 和 API 沒有改名。中文查詢與追問會保留正確的條款上下文。 介面只保留必要操作提示；情境的條款說明與元件接入資料預設折疊，原文與匯出內容完整保留。

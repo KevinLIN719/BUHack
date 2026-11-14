@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>保單調查 · 結果檢視（開發自檢頁）</title>
+<style>
+  :root { --ink:#1b2430; --mute:#6b7684; --line:#e3e7ec; --bg:#f7f8fa; --accent:#2f6f5e; --warn:#a05a1c; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.7 "Helvetica Neue","PingFang HK","Microsoft JhengHei",sans-serif; }
+  main { max-width:860px; margin:0 auto; padding:32px 20px 80px; }
+  h1 { font-size:22px; margin:0 0 6px; }
+  .sub { color:var(--mute); font-size:13px; margin-bottom:24px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:18px 20px; margin-bottom:16px; }
+  label { display:block; font-size:13px; color:var(--mute); margin:12px 0 6px; }
+  input[type=file], textarea { width:100%; font:inherit; padding:10px; border:1px solid var(--line); border-radius:8px; background:#fff; }
+  textarea { min-height:72px; resize:vertical; }
+  button { margin-top:16px; font:inherit; font-weight:600; padding:10px 20px; border-radius:999px; border:0; background:var(--accent); color:#fff; cursor:pointer; }
+  button:disabled { background:#9fb3ac; cursor:progress; }
+  .step { font-size:13px; color:var(--mute); margin-top:12px; min-height:20px; }
+  .finding { border-top:1px solid var(--line); padding:14px 0; }
+  .finding:first-child { border-top:0; }
+  .badge { display:inline-block; font-size:11px; letter-spacing:.04em; padding:2px 8px; border-radius:999px; background:#eef2f1; color:#3d5a52; margin-bottom:6px; }
+  .badge.unknown { background:#fbf1e4; color:var(--warn); }
+  .cite { font-size:13px; background:#fafbfc; border-left:3px solid var(--accent); padding:8px 10px; margin:8px 0 0; border-radius:0 6px 6px 0; }
+  .cite.missing { border-left-color:#b4453c; background:#fdf4f3; }
+  .cite .meta { color:var(--mute); font-size:12px; margin-bottom:4px; }
+  .cite q { font-style:normal; }
+  .row { display:flex; gap:8px; align-items:baseline; }
+  .err { color:#b4453c; white-space:pre-wrap; }
+  ul { margin:8px 0 0; padding-left:20px; }
+  .kpi { display:flex; gap:20px; flex-wrap:wrap; font-size:13px; color:var(--mute); margin-top:8px; }
+  .kpi b { color:var(--ink); font-size:18px; display:block; }
+  .hidden { display:none; }
+</style>
+</head>
+<body>
+<main>
+  <h1>保單調查 · 結果檢視</h1>
+  <div class="sub">開發自檢頁：走真實後端與 DeepSeek，把 <code>GET /api/reviews/:id</code> 的 <code>currentReport</code> 直接畫出來。此頁不屬於正式前端。</div>
+
+  <section class="card">
+    <label for="file">1 · 上傳保單 PDF（可先用 .data/demo-contract.pdf）</label>
+    <input id="file" type="file" accept="application/pdf" />
+    <label for="goal">2 · 你想問什麼</label>
+    <textarea id="goal">我打算去日本滑雪，想知道這份保單是否承保滑雪受傷，需要補充什麼材料？</textarea>
+    <button id="start">開始調查</button>
+    <button id="sample" style="background:#fff;color:var(--accent);border:1px solid var(--accent);margin-left:8px">用內建範例 PDF</button>
+    <div class="step" id="step"></div>
+  </section>
+
+  <section id="result"></section>
+</main>
+<script>
+const $ = s => document.querySelector(s);
+const stepEl = $("#step"), resultEl = $("#result");
+
+function step(text) { stepEl.textContent = text; }
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function api(path, init = {}) {
+  const response = await fetch(path, { credentials: "same-origin", ...init });
+  const text = await response.text();
+  let body = null;
+  try { body = text ? JSON.parse(text) : null; } catch { body = { raw: text }; }
+  if (!response.ok) {
+    const message = body?.error?.message ?? body?.message ?? response.statusText;
+    const code = body?.error?.code ?? "";
+    throw new Error(`${response.status} ${code} ${message}`.trim());
+  }
+  return body;
+}
+
+async function waitFor(label, path, terminal) {
+  for (let i = 0; i < 600; i++) {
+    const body = await api(path);
+    if (terminal(body)) return body;
+    step(`${label}… ${body.status ?? ""}`.trim());
+    await sleep(700);
+  }
+  throw new Error(`${label} 逾時`);
+}
+
+function esc(text) {
+  return String(text ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+
+function renderCitation(citation) {
+  const missing = citation.status === "missing";
+  const page = citation.pageLabel ? esc(citation.pageLabel) : `第 ${citation.pageIndex} 頁`;
+  return `<div class="cite ${missing ? "missing" : ""}">
+    <div class="meta">${esc(citation.documentName || "（材料已刪除）")} · ${page} · ${esc(citation.role)} · ${missing ? "原文已不在審閱中" : "已核對原文"}</div>
+    <q>${esc(citation.quote)}</q>
+  </div>`;
+}
+
+const VERDICTS = {
+  supported: { label: "語意相符", color: "#0f766e" },
+  partial: { label: "僅部分相符", color: "#b45309" },
+  unsupported: { label: "原文不支援", color: "#b91c1c" },
+  quote_mismatch: { label: "引文與結論不符", color: "#b91c1c" },
+};
+
+function renderVerdict(item) {
+  if (!item) return "";
+  const meta = VERDICTS[item.verdict] ?? { label: item.verdict, color: "#475569" };
+  return `<div class="cite" style="border-left-color:${meta.color}">
+    <div class="meta" style="color:${meta.color}">語意複核 · ${esc(meta.label)}</div>
+    <div style="font-size:12.5px;color:#475569">${esc(item.note)}</div>
+  </div>`;
+}
+
+function renderReport(view) {
+  const findings = view.findings ?? [];
+  const integrity = view.citationIntegrity ?? { cited: 0, verified: 0, missing: 0 };
+  const verdicts = new Map((view.review?.items ?? []).map(item => [item.index, item]));
+  const reviewStatus = { checked: "語意複核完成", issues_found: "語意複核發現問題", unavailable: "語意複核未執行", not_applicable: "無需語意複核" }[view.review?.status] ?? "語意複核未執行";
+  const findingsHtml = findings.map((finding, index) => `
+    <div class="finding">
+      <span class="badge ${finding.evidenceStatus === "unknown" ? "unknown" : ""}">${esc(finding.evidenceStatus)}</span>
+      <div>${esc(finding.explanation)}</div>
+      ${(finding.citations ?? []).map(renderCitation).join("")}
+      ${renderVerdict(verdicts.get(index))}
+    </div>`).join("") || `<p class="sub">本次沒有可引用的結論。</p>`;
+
+  const reviewLine = `<p class="sub" style="margin:8px 0 0">${esc(reviewStatus)}${view.review?.items?.length ? `（逐條檢查 ${view.review.items.length} 條）` : ""}</p>`;
+  const requests = (view.requests ?? []).length
+    ? `<h3 style="font-size:15px;margin:0 0 4px">還需要你補充</h3><ul>${view.requests.map(r => `<li>${esc(r.message)}</li>`).join("")}</ul>`
+    : "";
+  const questions = (view.openQuestions ?? []).length
+    ? `<h3 style="font-size:15px;margin:18px 0 4px">可以向對方問清楚</h3><ul>${view.openQuestions.map(q => `<li>${esc(q)}</li>`).join("")}</ul>`
+    : "";
+
+  return `
+    <div class="card">
+      <div class="row"><span class="badge">${esc(view.runStatus)}</span><span class="sub" style="margin:0">任務 ${esc(view.runId.slice(0, 8))} · 輸入版本 ${view.inputRevision}</span></div>
+      <div class="kpi">
+        <div><b>${findings.length}</b>條結論</div>
+        <div><b>${integrity.cited}</b>處引用</div>
+        <div><b>${integrity.verified}</b>已核對</div>
+        <div><b style="color:${integrity.missing ? "#b4453c" : "inherit"}">${integrity.missing}</b>原文已刪除</div>
+      </div>
+      ${reviewLine}
+    </div>
+    <div class="card">${findingsHtml}</div>
+    ${requests || questions ? `<div class="card">${requests}${questions}</div>` : ""}
+    <div class="sub">${view.review?.status === "checked" || view.review?.status === "issues_found" ? "以上為初步分析，已逐條複核引用是否支持結論（複核範圍僅限引用與結論的對應，不含條款合法性或是否賠付），不構成理賠或保障結論。" : "以上為初步分析，尚未完成獨立語意複核，不構成理賠或保障結論。"}</div>`;
+}
+
+let samplePdf = null;
+$("#sample").addEventListener("click", async () => {
+  try {
+    step("載入內建範例…");
+    const response = await fetch("/assets/demo-contract.pdf");
+    if (!response.ok) throw new Error("找不到 /assets/demo-contract.pdf");
+    samplePdf = new File([await response.blob()], "demo-contract.pdf", { type: "application/pdf" });
+    step("已載入內建範例 PDF，按「開始調查」即可。");
+  } catch (error) { step(error.message); }
+});
+
+$("#start").addEventListener("click", async () => {
+  const file = $("#file").files[0] ?? samplePdf;
+  const goal = $("#goal").value.trim();
+  if (!file) return step("請先選一份 PDF。");
+  if (!goal) return step("請先寫下你想問的問題。");
+  const button = $("#start");
+  button.disabled = true;
+  resultEl.innerHTML = "";
+  try {
+    step("建立審閱…");
+    const review = await api("/api/reviews", { method: "POST" });
+
+    step("上傳並解析 PDF…");
+    const form = new FormData();
+    form.set("role", "contract");
+    form.set("file", file);
+    const document = await api(`/api/reviews/${review.id}/documents`, { method: "POST", body: form });
+    const parsed = await waitFor("解析中", `/api/reviews/${review.id}/documents/${document.id}`, d => !["queued", "parsing"].includes(d.status));
+    if (parsed.status !== "ready") throw new Error(`文件狀態 ${parsed.status}：${parsed.error ?? "請換一份可讀取的 PDF"}`);
+
+    step("讀取最新版本…");
+    const current = await api(`/api/reviews/${review.id}`);
+    step("模型調查中（工具呼叫需要一點時間）…");
+    const run = await api(`/api/reviews/${review.id}/runs`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ expectedRevision: current.revision, kind: "investigate", goal }),
+    });
+    await waitFor("調查中", `/api/reviews/${review.id}/runs/${run.id}`, r => !["queued", "running"].includes(r.status));
+
+    const fresh = await api(`/api/reviews/${review.id}`);
+    if (!fresh.currentReport) throw new Error("任務結束但沒有報告：請看後端終端機的錯誤訊息。");
+    resultEl.innerHTML = renderReport(fresh.currentReport);
+    step(`完成（審閱 ${review.id.slice(0, 8)}，任務 ${run.id.slice(0, 8)}）`);
+  } catch (error) {
+    step("");
+    resultEl.innerHTML = `<div class="card err">${esc(error.message)}</div>`;
+  } finally {
+    button.disabled = false;
+  }
+});
+</script>
+</body>
+</html>

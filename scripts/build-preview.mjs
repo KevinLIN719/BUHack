@@ -62,6 +62,7 @@ async function bundle(entry) {
 await mkdir(resolve(root,'dist'), {recursive:true});
 for (const [source, output] of [
   ['experience.html','experience.html'],
+  ['materials.html','materials.html'],
   ['showcase.html','showcase.html'],
   ['index.html','journey-reference.html'],
   ['completion-preview.html','completion-preview.html'],

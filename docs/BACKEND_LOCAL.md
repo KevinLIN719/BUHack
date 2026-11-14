@@ -1,0 +1,144 @@
+# 后端本地开发（第二阶段：PDF 原文）
+
+> 2026-11-14：总进度与分工见 [统一计划 PLAN.md](PLAN.md)。本文继续作为**接口与字段细节附录**维护（新增接口/字段时同步更新），但「已完成/未完成」以 PLAN.md 为准。
+
+已实现：健康检查、匿名浏览器会话、审阅档案、背景版本、调查任务、状态查询、SSE 事件重放、取消与删除，以及 PDF 上传、后台分页提取、原件访问和原文引用。SQLite 保存数据，关闭服务后仍保留。
+
+已接入初步调查运行器。没有可用合同时进入 awaiting_input；有合同但未配置 Key 时返回 503 AGENT_NOT_CONNECTED。配置模型后运行真实调查，结果由 GET run 的 `report` 字段提供，GET review 的 `currentReport` 提供带页码解析的同款报告（含 `review` 语义复核结论）。补件续查（`resumeFromRunId`）已实现；宣传与条款对照（`comparisons`）、情景实验（`scenarios`，`kind=scenario`）与经纪回复核验（`brokerClaims`）已实现；沟通记录可以文字粘贴（`sourceType=pasted`），不必先转成 PDF。正式前端 `materials.html` 已接入调查、续查、情境与经纪核验，其余示例页仍为模板。
+
+## 启动与检查
+
+需要 Node.js >= 24.14。项目根目录运行：
+
+```bash
+npm install
+npm run dev:api
+```
+
+访问 http://localhost:3001/api/health。前端依然由 npm run dev 在 4173 运行；materials.html 已通过前端同源代理接入上传和原文 API；原有示例聊天仍是模板。浏览器直接访问 API 的 GET 地址不能创建任务。
+
+```bash
+npm run check:api
+npm run test:api
+```
+
+## 文件与配置
+
+- server/index.ts：启动、端口与关闭服务。
+- server/app.ts：接口、参数校验、会话隔离和错误响应。
+- server/store.ts：SQLite 数据和事务。
+- server/ingest/documents.ts：持久解析队列与引用分块。
+- server/ingest/pdf-worker.mjs：独立线程中的 PDF.js 解析器；20 秒超时与内存预算。
+- .data/policy-lens.sqlite：本机数据库，已加入 Git 忽略。
+- .env.example：配置样本。需要修改配置时复制为 .env；API Key 仅填写在本地，不发送到聊天或提交到 Git。
+
+DEEPSEEK_* 用于实际模型调用；自动测试使用本地模拟模型，无需真实 Key。SQLite 使用 Node 内置模块，启动时可能显示实验功能提示。
+
+## 用终端测试一次调查
+
+在项目目录另开终端。下面命令会把浏览器会话的等价凭证保存在本机临时文件；不要分享该文件。示例变量需要按真实返回值填写。
+
+```bash
+curl -s -c /tmp/policy-lens.cookies -X POST http://localhost:3001/api/reviews
+```
+
+记下返回的 id，然后替换下面的 YOUR_REVIEW_ID：
+
+```bash
+curl -s -b /tmp/policy-lens.cookies \
+  -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: local-investigate-01' \
+  -d '{"expectedRevision":1,"kind":"investigate","goal":"检查旅行险中滑雪活动的保障边界"}' \
+  http://localhost:3001/api/reviews/YOUR_REVIEW_ID/runs
+```
+
+未上传合同时，预期 HTTP 202，状态 awaiting_input，原因 missing_documents。返回的 id 是 runId，后续可 GET /api/reviews/YOUR_REVIEW_ID/runs/YOUR_RUN_ID 查询，或 GET 同路径 /events 查看事件。
+
+## 上传与查看 PDF
+
+沿用创建审阅时的 cookie，替换文件路径与 YOUR_REVIEW_ID：
+
+```bash
+curl -s -b /tmp/policy-lens.cookies \
+  -F 'role=contract' \
+  -F 'file=@/absolute/path/to/contract.pdf' \
+  http://localhost:3001/api/reviews/YOUR_REVIEW_ID/documents
+```
+
+202 返回 document 的 id，使用 GET /api/reviews/:id/documents/:docId 查询状态。不要手工设置 multipart 的 Content-Type，curl/浏览器会生成 boundary。
+
+- role：contract（合同）、promotion（宣传）、schedule（附表）、endorsement（批单）、broker_reply（经纪回复）。PDF 单份 10 MB、最多 30 页；图片 OCR 后续接入。
+- 沟通记录可以直接粘贴：`POST /api/reviews/:id/text-materials`，body 为 `{role, fromWhom, capturedAt, text}`（JSON）。文字原文保存为一页（`printedPageLabel = 貼上文字`），按空行切成多个 source，可像 PDF 原文一样被逐字引用和点击核对；`fromWhom`（来源）与 `capturedAt`（对话时间）随材料保存，前端显示为「来源 · 时间」。粘贴记录只当作沟通记录，不是官方文件。
+- 单文件最多 10 MB、最多 30 页、每次审阅最多 8 份文件；这是当前工程预算。超过页数整份失败，不静默截断。
+- 状态：queued → parsing → ready / partial / needs_ocr / failed。ready 只表示每页有可提取文字，不表示条款内容已审核或版面读取绝对准确。
+- 无文字页标记 needs_ocr，也可能是空白页；部分页可读时文档为 partial，逐页状态会明确列出。当前不调用 OCR 或模型。
+- 提取按版面分块：先按坐标拼行，剔除页眉页脚（页面上下各 6% 之外的整行），检测分栏时把整页切成左/右栏后按栏顺序阅读，表格同一基线的单元格合并成一行，段间距与缩进决定段落边界，行尾连字符接回。分块结果按 b1..bN 编号存为来源，引用的 quote 必须是这些分块原文的子串。解析只读取文本层，不推测缺失内容；扫描件仍标 needs_ocr。
+- 原始字节存于私有 SQLite BLOB，不放公开静态目录。相同 review、文件哈希和 role 的重复上传返回同一 document（200）。
+- 解析终态提交时增加 review revision；旧 run 保持原输入版本，不能把新文件偷偷混入旧任务。创建新任务前 GET review 读取最新 revision。
+- 中断的解析在服务重启时重排队；删除审阅/文件后，迟到结果不得重新写入。
+
+GET /api/reviews/:id/documents/:docId/pages/1 返回第一页提取文字及 sourceIds。页码为 PDF 文件页序，从 1 开始；如 PDF 包含印刷页码标签，会同时提供 printedPageLabel。
+
+GET /api/reviews/:id/sources/:sourceId 返回 quote、documentVersion、pageIndex、原件页链接。quoteCheck=matched 仅说明引用来自保存的提取层，不代表语义已经验证。表格、多栏与复杂字体仍需对照原件。
+
+GET /api/reviews/:id/documents/:docId/content 返回原 PDF。目前提供完整文件而非 Range 分段读取。DELETE 同一 document 路径可删除该文件及其页和引用，增加 review revision。
+
+## 当前接口
+
+| 方法 | 路径 | 功能 |
+| --- | --- | --- |
+| GET | /api/health | 健康检查 |
+| POST | /api/reviews | 创建审阅并设置匿名会话 cookie |
+| GET | /api/reviews/:id | 恢复审阅、任务，以及带页码解析的 currentReport |
+| PATCH | /api/reviews/:id/context | expectedRevision + context，保存背景并递增版本 |
+| POST | /api/reviews/:id/documents | multipart：role + file，返回 202 并排队解析 |
+| GET | /api/reviews/:id/documents/:docId | 文件状态、页数及逐页完整性 |
+| GET | /api/reviews/:id/documents/:docId/pages/:pageIndex | 某页原文及引用编号 |
+| GET | /api/reviews/:id/documents/:docId/content | 受会话保护的原 PDF |
+| DELETE | /api/reviews/:id/documents/:docId | 删除原件、页与引用 |
+| GET | /api/reviews/:id/sources/:sourceId | 原文、版本和页码出处 |
+| POST | /api/reviews/:id/text-materials | 粘贴沟通记录（JSON：role / fromWhom / capturedAt / text），保存为一页原文材料 |
+| POST | /api/reviews/:id/runs | expectedRevision + kind（investigate 或 scenario）+ goal，可选 resumeFromRunId；创建调查或情景任务 |
+| GET | /api/reviews/:id/runs/:runId | 查询状态 |
+| GET | /api/reviews/:id/runs/:runId/events | SSE：先重放（`after` 或 `Last-Event-ID`），未结束则持续推送 + 每 15s 心跳 `: ping`，终态自动关闭 |
+| GET | /api/reviews/:id/questions/export?format=md | 提问清单 Markdown 下载（待问问题 / 待补材料 / 未确认结论 / 旧结论变化 / 引用核对）；`format` 只支持 `md`，无报告时 404 `REPORT_NOT_FOUND` |
+| POST | /api/reviews/:id/runs/:runId/cancel | 取消任务，可重复调用 |
+| DELETE | /api/reviews/:id | 删除审阅及其任务、事件 |
+
+同一 Idempotency-Key 和相同请求会返回同一任务；请求内容不同返回 409。背景允许 destination、traveller、activities、concerns；未填写的事实保持未知。所有审阅接口绑定创建它的 cookie 会话，UUID 本身不是访问权限。
+
+补件续查：`POST runs` 的 body 增加 `resumeFromRunId`（上一次 runId）即创建 successor run，返回体里 `parentRunId` 指向父任务，事件流里多一条 `run.resumed`。父任务必须已经产出 report 且已结束；当前 revision 必须大于父任务的 inputRevision（否则 409 `NO_NEW_INPUT`）。父任务还在执行返回 409 `PARENT_RUN_ACTIVE`，父任务无结论返回 409 `PARENT_RUN_NOT_RESUMABLE`，父任务属于别的审阅或不存在返回 404 `PARENT_RUN_NOT_FOUND`。新任务会拿到上次的 findings / openQuestions / requests 与新增材料清单；旧引用必须先重新读取原文才允许引用，已被删除的材料引用自动丢弃。report 与其中的 requests 存在 investigations.output，重启后仍可通过 GET run 读取。
+
+`currentReport`：最近一次已发布报告的展示形态，没有报告时为 `null`（前端据此保留空态）。每条 finding 除原有 `explanation` / `evidenceStatus` / `sourceIds` 外，多一个 `citations` 数组，每项含 `sourceId`、`documentId`、`documentName`、`role`、`pageIndex`、`pageLabel`、`quote`、`status`。`status` 为 `verified` 表示原文仍在审阅里；报告发布后材料被删除时该引用变成 `missing`，finding 文本本身不改写。顶层 `citationIntegrity` 给出 `{cited, verified, missing}` 计数，前端可据此提示「有 1 处原文已删除」，不要静默隐藏。`runId` / `runStatus` / `createdAt` 指明这份报告来自哪个任务。
+
+`review`：报告发布后立刻做的**独立语义复核**结果，可为 `null`（旧报告）。`status` 为 `checked`（逐条核对后没有硬冲突）、`issues_found`（至少一条 `unsupported` 或 `quote_mismatch`）、`unavailable`（复核调用失败，运行照常发布）、`not_applicable`（没有可复核的引用结论）。`items[]` 含 `index`（对应 `findings` 下标）、`verdict`（`supported` / `partial` / `unsupported` / `quote_mismatch`）、`note`（一句话依据）。复核只回答「引用的原文是否支持这条结论」，不改写结论、不评价条款合法性、不判断是否赔付；失败不使任务失败，只在报告里记 `unavailable`。
+
+`comparisons`：宣传与条款对照，可为空数组。当审阅里存在 `role=promotion` 的材料时，模型逐条提取宣传主张，并在合同/附表/批单原文里找对应条件，每条含 `relation`（`supported_with_conditions` 有条件下支持 / `apparent_conflict` 表面冲突 / `insufficient_basis` 材料不足以判断）、`marketingQuote`（宣传原文逐字摘录）、`contractQuote`（合同原文逐字摘录，`insufficient_basis` 且无对应条文时为空串）、`explanation`（一句解释，指出差在哪 / 缺什么）、以及两侧解析后的引用 `marketing[]` / `contract[]`（结构同 findings 的 `citations`，含 documentName、role、pageIndex、quote、status）。校验规则：两侧引用的 sourceId 必须来自本次运行的已观察来源，宣传侧只能是 `promotion`，合同侧只能是 `contract` / `schedule` / `endorsement`，两侧引文都必须是该来源原文的子串；任一侧无法核对的整条会被丢弃，不改写成结论，`droppedComparisons` 记录丢弃条数，前端提示「有 N 条对照因原文无法核对而未显示」。对照不判断条款是否合法、不判断是否赔付。
+
+`scenarios`：情景实验，可为空数组。`POST runs` 的 `kind=scenario` 会创建一个独立任务，goal 写用户想验证的假设（例如「情景測試：如果延誤 8 小時？」）。每条含 `question`（用户的问题）、`assumption`（假设的数值与单位）、`thresholdQuote`（门槛原文的逐字片段）、`ruleSourceIds`、`actualValue` / `actualUnit`（`minutes` / `hours` / `days`）、`status`、`detail`（一句差距说明）、`unknowns`（仍需确认的事项）、以及解析后的 `citations[]`（结构同 findings）。`status` 四值：`satisfied`（越过门槛）、`not_satisfied`（未达）、`boundary`（正好等于门槛，而原文用的是「超过」这类严格表述）、`insufficient_information`（门槛原文里没有可解析的时长，或单位无法识别）。
+
+比较由服务端确定性计算，不由模型推算：工具 `evaluateScenario` 只接受已读过的原文，`thresholdQuote` 必须是该原文的逐字子串，返回的 `status` / `thresholdMinutes` / `actualMinutes` / `marginMinutes` 由 `server/scenario.ts` 计算；模型只能照抄该 status。报告落盘前会再算一次，若模型声称的 status 与计算结果不一致，该条被拒绝；重试后仍不一致的整条丢弃并计入 `droppedScenarios`（不使任务失败）。`caveats` 固定提醒：只比较字面门槛、事件定义与起算时点/除外/证明仍需确认、上限与币种未计算。情景假设只属于该次任务，不会写回审阅背景。情景任务产出的报告同样包含 findings 与 requests，`currentReport` 取最近一次已发布报告。
+
+`brokerClaims`：经纪回复核验，可为空数组。当审阅里有 `role=broker_reply` 的材料（上传的 PDF 或粘贴的沟通记录）时，模型逐条提取经纪的承诺、条件、限额、除外与期限，再到合同/附表/批单原文里找对应条款。每条含 `verdict`（`supported` 与条款一致 / `overstated` 说法成立但漏了条件或限额 / `not_in_contract` 条款里找不到依据 / `contradicted` 与条款原文冲突）、`brokerQuote`（经纪原文逐字摘录）、`contractQuote`（合同原文逐字摘录，`not_in_contract` 时为空串）、`brokerSourceIds` / `contractSourceIds`、`explanation`（一句说明差在哪），以及解析后的 `broker[]` / `contract[]` 引用（结构同 findings 的 `citations`）。校验规则：经纪侧来源必须是本次运行已读过的 `broker_reply` 材料且引文逐字子串；除 `not_in_contract` 外合同侧必须非空、role 属于 `contract` / `schedule` / `endorsement`、引文逐字子串且 `not_in_contract` 时不得给合同引用；无法核对的整条丢弃并计入 `droppedBrokerClaims`，前端提示「有 N 条核验因原文无法逐字核对而未显示」。该核验只说明「经纪说法与条款是否一致」，不判断销售是否合规，也不核实说话人身份。
+`supersedes`：版本变化对照，只在补件续查（带 `resumeFromRunId`）时出现，可为空数组。每条对应上一份报告里的一条结论：`previousIndex`（父报告 findings 下标，从 0 开始）、`previousConclusion` / `previousEvidenceStatus` / `previousSourceIds`（服务端从父报告抄回，不依赖模型复述）、`verdict`（`unchanged` 仍成立 / `strengthened` 更明确 / `weakened` 条件变多 / `reversed` 被新材料推翻 / `withdrawn` 已不适用）、`currentIndex`（本次 findings 下标，`withdrawn` 时为 -1）、`newSourceIds`（本次实际读过的来源）、`explanation`。校验：`previousIndex` 必须落在父报告范围内且不重复、`currentIndex` 必须落在本次范围内、`withdrawn` 必须配 -1、`newSourceIds` 必须是本次已读来源；旧报告里被删除的材料解析为 `missing` 引用。`supersedesUnchecked` 记录这次没被重新核对的旧结论数量——系统不会把它当成「仍然成立」。`currentReport` 按材料版本发布：`ORDER BY inputRevision DESC, rowid DESC`，因此旧版本任务即使更晚结束也不会覆盖新版本报告。
+
+`overview`：报告顶部「先看這幾件事」的数据，**由服务端确定性生成，模型不参与**（`server/overview.ts`）。`items` 最多 3 条，每条含 `kind`（`broker_conflict` / `broker_overstated` / `promotion_conflict` / `unsupported_claim` / `cannot_confirm` / `scenario_caveat` / `need_material`）、`title`、`detail`、`citations`（已解析的引用，可直接跳转原文）。排序固定：经纪说法与条款冲突 → 宣传与条款冲突 → 语义复核判定引用不支持 → 无法确认的结论 → 情境缺条件 → 待补充材料。`remaining` 是被截断掉的同类条目数（前端显示「另有 N 项」），`integrity` 复制 `citationIntegrity`，便于顶部直接提示「有 N 处原文已删除」。
+
+SSE 当前仅重放已保存事件；awaiting_input/cancelled 时关闭连接。消费端收到这种状态应主动关闭 EventSource，避免自动重连。接入持续运行的 Agent 时，再增加实时订阅和心跳。
+
+模型容错：schema 不使用 maxItems / maxLength 这类上限（DeepSeek 兼容模式会把 schema 写进 system prompt，超限会直接解析失败）；模型返回不符合 schema 的 JSON 时自动重试一次并给更严格的输出要求；仍失败则任务置 failed，服务端日志额外打印 finishReason、底层原因和最多 600 字的原始输出，便于定位。工具输出按预算截断（searchSources 每条 320 字、readSource 目标段 1600 字、相邻段 480 字），instructions 要求读到关键条款就收手，调查循环上限 14 步；模型在步数用尽后没有给出最终报告时，会重新开一次调查并要求 6 次工具调用内输出报告。
+
+本阶段仅供单机本地开发，监听 127.0.0.1。对外部署前需要补充 HTTPS/安全 cookie、会话生命周期和速率/容量限制等配置。API 不开放跨域调用，前端联调时使用同源服务或开发代理。
+
+
+## 第三阶段：DeepSeek 调查原型
+
+已接入 AI SDK ToolLoopAgent 与 DeepSeek provider。服务端工具为 listDocuments、searchSources、readSource、evaluateScenario；模型自主选择工具。每次运行保存不可变材料/背景快照，最多 10 轮和 24 次工具执行，120 秒活动超时。修改输入或取消后不可发布迟到结果。readSource 接受被缩短的 sourceId（如 `p2:b1`）并在找不到时返回可用列表，避免模型格式化失误导致材料看起来不可读。
+
+本机 .env 填写 DEEPSEEK_API_KEY，按实际端点配置 DEEPSEEK_BASE_URL 和 DEEPSEEK_MODEL，重启 npm run dev:api。不要把 Key 发到聊天或提交 Git。有可用合同但没有 Key 时返回 503；配置后 POST runs 返回 202，GET run 可查询状态和 report。真实调用会把本次材料和用户问题交给配置的模型平台处理。
+
+报告经过 schema、材料范围与已观察引用检查，发布后立即再做一次独立语义复核（第二个不带工具的模型调用，只判断引用是否支持结论）；需要补件时为 awaiting_input 并返回 requests。没有伪装成最终保险判断。经纪/宣传资料保留不同来源角色。仅未知项可以不引用原文。
+
+测试使用本地模拟模型端点验证检索→阅读→结构化结果的完整循环，不需要真实 Key，不产生供应商费用。真实 DeepSeek 的账号、模型与端点仍需配置后验证。
+
+当前限制：重启时正在执行的模型任务标记 `interrupted`（事件 `run.status` 带 `reason: server_restarted`），不自动恢复；材料与事件都保留，需重新创建任务。失败原因统一经 `classifyFailure` 归类为 `timeout` / `budget_exhausted` / `rate_limited` / `model_unreachable` / `model_output_invalid` / `model_failed`，并通过 `GET runs/:runId` 的 `stopReason` 暴露给前端；材料页据此显示一条可操作提示。补件续查、独立语义复核、宣传对照、情景实验、经纪核验、一页概览、版本变化对照、提问清单导出与 SSE 实时推送已完成；剩余可选项为 OCR 与专题子 Agent（见 `PLAN.md:195`）。删除文件时清除相关审阅的调查快照/输出并取消其调查，避免保留被删材料的派生文本。

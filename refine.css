@@ -243,3 +243,7 @@ html:lang(zh-Hant) .ex-heading h2 { line-height: 1.18; letter-spacing: -.02em; }
 /* ------------------------------------------------------------------ */
 /* Concept stage typography and lifecycle are owned by concept.css. */
 /* ------------------------------------------------------------------ */
+
+.oc-bottom > .live-entry{grid-column:5 / span 4;justify-self:center;width:min(100%,360px);text-decoration:none;background:var(--primary-ink,#292820);color:#fff;border-radius:6px}
+@media(min-width:901px){.oc-bottom > .live-entry{grid-column:1 / span 4;grid-row:1;justify-self:start;width:min(100%,320px)}}
+@media(max-width:760px){.oc-bottom > .live-entry{grid-column:1 / -1;grid-row:1;width:100%}}
