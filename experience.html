@@ -46,8 +46,8 @@
   <div class="sc-wrap ex-wrap">
     <header class="ex-shell" data-exp-shell hidden>
       <button type="button" class="ex-brand" data-exp-go="cover" aria-label="POLICY LENS 首頁"><span>Policy Lens</span></button>
-      <nav class="ex-route-nav" aria-label="頁面模式"><a href="experience.html" aria-current="page">完整示例體驗</a><a href="showcase.html">元件總覽 <span aria-hidden="true">↗</span></a></nav>
-      <span class="ex-session-label">虛構保單 · 你的本機筆記</span>
+      <nav class="ex-route-nav" aria-label="頁面模式"><a href="experience.html" aria-current="page">保單體驗</a><a href="showcase.html">元件總覽 <span aria-hidden="true">↗</span></a></nav>
+      <span class="ex-session-label">虛構保單示例</span>
     </header>
     <nav class="ex-progress" data-exp-nav aria-label="保單梳理步驟" hidden>
       <div class="ex-step-track">
@@ -63,78 +63,76 @@
       <section class="oc-cover" aria-labelledby="cover-title" data-orange-cover data-exp-panel="cover">
         <header class="oc-masthead">
           <a href="experience.html" class="oc-mark" aria-label="POLICY LENS 首頁">Policy Lens</a>
-          <p class="oc-masthead-copy">看清你的保障。<br />問清關鍵問題。<br />在付款之前。<span>POLICY LENS／你的保單閱讀夥伴</span></p>
-          <a class="oc-access" href="materials.html">上傳我的保單 ↗</a>
+          <p class="oc-masthead-copy">你的保單，付款前看清。</p>
+          <a class="oc-access" href="showcase.html">全部元件 ↗</a>
         </header>
-        <div class="oc-art"><picture><source media="(min-width: 901px)" srcset="assets/policy-sheet-cover-wide.svg" width="720" height="960" /><img src="assets/policy-sheet-cover.svg" width="720" height="960" alt="帶橙色 Policy Lens 字樣的縱向 A4 保單紙張" draggable="false" /></picture></div>
-        <div class="oc-caption"><span>多一分清晰。<br />才作出決定。</span><span>Policy Lens / 01</span></div>
+        <div class="oc-art"><div class="oc-paper-stack"><span class="oc-paper-trail oc-paper-trail-far" aria-hidden="true"><img src="assets/policy-sheet-cover.svg" alt="" draggable="false" /></span><span class="oc-paper-trail oc-paper-trail-near" aria-hidden="true"><img src="assets/policy-sheet-cover.svg" alt="" draggable="false" /></span><picture class="oc-paper-front"><img src="assets/policy-sheet-cover.svg" width="720" height="960" alt="帶橙色 Policy Lens 字樣的縱向 A4 保單紙張" draggable="false" /></picture></div></div>
+        <div class="oc-caption"><span>虛構保單示例</span></div>
         <h1 class="oc-title" id="cover-title"><span>POLICY LENS</span><span>MADE CLEAR.</span></h1>
-        <div class="oc-bottom"><p>讀清條款。<br />知道保障界線。</p><a class="ex-cover-start live-entry" href="materials.html">開始保單調查 <span aria-hidden="true">↗</span></a><p>一份保單。<br />問得更清楚。</p></div>
-        <div class="oc-note"><p>上傳自己的材料，追查條款與保障邊界。</p><button type="button" data-exp-go="policies">先看虛構示例 <span aria-hidden="true">↗</span></button><button type="button" data-exp-go="concept">觀看概念動畫 <span aria-hidden="true">↗</span></button></div>
+        <div class="oc-bottom"><button type="button" class="ex-cover-start" data-liquid-variant="primary" data-exp-go="policies">開始體驗 <span aria-hidden="true">↗</span></button><button type="button" class="oc-concept-link" data-exp-go="concept">概念動畫 <span aria-hidden="true">↗</span></button></div>
       </section>
 
       <section class="ex-panel ex-concept-panel" data-exp-panel="concept" aria-labelledby="concept-title" hidden>
-        <header class="ex-heading"><p class="sc-eyebrow">產品概念／獨立動畫展示</p><h2 id="concept-title" data-exp-heading tabindex="-1">先看清，再決定。</h2><p>打開示例保單之前，先認識 POLICY LENS 的想法。</p></header>
+        <header class="sc-sr"><h2 id="concept-title" data-exp-heading tabindex="-1">概念動畫</h2></header>
         <section aria-label="從概念到保單閱讀空間" data-hero class="ht-stage">
           <div class="concept-stage ht-concept" data-hero-concept hidden></div>
           <div class="ht-home" data-hero-home>
             <div class="concept-lockup ht-copy" data-hero-copy><strong class="concept-name">POLICY LENS</strong><p class="concept-tagline">你的保單，<br />付款前看清。</p></div>
           </div>
         </section>
-        <div class="sc-hero-toolbar"><p class="sc-small">由保障概念，到看清每一條款。</p><div class="sc-actions"><button type="button" data-exp-action="concept-play">重播概念動畫</button><button type="button" data-exp-action="concept-finish">略過概念動畫</button></div><span class="sc-sr" data-exp-concept-status role="status"></span></div>
-        <footer class="ex-page-actions"><button type="button" data-exp-go="cover">返回首頁</button><button type="button" data-liquid-variant="primary" data-exp-go="policies">繼續示例體驗 <span aria-hidden="true">→</span></button></footer>
+        <div class="sc-hero-toolbar"><div class="sc-actions"><button type="button" data-exp-action="concept-play">重播</button><button type="button" data-exp-action="concept-finish">略過</button></div><span class="sc-sr" data-exp-concept-status role="status"></span></div>
+        <footer class="ex-page-actions"><button type="button" data-exp-go="cover">返回首頁</button><button type="button" data-liquid-variant="primary" data-exp-go="policies">開始體驗 <span aria-hidden="true">→</span></button></footer>
       </section>
 
       <section class="ex-panel" data-exp-panel="policies" aria-labelledby="policies-title" hidden>
-        <header class="ex-heading"><p class="sc-eyebrow">01／先看保單</p><h2 id="policies-title" data-exp-heading tabindex="-1">從示例保單開始。</h2><p>從三份虛構保單中選一份。拖曳紙張可交換位置；打開保單，條款與閱讀筆記便會隨牽引展現。</p></header>
-        <p><a href="materials.html">上傳我的保單，查看真實原文 ↗</a></p>
+        <header class="ex-heading"><h2 id="policies-title" data-exp-heading tabindex="-1">選擇保單。</h2></header>
         <div data-exp-workbench></div>
-        <p class="ex-status" data-exp-policy-status role="status">選擇你想閱讀的保單。</p>
-        <footer class="ex-page-actions"><button type="button" data-exp-go="cover">返回首頁</button><button type="button" data-liquid-variant="primary" data-exp-go="context">補充你的情境 <span aria-hidden="true">→</span></button></footer>
+        <p class="sc-sr" data-exp-policy-status role="status">選擇你想閱讀的保單。</p>
+        <footer class="ex-page-actions"><button type="button" data-exp-go="cover">返回首頁</button><button type="button" data-liquid-variant="primary" data-exp-go="context">下一步：情境 <span aria-hidden="true">→</span></button></footer>
       </section>
 
       <section class="ex-panel" data-exp-panel="context" aria-labelledby="context-title" hidden>
-        <header class="ex-heading"><p class="sc-eyebrow">02／讓問題更貼近你的細節</p><h2 id="context-title" data-exp-heading tabindex="-1">補充幾個細節，<br />問題更有針對性。</h2><p>試著選擇以下示例情境，下一頁會據此呈現更具體的情境問題。</p></header>
+        <header class="ex-heading"><h2 id="context-title" data-exp-heading tabindex="-1">補充情境。</h2></header>
         <div class="ex-context-form">
           <fieldset class="ex-context-row"><legend>你準備去哪裏？</legend><div class="ex-choices" role="group" aria-label="目的地"><button type="button" data-exp-destination="Japan" aria-pressed="true">日本</button><button type="button" data-exp-destination="United Kingdom" aria-pressed="false">英國</button><button type="button" data-exp-destination="Hong Kong" aria-pressed="false">香港</button><button type="button" data-exp-destination="Somewhere else" aria-pressed="false">其他目的地</button></div></fieldset>
           <fieldset class="ex-context-row"><legend>你為誰安排保障？</legend><div class="ex-choices" role="group" aria-label="保障對象"><button type="button" data-exp-traveller="Myself" aria-pressed="true">我自己</button><button type="button" data-exp-traveller="Family" aria-pressed="false">家人</button></div></fieldset>
-          <fieldset class="ex-context-row"><legend>你可能參與甚麼活動？</legend><div class="ex-activity-options"><label><span class="sc-check-toggle" data-liquid-control data-liquid-choice><input type="checkbox" data-exp-activity value="skiing" checked /></span><span>滑雪<small>一般雪場活動、入門課程，還是其他形式？</small></span></label><label><span class="sc-check-toggle" data-liquid-control data-liquid-choice><input type="checkbox" data-exp-activity value="diving" /></span><span>潛水<small>把活動形式與條件說得具體一點。</small></span></label><label><span class="sc-check-toggle" data-liquid-control data-liquid-choice><input type="checkbox" data-exp-activity value="city" /></span><span>城市探索<small>日常行程也是有用的情境資料。</small></span></label></div></fieldset>
+          <fieldset class="ex-context-row"><legend>你可能參與甚麼活動？</legend><div class="ex-activity-options"><label><span class="sc-check-toggle" data-liquid-control data-liquid-choice><input type="checkbox" data-exp-activity value="skiing" checked /></span><span>滑雪</span></label><label><span class="sc-check-toggle" data-liquid-control data-liquid-choice><input type="checkbox" data-exp-activity value="diving" /></span><span>潛水</span></label><label><span class="sc-check-toggle" data-liquid-control data-liquid-choice><input type="checkbox" data-exp-activity value="city" /></span><span>城市探索</span></label></div></fieldset>
         </div>
-        <div class="ex-context-summary"><span class="sc-eyebrow">這份筆記的使用情境</span><p data-exp-context-label>日本 · 我自己 · 滑雪</p></div>
-        <footer class="ex-page-actions"><button type="button" data-exp-go="policies">返回保單選擇</button><button type="button" data-liquid-variant="primary" data-exp-go="reading">閱讀標示重點的條款 <span aria-hidden="true">→</span></button></footer>
+
+        <footer class="ex-page-actions"><button type="button" data-exp-go="policies">返回保單</button><button type="button" data-liquid-variant="primary" data-exp-go="reading">下一步：閱讀 <span aria-hidden="true">→</span></button></footer>
       </section>
 
       <section class="ex-panel" data-exp-panel="reading" aria-labelledby="reading-title" hidden>
-        <header class="ex-heading"><p class="sc-eyebrow">03／閱讀、標記、保留</p><h2 id="reading-title" data-exp-heading tabindex="-1">把保單裏的<br />重要內容標出來。</h2><p>原文與它引出的問題放在一起。保留你在意的事，也可以直接就某段條款提問。</p></header>
+        <header class="ex-heading"><h2 id="reading-title" data-exp-heading tabindex="-1">閱讀重點。</h2></header>
         <div class="ex-reading-layout">
-          <article class="ex-wording"><p class="sc-eyebrow">條款原文</p><h3 data-exp-policy-name>已選虛構保單</h3><p class="ex-source" data-exp-source-label></p><blockquote data-exp-excerpt></blockquote><p class="ex-status">重點按 1 至 4 排序，幫助你安排閱讀與確認的先後次序。</p></article>
-          <aside class="ex-reading-questions" aria-labelledby="finding-list-title"><div class="ex-subheading"><h3 id="finding-list-title">值得保留的問題。</h3><span>已保留 <strong data-exp-kept-count>0</strong> 個問題</span></div><ol class="ex-findings" data-exp-findings></ol></aside>
+          <article class="ex-wording"><p class="sc-eyebrow">條款原文</p><h3 data-exp-policy-name>已選虛構保單</h3><p class="ex-source" data-exp-source-label></p><blockquote data-exp-excerpt></blockquote></article>
+          <aside class="ex-reading-questions" aria-labelledby="finding-list-title"><div class="ex-subheading"><h3 id="finding-list-title">待確認的問題</h3></div><ol class="ex-findings" data-exp-findings></ol></aside>
         </div>
-        <section class="ex-scenario-section" aria-labelledby="scenario-title"><div class="ex-subheading"><h3 id="scenario-title">在真實生活裏，可能怎樣發生？</h3><span data-exp-context-label>日本 · 我自己 · 滑雪</span></div><div class="ex-scenarios" data-exp-scenarios></div></section>
-        <section class="sc-notepaper pl-grid-paper ex-notepaper" aria-labelledby="note-label"><label id="note-label" for="experience-note">投保之前，我想記下……</label><textarea id="experience-note" data-exp-note rows="4" placeholder="一個細節、一個問題，或一件你想確認的事。"></textarea><p class="sc-small">這份筆記會一併帶到最後的提問清單。</p></section>
-        <footer class="ex-page-actions"><button type="button" data-exp-go="context">返回你的情境</button><button type="button" data-liquid-variant="primary" data-exp-go="discussion">把疑問聊清楚 <span aria-hidden="true">→</span></button></footer>
+        <section class="ex-scenario-section" aria-labelledby="scenario-title"><div class="ex-subheading"><h3 id="scenario-title">情境示例</h3><span data-exp-context-label>日本 · 我自己 · 滑雪</span></div><div class="ex-scenarios" data-exp-scenarios></div></section>
+        <section class="sc-notepaper pl-grid-paper ex-notepaper" aria-labelledby="note-label"><label id="note-label" for="experience-note">筆記</label><textarea id="experience-note" data-exp-note rows="4" placeholder="記下想確認的事……"></textarea><p class="sc-small">會加入提問清單。</p></section>
+        <footer class="ex-page-actions"><button type="button" data-exp-go="context">返回情境</button><button type="button" data-liquid-variant="primary" data-exp-go="discussion">下一步：提問 <span aria-hidden="true">→</span></button></footer>
       </section>
 
       <section class="ex-panel" data-exp-panel="discussion" aria-labelledby="discussion-title" hidden>
-        <header class="ex-heading"><p class="sc-eyebrow">04／讓原文陪著討論</p><h2 id="discussion-title" data-exp-heading tabindex="-1">一次釐清<br />一個條款疑問。</h2><p>圍繞所選保單提問，隨時查看對應原文，再把有用的問題保留到最後。</p></header>
+        <header class="ex-heading"><h2 id="discussion-title" data-exp-heading tabindex="-1">詢問條款。</h2></header>
         <p class="ex-conversation-context" data-exp-context-label>日本 · 我自己 · 滑雪</p>
         <div data-exp-chat></div>
-        <footer class="ex-page-actions"><button type="button" data-exp-go="reading">返回條款閱讀</button><button type="button" data-liquid-variant="primary" data-exp-go="checklist">整理我的提問 <span aria-hidden="true">→</span></button></footer>
+        <footer class="ex-page-actions"><button type="button" data-exp-go="reading">返回閱讀</button><button type="button" data-liquid-variant="primary" data-exp-go="checklist">整理清單 <span aria-hidden="true">→</span></button></footer>
       </section>
 
       <section class="ex-panel" data-exp-panel="checklist" aria-labelledby="checklist-title" hidden>
-        <header class="ex-heading"><p class="sc-eyebrow">05／把有用的部分帶走</p><h2 id="checklist-title" data-exp-heading tabindex="-1">一份簡短清單，<br />把問題問清楚。</h2><p>選好問題，再讓清單完整展現。每個問題都會保留引出它的條款原文。</p></header>
-        <fieldset class="ex-question-fieldset"><legend>來自所選虛構保單的問題</legend><div class="ex-question-options" data-exp-question-options></div></fieldset>
+        <header class="ex-heading"><h2 id="checklist-title" data-exp-heading tabindex="-1">你的提問清單。</h2><p>勾選要向顧問確認的問題。</p></header>
+        <fieldset class="ex-question-fieldset"><legend>問題</legend><div class="ex-question-options" data-exp-question-options></div></fieldset>
         <p class="ex-status" data-exp-selection-status>請至少選擇一個問題。</p>
-        <div class="sc-actions ex-generate-actions"><button type="button" data-liquid-variant="primary" data-exp-action="generate">生成我的提問清單 <span aria-hidden="true">↗</span></button><button type="button" data-exp-action="cancel" disabled>取消展示</button></div>
-        <p class="ex-status" data-exp-result-status role="status">整理好的清單會在這裏展現。</p>
+        <div class="sc-actions ex-generate-actions"><button type="button" data-liquid-variant="primary" data-exp-action="generate">生成清單 <span aria-hidden="true">↗</span></button><button type="button" data-exp-action="cancel" disabled>停止動畫</button></div>
+        <p class="ex-status" data-exp-result-status role="status"></p>
         <section class="ex-result" data-exp-result aria-label="已整理的提問清單" hidden><div class="completion-reveal" data-exp-reveal><div class="completion-document" data-reveal-content></div></div></section>
-        <div class="sc-actions ex-result-actions" data-exp-result-actions hidden><button type="button" data-exp-action="copy">複製提問清單</button><button type="button" data-exp-action="download">下載清單</button><button type="button" data-exp-action="replay-result">重播揭示效果</button><button type="button" data-exp-action="restart">重新開始梳理</button></div>
-        <footer class="ex-page-actions"><button type="button" data-exp-go="discussion">返回對話</button><a href="showcase.html">查看獨立元件 <span aria-hidden="true">↗</span></a></footer>
+        <div class="sc-actions ex-result-actions" data-exp-result-actions hidden><button type="button" data-exp-action="copy">複製清單</button><button type="button" data-exp-action="download">下載清單</button><button type="button" data-exp-action="replay-result">重播動畫</button><button type="button" data-exp-action="restart">重新開始</button></div>
+        <footer class="ex-page-actions"><button type="button" data-exp-go="discussion">返回提問</button><a href="showcase.html">元件總覽 <span aria-hidden="true">↗</span></a></footer>
       </section>
     </main>
-    <footer class="ex-footer"><span>POLICY LENS／決定之前，先看清楚。</span><span>真實調查需後端服務 · 虛構示例可離線體驗</span><a href="showcase.html">元件總覽 ↗</a></footer>
+    <footer class="ex-footer"><span>筆記於重新整理後清除。</span><a href="showcase.html">元件總覽 ↗</a></footer>
   </div>
-  <noscript>請啟用 JavaScript 以使用本機示例體驗，你也可以直接開啟元件總覽。</noscript>
+  <noscript>請啟用 JavaScript，或開啟元件總覽。</noscript>
 </body>
 </html>

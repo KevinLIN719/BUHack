@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="720" height="960" viewBox="0 0 720 960" fill="none">
   <title>縱向 A4 紙本保單</title>
-  <desc>630 比 891 的縱向保單紙，正面呈現橙色 Policy Lens、閱讀摘要和投保前確認附件。</desc>
+  <desc>630 比 891 的縱向保單紙，上半部呈現品牌、摘要和確認附件；下半部留白，供頁面標題交疊。</desc>
   <defs>
     <linearGradient id="paper" x1="45" y1="0" x2="630" y2="891" gradientUnits="userSpaceOnUse"><stop stop-color="#ffffff"/><stop offset=".6" stop-color="#fffefa"/><stop offset="1" stop-color="#f6f4ef"/></linearGradient>
     <linearGradient id="edge" x1="0" y1="0" x2="0" y2="891" gradientUnits="userSpaceOnUse"><stop stop-color="#ecebe7"/><stop offset="1" stop-color="#fdfdfb"/></linearGradient>
@@ -9,21 +9,19 @@
     <filter id="shadow" x="-10%" y="-10%" width="120%" height="125%"><feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#8a6f60" flood-opacity=".10"/></filter>
     <filter id="card-shadow" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="1" dy="4" stdDeviation="3" flood-color="#8a6f60" flood-opacity=".10"/></filter>
   </defs>
-  <!-- Upright A4 front sheet; two offset back sheets provide quiet depth. -->
+  <!-- Upright A4 front sheet. The page owns the two fanned trailing sheets. -->
   <g transform="translate(34 28)">
-    <rect x="18" y="14" width="630" height="891" rx="9" transform="rotate(1.2 333 459.5)" fill="#f0ede7" stroke="#d8d2c8"/>
-    <rect x="9" y="7" width="630" height="891" rx="9" transform="rotate(-.65 324 452.5)" fill="#fbf9f4" stroke="#dcd6ce"/>
     <rect width="630" height="891" rx="9" fill="url(#paper)" stroke="#d6d2ca" stroke-width="1.2" filter="url(#shadow)"/>
     <g clip-path="url(#clip)">
       <rect width="630" height="891" fill="url(#ruling)" opacity=".48"/>
       <path d="M40 0V891" stroke="#e6d5c9" stroke-width=".8"/>
       <text x="432" y="52" fill="#a39a8c" font-family="Arial,Helvetica,PingFang TC,Noto Sans CJK TC,Microsoft JhengHei,sans-serif" font-size="9" letter-spacing="1.5">PL—001／共 06 頁</text>
-      <text x="56" y="124" fill="#E85A3A" font-family="Arial,Helvetica,PingFang TC,Noto Sans CJK TC,Microsoft JhengHei,sans-serif" font-size="62" letter-spacing="-3">Policy Lens</text>
-      <text x="60" y="160" fill="#958c80" font-family="Arial,Helvetica,PingFang TC,Noto Sans CJK TC,Microsoft JhengHei,sans-serif" font-size="11" letter-spacing="2.5">旅遊保險／示例條款</text>
-      <path d="M60 190H570M60 208H570" stroke="#d8d0c4" opacity=".75"/>
-      <text x="60" y="248" fill="#8c8174" font-family="Arial,Helvetica,PingFang TC,Noto Sans CJK TC,Microsoft JhengHei,sans-serif" font-size="13" letter-spacing="1.5">保單閱讀摘要</text>
-      <g stroke="#ddd6ca" stroke-width="1"><path d="M60 272H570M60 294H544M60 316H570M60 338H466"/></g>
-      <g transform="matrix(1.1 0 0 1.1 -424 101.8)" filter="url(#card-shadow)">
+      <text x="56" y="104" fill="#E85A3A" font-family="Arial,Helvetica,PingFang TC,Noto Sans CJK TC,Microsoft JhengHei,sans-serif" font-size="58" letter-spacing="-3">Policy Lens</text>
+      <text x="60" y="138" fill="#958c80" font-family="Arial,Helvetica,PingFang TC,Noto Sans CJK TC,Microsoft JhengHei,sans-serif" font-size="11" letter-spacing="2.5">旅遊保險／示例條款</text>
+      <path d="M60 168H570M60 184H570" stroke="#d8d0c4" opacity=".75"/>
+      <text x="60" y="220" fill="#8c8174" font-family="Arial,Helvetica,PingFang TC,Noto Sans CJK TC,Microsoft JhengHei,sans-serif" font-size="13" letter-spacing="1.5">保單閱讀摘要</text>
+      <g stroke="#ddd6ca" stroke-width="1"><path d="M60 242H570M60 262H544M60 282H570"/></g>
+      <g transform="matrix(.9 0 0 .9 -336 56.2)" filter="url(#card-shadow)">
         <path d="M448 270h178l22 22v200H448Z" fill="#f4f1ea" stroke="#dcd5c9" stroke-width="1"/>
         <path d="M440 262h178l22 22v200H440Z" fill="#fffdf8" stroke="#cdc5b8" stroke-width="1.2"/>
         <path d="M618 262v22h22" fill="#efe9de" stroke="#cdc5b8" stroke-width="1.2"/>
@@ -34,7 +32,7 @@
         <text x="460" y="468" fill="#a39a8c" font-family="Arial,Helvetica,PingFang TC,Noto Sans CJK TC,Microsoft JhengHei,sans-serif" font-size="8" letter-spacing="1.5">虛構示例</text>
         <text x="606" y="468" fill="#a39a8c" font-family="Arial,Helvetica,PingFang TC,Noto Sans CJK TC,Microsoft JhengHei,sans-serif" font-size="8" letter-spacing="1.5">01</text>
       </g>
-      <g transform="matrix(1.1 0 0 1.1 -402.6 101.8)" filter="url(#card-shadow)">
+      <g transform="matrix(.9 0 0 .9 -269.4 56.2)" filter="url(#card-shadow)">
         <path d="M674 270h178l22 22v200H674Z" fill="#f4f1ea" stroke="#dcd5c9" stroke-width="1"/>
         <path d="M666 262h178l22 22v200H666Z" fill="#fffdf8" stroke="#cdc5b8" stroke-width="1.2"/>
         <path d="M844 262v22h22" fill="#efe9de" stroke="#cdc5b8" stroke-width="1.2"/>
@@ -45,11 +43,7 @@
         <text x="686" y="468" fill="#a39a8c" font-family="Arial,Helvetica,PingFang TC,Noto Sans CJK TC,Microsoft JhengHei,sans-serif" font-size="8" letter-spacing="1.5">虛構示例</text>
         <text x="832" y="468" fill="#a39a8c" font-family="Arial,Helvetica,PingFang TC,Noto Sans CJK TC,Microsoft JhengHei,sans-serif" font-size="8" letter-spacing="1.5">02</text>
       </g>
-      <text x="60" y="706" fill="#E85A3A" font-family="Arial,Helvetica,PingFang TC,Noto Sans CJK TC,Microsoft JhengHei,sans-serif" font-size="15" font-weight="600" letter-spacing="1">投保前，逐項看清。</text>
-      <g stroke="#ddd6ca" stroke-width="1"><path d="M60 734H570M60 758H540M60 782H570"/></g>
-      <path d="M60 820H570" stroke="#d8d0c4"/>
-      <text x="60" y="850" fill="#9a9184" font-family="Arial,Helvetica,PingFang TC,Noto Sans CJK TC,Microsoft JhengHei,sans-serif" font-size="9" letter-spacing="1.8">讀清條款，知道保障界線。</text>
-      <text x="550" y="850" fill="#a39a8c" font-family="Arial,Helvetica,PingFang TC,Noto Sans CJK TC,Microsoft JhengHei,sans-serif" font-size="9">01</text>
+      <!-- From y=520 to the foot: intentional blank grid, no labels or footer text. -->
     </g>
   </g>
 </svg>

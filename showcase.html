@@ -50,20 +50,17 @@
 <a class="sc-brand" href="#top"><span>POLICY LENS</span></a>
 <nav aria-label="頁面模式" class="sc-route-nav"><a href="experience.html">完整示例體驗 ↗</a><a aria-current="page" href="showcase.html">元件總覽</a></nav>
 <nav aria-label="元件分區"><a href="#concept">概念動畫</a><a href="#controls">按鈕與選項</a><a href="#wording">重點標記</a><a href="#notes">網格筆記</a><a href="#policies">保單紙張</a><a href="#pull-notes">書籤牽引</a><a href="#conversation">對話</a><a href="#checklist">完成揭示</a></nav>
-<span class="sc-edition">FRONTEND UI GUIDE / 01</span>
 </header>
-<div class="sc-index" id="components"><p class="sc-eyebrow">前端元件指南</p><h1 class="sc-index-lead">互動元件筆記。</h1><p class="sc-small">所有效果，集中一頁。可以逐一體驗，或 <a href="experience.html">進入完整示例體驗 ↗</a>.</p><p class="sc-small">預覽每個效果、了解適用位置，再展開前端接入說明。各示例可獨立使用，隊友可按記錄的邊界接入保單資料、AI 回覆及儲存服務。</p></div>
+<div class="sc-index" id="components"><h1 class="sc-index-lead">元件總覽。</h1><p class="sc-small">虛構示例，未接入 AI；筆記與對話只保留於本頁。</p></div>
 <section aria-label="獨立概念動畫" class="sc-concept-section" id="concept">
-<div class="sc-introline"><span>獨立概念演示 · 投保前，先看清。</span><span>元件指南 · 本機示例資料</span></div>
 <section aria-label="從概念到保單" class="ht-stage" data-hero="">
 <div class="concept-stage ht-concept" data-hero-concept="" hidden=""></div>
 <div class="ht-home" data-hero-home="">
 <div class="concept-lockup ht-copy" data-hero-copy><strong class="concept-name">POLICY LENS</strong><p class="concept-tagline">你的保單，<br />付款前看清。</p></div>
 </div>
 </section>
-<div class="sc-hero-toolbar"><p class="sc-small">一段連貫的介紹：貨幣 → 保障 → 條款 → 你的閱讀空間。</p><div class="sc-actions"><button data-hero-replay="" type="button">重播概念動畫</button><button data-hero-finish="" type="button">略過概念動畫</button></div><span class="sc-sr" data-hero-status="" role="status"></span></div>
-<div class="sc-concept-guide"><dl class="sc-use"><div><dt>效果</dt><dd>保險公司名稱淡淡浮現，符號帶出品牌與標語。</dd></div><div><dt>觸發方式</dt><dd>首次查看此示例，或按下重播概念動畫。</dd></div><div><dt>適用位置</dt><dd>概念頁，或產品介紹的開頭。</dd></div></dl>
-<details class="sc-usage" data-component-usage="concept"><summary>前端接入 · 概念介紹</summary><div class="sc-usage-body"><p>適合放在概念頁開頭。十六個保險公司名稱在符號後方逐批淡入，最後淡出；橙色 POLICY LENS 字標與「你的保單，付款前看清。」作為同一組一起呈現，並保留到結尾。整組只進場一次。</p><p><strong>所需檔案。</strong> 依次載入 concept-data.js → concept-motion.js → hero-transition.js，並加入 concept.css、hero-transition.css、ui-markers.css 及主題樣式。</p><p>複製本頁的 [data-hero] 結構，包括 data-hero-concept 與 data-hero-home；後者只作未載入程式時的靜態品牌與標語。整段介紹期間須保留首頁的實際版面位置，避免下方筆記跳動。</p><pre><code>const heroHost = document.querySelector('[data-hero]');
+<div class="sc-hero-toolbar"><div class="sc-actions"><button data-hero-replay="" type="button" aria-label="重播概念動畫">重播</button><button data-hero-finish="" type="button" aria-label="略過概念動畫">略過</button></div><span class="sc-sr" data-hero-status="" role="status"></span></div>
+<div class="sc-concept-guide"><details class="sc-usage" data-component-usage="concept"><summary>前端接入 · 概念介紹</summary><div class="sc-usage-body"><p>適合放在概念頁開頭。十六個保險公司名稱在符號後方逐批淡入，最後淡出；橙色 POLICY LENS 字標與「你的保單，付款前看清。」作為同一組一起呈現，並保留到結尾。整組只進場一次。</p><p><strong>所需檔案。</strong> 依次載入 concept-data.js → concept-motion.js → hero-transition.js，並加入 concept.css、hero-transition.css、ui-markers.css 及主題樣式。</p><p>複製本頁的 [data-hero] 結構，包括 data-hero-concept 與 data-hero-home；後者只作未載入程式時的靜態品牌與標語。整段介紹期間須保留首頁的實際版面位置，避免下方筆記跳動。</p><pre><code>const heroHost = document.querySelector('[data-hero]');
 const intro = PolicyHeroTransition.mount(heroHost);
 intro.play();
 // 重播時： intro.replay();
@@ -73,10 +70,9 @@ intro.play();
 <details class="sc-sources"><summary>16 個香港市場名稱 · 背景與來源</summary><p>這些名稱用於動畫的市場背景，不代表合作、推薦，亦不是下方虛構保單的供應商。</p><ul data-market-sources=""></ul></details>
 </section>
 <section aria-labelledby="controls-title" class="sc-section" id="controls">
-<div class="sc-section-head"><span class="sc-number">01</span><div><p class="sc-eyebrow">A shared touch</p><h2 id="controls-title">輕柔按下，清楚選擇。</h2><p>輕量平面按鈕，統一以由左至右的淡色填充回應操作。</p></div></div>
-<dl class="sc-use"><div><dt>效果</dt><dd>滑過、聚焦或選取時，底色由左向右填入。</dd></div><div><dt>觸發方式</dt><dd>按下按鈕，或選取目的地。</dd></div><div><dt>適用位置</dt><dd>主要操作、分頁、小工具及選擇項。</dd></div></dl>
-<div class="sc-demo-row"><div><h3>你準備去哪裏？</h3><p>每次選一個目的地，動畫結束後仍能清楚看見選取狀態。</p></div><div aria-label="目的地" class="sc-choices" role="group"><button aria-pressed="true" data-destination="Japan" type="button">日本</button><button aria-pressed="false" data-destination="United Kingdom" type="button">英國</button><button aria-pressed="false" data-destination="Hong Kong" type="button">香港</button><button aria-pressed="false" data-destination="Somewhere else" type="button">其他地方</button></div></div>
-<div class="sc-demo-row"><div><h3>把常用操作放在手邊。</h3><p data-control-status="" role="status">目的地：日本</p></div><div class="sc-actions"><button data-liquid-variant="surface" data-note-add="" type="button">新增筆記</button><button aria-label="標記此筆記分區" aria-pressed="false" class="sc-icon" data-mark-section="" type="button">☆</button><button disabled="" type="button">暫不可用</button></div></div>
+<div class="sc-section-head"><span class="sc-number">01</span><div><h2 id="controls-title">按鈕與選項。</h2><p>選擇目的地，或試用下方操作。</p></div></div>
+<div class="sc-demo-row"><div><h3>目的地</h3></div><div aria-label="目的地" class="sc-choices" role="group"><button aria-pressed="true" data-destination="Japan" type="button">日本</button><button aria-pressed="false" data-destination="United Kingdom" type="button">英國</button><button aria-pressed="false" data-destination="Hong Kong" type="button">香港</button><button aria-pressed="false" data-destination="Somewhere else" type="button">其他地方</button></div></div>
+<div class="sc-demo-row"><div><h3>常用操作</h3><p data-control-status="" role="status">目的地：日本</p></div><div class="sc-actions"><button data-liquid-variant="surface" data-note-add="" type="button">新增筆記</button><button aria-label="標記此筆記分區" aria-pressed="false" class="sc-icon" data-mark-section="" type="button">☆</button><button disabled="" type="button">暫不可用</button></div></div>
 <details class="sc-usage" data-component-usage="controls"><summary>前端接入 · 按鈕與選項</summary><div class="sc-usage-body"><p>所有操作使用相同的平面細線與由左至右填充，不設立體陰影或彈跳。選項保留明確選取狀態，文字、焦點與點擊範圍保持穩定。</p><p><strong>所需檔案。</strong> 先載入 ui-theme.css 及 liquid-controls.css，再載入 liquid-controls.js。程式會自動掛載一次，重複明確掛載亦不會建立多份實例。</p><p>保留原生按鈕，並由介面管理選取狀態。主要操作加上 data-liquid-variant="primary"；一般按鈕預設為輕量樣式，只有互動時浮現淡淡表面。需要展示完整平面表面時使用 data-liquid-variant="surface"。核取方塊外層使用緊湊的 .sc-check-toggle。</p><pre><code>&lt;button type="button" aria-pressed="false"&gt;日本&lt;/button&gt;
 &lt;span class="sc-check-toggle" data-liquid-control data-liquid-choice&gt;
   &lt;input type="checkbox" /&gt;
@@ -87,11 +83,10 @@ controls.update({ releaseMs: 460 });
 // 卸載時： controls.destroy();</code></pre><p><strong>隊友提供的資料。</strong> 介面負責 aria-pressed、checked 及 disabled。本示例是已記錄的原生適配；原始 PixelToggle 引擎未有提供。</p></div></details>
 </section>
 <section aria-labelledby="wording-title" class="sc-section" id="wording">
-<div class="sc-section-head"><span class="sc-number">02</span><div><p class="sc-eyebrow">Read with a hierarchy</p><h2 id="wording-title">用標記，讀出輕重。</h2><p>四個編號優先級，協助留意原文；顏色輔助標籤，不取代文字。</p></div></div>
-<dl class="sc-use"><div><dt>效果</dt><dd>20 組文字與底色色對；閱讀區統一使用四個優先級。</dd></div><div><dt>觸發方式</dt><dd>選取示例保單，或閱讀保單詳情。</dd></div><div><dt>適用位置</dt><dd>原文條款、閱讀重點及待確認問題。</dd></div></dl>
+<div class="sc-section-head"><span class="sc-number">02</span><div><h2 id="wording-title">重點標記。</h2><p>按編號閱讀條款與問題。</p></div></div>
 <ol class="sc-priorities pl-ruled-list"><li><span class="pl-priority" data-priority="1">1 · 首要</span><span>投保前先釐清會影響決定的限制。</span></li><li><span class="pl-priority" data-priority="2">2 · 重要</span><span>核對門檻、條件及限額。</span></li><li><span class="pl-priority" data-priority="3">3 · 待確認</span><span>留意證明文件及實際要求。</span></li><li><span class="pl-priority" data-priority="4">4 · 參考</span><span>保留對話時有用的細節。</span></li></ol>
 <div class="sc-wording"><p class="sc-eyebrow" data-wording-source="">已選的虛構條款</p><blockquote data-wording-excerpt=""></blockquote><div data-wording-findings=""></div></div>
-<details class="sc-palette-details" open=""><summary>完整 20 色參考</summary><div class="sc-palette" data-marker-palette=""></div><p class="sc-small">參考色盤提供較多選擇；本示例一致使用四個編號優先級，顏色並不代表保障判定。</p></details>
+<details class="sc-palette-details"><summary>完整 20 色參考</summary><div class="sc-palette" data-marker-palette=""></div><p class="sc-small">參考色盤提供較多選擇；本示例一致使用四個編號優先級，顏色並不代表保障判定。</p></details>
 <details class="sc-usage" data-component-usage="wording"><summary>前端接入 · 螢光優先級</summary><div class="sc-usage-body"><p>在支持閱讀重點的原文字句上加標記，並讓原文、解釋及最終問題保持同一優先級。</p><p><strong>所需檔案。</strong> 載入 ui-theme.css 及 ui-markers.css，無須 JavaScript。</p><p>data-priority 1–4 對應首要至參考，分別使用櫻桃紅、琥珀、青綠及紫羅蘭。data-marker 1–20 選取參考色；色盤編號並不等於優先級。</p><pre><code>&lt;mark class="pl-marker" data-priority="1"&gt;逐字原文&lt;/mark&gt;
 &lt;span class="pl-priority" data-priority="1"&gt;1 · 首要&lt;/span&gt;
 
@@ -99,23 +94,18 @@ controls.update({ releaseMs: 460 });
 &lt;mark class="pl-marker" data-marker="12"&gt;補充筆記&lt;/mark&gt;</code></pre><p><strong>隊友提供的資料。</strong> 提供來源文字、逐字引文及閱讀優先級。加入標記時，請保留原文不變。</p></div></details>
 </section>
 <section aria-labelledby="notes-title" class="sc-section" id="notes">
-<div class="sc-section-head"><span class="sc-number">03</span><div><p class="sc-eyebrow">Room to think</p><h2 id="notes-title">把想法寫在網格上。</h2><p>保留付款前要確認的細節；安靜的網格，讓每個問題都有位置。</p></div></div>
-<dl class="sc-use"><div><dt>效果</dt><dd>淡淡的網格，襯托可直接編輯的純文字筆記。</dd></div><div><dt>觸發方式</dt><dd>直接輸入，或從對話保留問題。</dd></div><div><dt>適用位置</dt><dd>閱讀筆記，以及帶去向保險顧問確認的清單。</dd></div></dl>
-<div class="sc-notepaper pl-grid-paper"><label for="review-note">投保前，我想問清楚……</label><textarea data-review-note="" id="review-note" placeholder="這項條件對我的旅程有甚麼影響？" rows="4"></textarea><p class="sc-small">筆記只留在此頁，重新整理後會清空。</p></div>
+<div class="sc-section-head"><span class="sc-number">03</span><div><h2 id="notes-title">閱讀筆記。</h2><p>記下想確認的細節。</p></div></div>
+<div class="sc-notepaper pl-grid-paper"><label for="review-note">投保前，我想問清楚……</label><textarea data-review-note="" id="review-note" placeholder="這項條件對我的旅程有甚麼影響？" rows="4"></textarea></div>
 <details class="sc-usage" data-component-usage="notes"><summary>前端接入 · 網格紙筆記</summary><div class="sc-usage-body"><p>適合用於要保留的筆記及問題。網格只放在閱讀或書寫區，讓其餘頁面保持簡潔。</p><p><strong>所需檔案。</strong> 載入 ui-theme.css 及 ui-notebook.css；.pl-grid-paper 繪製 24px 網格，無須 JavaScript。</p><p>如要使用本頁的筆記樣式，請在 .sc-page 內加上 .sc-notepaper，並載入 showcase.css，以加入細線、邊線、間距及 24px 書寫節奏。</p><pre><code>&lt;div class="sc-notepaper pl-grid-paper"&gt;
   &lt;label for="note-example"&gt;投保前，我想問清楚……&lt;/label&gt;
   &lt;textarea id="note-example" rows="4"&gt;&lt;/textarea&gt;
 &lt;/div&gt;</code></pre><p><strong>隊友提供的資料。</strong> 隊友決定筆記的儲存方式；本示例只保留於目前頁面。</p></div></details>
 </section>
 <section aria-labelledby="policies-title" class="sc-section" id="policies">
-<div class="sc-section-head"><span class="sc-number">04</span><div><p class="sc-eyebrow">A document you can handle</p><h2 id="policies-title">在不同保單之間切換。</h2><p>把一張保單拖到另一張上交換位置；開啟紙張，即可閱讀對應條款。</p></div></div>
-<dl class="sc-use"><div><dt>效果</dt><dd>三張可拖拽交換的保單，以及獨立的詳情揭示。</dd></div><div><dt>觸發方式</dt><dd>拖拽交換；按下紙張，或用鍵盤查看。</dd></div><div><dt>適用位置</dt><dd>選取及比較來源文件。</dd></div></dl>
-<p class="sc-small">下方三份保單均為虛構示例。紙張質感用於文件；問題和閱讀重點則保留上方的細線清單形式。</p>
+<div class="sc-section-head"><span class="sc-number">04</span><div><h2 id="policies-title">保單與筆記。</h2><p>拖曳交換保單；按下紙張或用鍵盤查看條款。</p></div></div>
 <div class="sc-pull-note" id="pull-notes">
-<p class="sc-eyebrow">保單書籤 · 按下揭示</p><h3>把一則筆記牽引到眼前。</h3>
-<p>小書籤沿着所選保單描邊、輕拉，再把視線帶到閱讀筆記。內容保留 <mark class="pl-marker" data-priority="3">原文條款</mark>、四個閱讀優先級，以及需要確認的問題。</p>
-<p class="sc-small">瞄準 → 描邊 → 牽引 → 搬運 → 落位。按下下方任何保單，即可查看筆記揭示。</p>
-<button data-policy-pull-replay="" type="button">重播所選保單的筆記揭示</button>
+<h3>書籤牽引</h3>
+<button data-policy-pull-replay="" type="button">重播筆記揭示</button>
 </div>
 <div data-policy-workbench=""></div><p class="sc-small" data-policy-status="" role="status"></p>
 <details class="sc-usage" data-component-usage="policies"><summary>前端接入 · 保單交換與詳情揭示</summary><div class="sc-usage-body"><p>適合處理多份不同保單。拖拽會交換位置；開啟紙張則使用獨立的書籤牽引效果，帶出對應原文。</p><p><strong>所需檔案。</strong> 依次載入 policy-fixtures.js → policy-deck.js → policy-pull.js → policy-workbench.js，並加入 policy-deck.css、policy-pull.css 及主題／標記樣式。</p><p>workbenchHost 可以是已連接頁面的空 div。每個項目需有 id、title、kind、summary、sourceLabel、excerpt 及 findings；每個重點需有 id、priority、title、question，以及 excerpt 中逐字包含的 quote。</p><pre><code>const workbenchHost = document.querySelector('[data-policy-workbench]');
@@ -141,12 +131,11 @@ desk.inspect(desk.selectedId);
 </div></details>
 </section>
 <section aria-labelledby="conversation-title" class="sc-section" id="conversation">
-<div class="sc-section-head"><span class="sc-number">05</span><div><p class="sc-eyebrow">A thought, carried forward</p><h2 id="conversation-title">讓問題，順着思路流動。</h2><p>訊息由輸入區升起，解釋在它所引用的條款旁展開。</p></div></div>
-<dl class="sc-use"><div><dt>效果</dt><dd>從穩定的書寫位置，流入對話氣泡。</dd></div><div><dt>觸發方式</dt><dd>送出問題，或重播以再次查看動畫。</dd></div><div><dt>適用位置</dt><dd>條款或未解答問題旁的即時說明。</dd></div></dl>
+<div class="sc-section-head"><span class="sc-number">05</span><div><h2 id="conversation-title">條款對話。</h2></div></div>
 <div data-showcase-chat="">
-<div class="sc-actions sc-chat-actions"><button aria-controls="showcase-conversation" aria-expanded="true" data-chat-open="" type="button">開啟對話</button><button data-chat-replay="" type="button">重播示例問題</button></div>
+<div class="sc-actions sc-chat-actions"><button aria-controls="showcase-conversation" aria-expanded="true" data-chat-open="" type="button">開啟對話</button><button data-chat-replay="" type="button">重播問題</button></div>
 <div class="agent-workspace sc-chat" data-chat-panel="" id="showcase-conversation">
-<div class="agent-header"><div><p class="kicker">LOCAL WORDING COMPANION</p><h3>一次，看清一條。</h3><p>晴日旅遊 · 虛構示例 · 未接入 AI 服務</p></div><button aria-label="關閉對話" data-chat-close="" type="button">關閉</button></div>
+<div class="agent-header"><div><h3>晴日旅遊</h3></div><button aria-label="關閉對話" data-chat-close="" type="button">關閉</button></div>
 <div class="agent-layout"><div class="agent-conversation"><div aria-label="對話記錄" class="agent-feed" data-chat-feed="" tabindex="0"><div class="agent-stack" data-chat-stack=""></div></div><form class="agent-composer"><label class="sc-sr" for="showcase-draft">你對虛構條款的問題</label><p class="agent-mode-help" id="showcase-mode-help" data-chat-mode-help role="status" aria-live="polite">解釋條款 · 用白話拆解條件、限制和所需證明。</p><textarea aria-describedby="showcase-mode-help" maxlength="1000" data-agent-draft="" id="showcase-draft" placeholder="航班延誤條件怎樣寫？" rows="2"></textarea><div class="agent-composer-toolbar"><div aria-label="回覆方式" role="group" class="agent-modes"><button aria-pressed="true" data-chat-mode="explain" type="button">解釋條款</button><button aria-pressed="false" data-chat-mode="what-if" type="button">假設情境</button><button aria-pressed="false" data-chat-mode="ask" type="button">怎樣問</button></div><button aria-label="送出問題" class="agent-send-button" data-chat-send="" disabled="" type="submit">↑</button></div></form></div><aside class="agent-desk"><div class="agent-desk-content" data-chat-evidence=""></div></aside></div><p class="agent-disclosure" data-chat-status="" role="status"></p>
 </div>
 </div>
@@ -158,10 +147,9 @@ chat.submit('航班延誤條件怎樣寫？');
 // 卸載時： chat.destroy();</code></pre><p><strong>隊友提供的資料。</strong> 此適配使用本機示例回覆庫；服務準備好後，由隊友替換 showcase-chat.js 的回覆取得方式。目前動態模組支援一個使用中的對話。</p></div></details>
 </section>
 <section aria-labelledby="checklist-title" class="sc-section" id="checklist">
-<div class="sc-section-head"><span class="sc-number">06</span><div><p class="sc-eyebrow">A useful finish</p><h2 id="checklist-title">讓重要問題，一起浮現。</h2><p>由四種重點螢光色混成的炫彩光洗，帶出白色網格確認清單。每項問題可勾選，並可展開查看原文依據。</p></div></div>
-<dl class="sc-use"><div><dt>效果</dt><dd>炫彩光洗由上往下帶出筆記清單。</dd></div><div><dt>觸發方式</dt><dd>選取目前保單的問題，再按生成。</dd></div><div><dt>適用位置</dt><dd>已準備好的清單、閱讀摘要或完成內容。</dd></div></dl>
+<div class="sc-section-head"><span class="sc-number">06</span><div><h2 id="checklist-title">確認清單。</h2><p>選好問題後生成清單，逐項勾選確認。</p></div></div>
 <fieldset class="sc-check-options"><legend data-checklist-policy="">所選虛構保單的問題</legend><div data-checklist-options=""></div></fieldset>
-<div class="sc-actions"><button data-liquid-variant="primary" data-checklist-generate="" type="button">生成所選問題清單</button><button data-checklist-replay="" disabled="" type="button">重播揭示</button><button data-checklist-cancel="" disabled="" type="button">取消揭示</button></div><p class="sc-small" data-checklist-status="" role="status">請至少選一個問題。</p>
+<div class="sc-actions"><button data-liquid-variant="primary" data-checklist-generate="" type="button">生成清單</button><button data-checklist-replay="" disabled="" type="button" aria-label="重播清單動畫">重播</button><button data-checklist-cancel="" disabled="" type="button" aria-label="停止清單動畫">停止</button></div><p class="sc-small" data-checklist-status="" role="status">請至少選一個問題。</p>
 <div class="sc-result" data-checklist-result="" hidden=""><div class="completion-reveal" data-showcase-reveal=""><div class="completion-document" data-reveal-content=""></div></div></div>
 <details class="sc-usage" data-component-usage="checklist"><summary>前端接入 · 完成衝擊波</summary><div class="sc-usage-body"><p>結果準備好後，以櫻桃紅、琥珀、青綠與紫羅蘭重點色混成由上往下的光洗。白色網格紙上每項有原生 Checkbox；勾選只記錄這份清單的進度。重播或停止展示會保留勾選，重新生成才建立新清單。</p><p><strong>所需檔案。</strong> 載入 completion.css、completion-motion.js 及主題樣式。</p><p>先把結果放進 data-reveal-content，並為每個結果項目加上 data-reveal-row，再呼叫 play()。它只負責已準備內容的動畫。</p><pre><code>&lt;div class="completion-reveal" id="result-example"&gt;
   &lt;div class="completion-document" data-reveal-content&gt;
@@ -182,9 +170,9 @@ await reveal.play();
 // 稍後： reveal.cancel();
 // 卸載時： reveal.destroy();</code></pre><p><strong>隊友提供的資料。</strong> 提供已完成的內容；效果本身不會生成答案、傳送資料或標記業務流程完成。</p></div></details>
 </section>
-<section aria-labelledby="handoff-title" class="sc-section sc-handoff"><div class="sc-section-head"><span class="sc-number">↗</span><div><p class="sc-eyebrow">Ready to connect</p><h2 id="handoff-title">前端已備好，交給隊友接續。</h2><p>每個示例都是前端元件。保留這裏的互動和樣式，由隊友在元件邊界接入保單記錄、回覆取得及儲存服務。</p></div></div><ul class="pl-ruled-list sc-integration"><li><strong>保單記錄</strong><span>文件 ID、來源文字、逐字引文及編號重點。</span></li><li><strong>對話回覆</strong><span>問題、回覆文字及對應來源；在對話適配內替換示例回覆。</span></li><li><strong>筆記與完成內容</strong><span>由自己的服務儲存筆記；播放完成揭示前，先準備好最終內容。</span></li><li><strong>共享動態</strong><span>掛載適配前先載入 surface-motion.js。全頁保留一個控制器，在頁面卸載時取消元件轉場並銷毀控制器。</span></li></ul></section>
+<section aria-labelledby="handoff-title" class="sc-section sc-handoff"><div class="sc-section-head"><span class="sc-number">↗</span><div><h2 id="handoff-title">接入資料。</h2></div></div><details class="sc-usage"><summary>資料與生命週期</summary><ul class="pl-ruled-list sc-integration"><li><strong>保單記錄</strong><span>文件 ID、來源文字、逐字引文及編號重點。</span></li><li><strong>對話回覆</strong><span>問題、回覆文字及對應來源；在對話適配內替換示例回覆。</span></li><li><strong>筆記與完成內容</strong><span>由自己的服務儲存筆記；播放完成揭示前，先準備好最終內容。</span></li><li><strong>共享動態</strong><span>掛載適配前先載入 surface-motion.js。全頁保留一個控制器，在頁面卸載時取消元件轉場並銷毀控制器。</span></li></ul></details></section>
 </main>
-<footer class="sc-footer"><span>POLICY LENS／投保前，先看清。</span><a href="#handoff-title">前端交付說明 ↓</a><a href="#top">返回頂部 ↑</a></footer>
+<footer class="sc-footer"><span>POLICY LENS</span><a href="#handoff-title">接入資料 ↓</a><a href="#top">返回頂部 ↑</a></footer>
 </div>
 <noscript>此筆記的互動示例需要 JavaScript；所有保單示例均屬虛構。</noscript>
 </body>

@@ -20,8 +20,8 @@
   };
   const controller=window.PolicyCompletionReveal.mount(host,{onPhase:phase=>{
     const busy=phase!=='ready';button.disabled=busy;button.setAttribute('aria-busy',String(busy));host.setAttribute('aria-busy',String(busy));
-    setButtonLabel(phase==='preparing'?'準備中……':phase==='revealing'?'產生中……':played?'重播揭示 ↗':'產生確認清單 ↗');
-    status.textContent=phase==='preparing'?'正在準備確認清單……':phase==='revealing'?'正在把內容整理在一起……':played?`${items.length} 條問題已整理好，勾選可記錄本清單的確認進度。`:'已就緒，按下按鈕產生確認清單。';
+    setButtonLabel(phase==='preparing'?'準備中……':phase==='revealing'?'產生中……':played?'重播':'生成清單');
+    status.textContent=phase==='preparing'?'準備中……':phase==='revealing'?'展現中……':played?`${items.length} 題，可勾選記錄進度。`:'按下生成，查看清單。';
   }});
   const content=host.querySelector('[data-reveal-content]');content.setAttribute('aria-hidden','true');content.setAttribute('inert','');
   button.addEventListener('click',()=>{played=true;document.querySelector('.completion-preview-stage').classList.add('has-generated');content.removeAttribute('aria-hidden');content.removeAttribute('inert');host.scrollTop=0;void controller.play();});

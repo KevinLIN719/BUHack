@@ -23,7 +23,7 @@
     $('[data-exp-concept-status]').textContent = state==='ready' ? '概念展示已完成。' : state==='handoff' ? '正在帶出品牌標語。' : '正在播放概念動畫。';
   }});
   const reveal = window.PolicyCompletionReveal.mount($('[data-exp-reveal]'), {onPhase(phase) {
-    if (busy) $('[data-exp-result-status]').textContent = phase==='preparing' ? '正在整理已選問題……' : phase==='ready' ? '你的清單已就緒。' : '正在逐一展現你的問題……';
+    if (busy) $('[data-exp-result-status]').textContent = phase==='preparing' ? '正在整理……' : phase==='ready' ? '清單已就緒。' : '正在生成……';
   }});
   const current = () => items.find(item=>item.id===policyId);
   const notes = () => policyNotes.get(policyId);
@@ -52,18 +52,18 @@
     $$('[data-exp-destination]').forEach(node=>node.setAttribute('aria-pressed',String(node.dataset.expDestination===context.destination)));
     $$('[data-exp-traveller]').forEach(node=>node.setAttribute('aria-pressed',String(node.dataset.expTraveller===context.traveller)));
     $$('[data-exp-activity]').forEach(node=>{node.checked=context.activities.includes(node.value);});
-    $$('[data-exp-keep]').forEach(node=>{const kept=notes().kept.has(node.dataset.expKeep);node.setAttribute('aria-pressed',String(kept));node.textContent=kept?'已保留問題 ✓':'保留這個問題';});
+    $$('[data-exp-keep]').forEach(node=>{const kept=notes().kept.has(node.dataset.expKeep);node.setAttribute('aria-pressed',String(kept));node.textContent=kept?'已保留 ✓':'保留問題';});
     $$('[data-exp-question]').forEach(node=>{node.checked=notes().kept.has(node.dataset.expQuestion);});
     $$('[data-exp-action="generate"]').forEach(node=>{node.disabled=busy||!notes().kept.size;node.setAttribute('aria-busy',String(busy));});
     $('[data-exp-action="cancel"]').disabled=!busy;
     $('[data-exp-result-actions]').hidden=busy||!snapshot||$('[data-exp-result]').hidden;
-    $('[data-exp-selection-status]').textContent=notes().kept.size?`已從「${current().title}」選擇 ${notes().kept.size} 個問題。`:'請至少選擇一個問題。';
+    $('[data-exp-selection-status]').textContent=notes().kept.size?'':'請至少選擇一個問題。';
     $$('[data-exp-nav] [data-exp-go]').forEach(node=>{
       node.disabled=steps.indexOf(node.dataset.expGo)>reached;
       if(node.dataset.expGo===panel)node.setAttribute('aria-current','step');else node.removeAttribute('aria-current');
     });
   }
-  function invalidate(message='選擇已更新，可以重新生成清單。') {
+  function invalidate(message='') {
     resultVersion++; reveal.cancel();busy=false;snapshot=null;
     $('[data-exp-result]').hidden=true;
     $('[data-reveal-content]').replaceChildren();
@@ -75,21 +75,21 @@
     $$('[data-exp-policy-name]').forEach(node=>{node.textContent=item.title;});
     $('[data-exp-source-label]').textContent=item.sourceLabel;
     $('[data-exp-excerpt]').innerHTML=marked(item);
-    $('[data-exp-findings]').innerHTML=ranked(item).map(f=>`<li data-finding-id="${escape(f.id)}"><span class="pl-priority" data-priority="${f.priority}">${f.priority} · ${labels[f.priority]}</span><h4>${escape(f.title)}</h4><p>${escape(f.question)}</p><div class="sc-actions"><button type="button" data-exp-ask="${escape(f.id)}">把疑問聊清楚 ↗</button><button type="button" data-exp-keep="${escape(f.id)}" aria-pressed="false">保留這個問題</button></div></li>`).join('');
-    $('[data-exp-scenarios]').innerHTML=data.scenarios(policyId,context).map(s=>`<article data-scenario-id="${escape(s.id)}"><div class="ex-scenario-meta"><span class="pl-priority" data-priority="${s.priority}">${s.priority} · ${labels[s.priority]}</span><span class="sc-small">虛構情境示例</span></div><h4>${escape(s.title)}</h4><p>${escape(s.scene)}</p><p>${escape(s.why)}</p><blockquote><mark class="pl-marker" data-priority="${s.priority}">${escape(s.quote)}</mark></blockquote><div class="sc-actions"><button type="button" data-exp-ask="${escape(s.findingId)}">就這個情境提問 ↗</button><button type="button" data-exp-keep="${escape(s.findingId)}" aria-pressed="false">保留這個問題</button></div></article>`).join('');
+    $('[data-exp-findings]').innerHTML=ranked(item).map(f=>`<li data-finding-id="${escape(f.id)}"><span class="pl-priority" data-priority="${f.priority}">${f.priority} · ${labels[f.priority]}</span><h4>${escape(f.title)}</h4><p>${escape(f.question)}</p><div class="sc-actions"><button type="button" data-exp-ask="${escape(f.id)}">提問 ↗</button><button type="button" data-exp-keep="${escape(f.id)}" aria-pressed="false">保留問題</button></div></li>`).join('');
+    $('[data-exp-scenarios]').innerHTML=data.scenarios(policyId,context).map(s=>`<article data-scenario-id="${escape(s.id)}"><div class="ex-scenario-meta"><span class="pl-priority" data-priority="${s.priority}">${s.priority} · ${labels[s.priority]}</span></div><h4>${escape(s.title)}</h4><p>${escape(s.scene)}</p><details class="ex-scenario-evidence"><summary>條款與說明</summary><p>${escape(s.why)}</p><blockquote><mark class="pl-marker" data-priority="${s.priority}">${escape(s.quote)}</mark></blockquote></details><div class="sc-actions"><button type="button" data-exp-ask="${escape(s.findingId)}">提問 ↗</button><button type="button" data-exp-keep="${escape(s.findingId)}" aria-pressed="false">保留問題</button></div></article>`).join('');
     $('[data-exp-note]').value=notes().note;
-    $('[data-exp-question-options]').innerHTML=ranked(item).map(f=>`<label><span class="sc-check-toggle" data-liquid-control data-liquid-choice><input type="checkbox" data-exp-question="${escape(f.id)}" /></span><span><span class="pl-priority" data-priority="${f.priority}">${f.priority} · ${labels[f.priority]}</span><br />${escape(f.question)}<small><mark class="pl-marker" data-priority="${f.priority}">${escape(f.quote)}</mark></small></span></label>`).join('');
+    $('[data-exp-question-options]').innerHTML=ranked(item).map(f=>`<label><span class="sc-check-toggle" data-liquid-control data-liquid-choice><input type="checkbox" data-exp-question="${escape(f.id)}" /></span><span><span class="pl-priority" data-priority="${f.priority}">${f.priority} · ${labels[f.priority]}</span><br />${escape(f.question)}</span></label>`).join('');
     sync();
   }
   function activatePolicy(id) {
     if(dead||!items.some(item=>item.id===id))return;
-    if(policyId!==id) { policyId=id;chat?.reset();invalidate('已切換保單，問題與原文已一併更新。'); }
-    $('[data-exp-policy-status]').textContent=`已選擇：${current().title} · ${current().kind} · 虛構示例。`;
+    if(policyId!==id) { policyId=id;chat?.reset();invalidate(''); }
+    $('[data-exp-policy-status]').textContent=`已選擇：${current().title}`;
     renderReading();
   }
   chat=window.PolicyExperienceChat.mount($('[data-exp-chat]'),{getPolicy:current,getContext:()=>({...context,activities:[...context.activities]}),onSaveQuestion(finding) {
     if(!current().findings.some(f=>f.id===finding.id))return;
-    notes().kept.add(finding.id);invalidate('問題已保留，準備好後可重新生成清單。');
+    notes().kept.add(finding.id);invalidate('已保留問題。');
   }});
   function mountWorkbench() {
     workbench?.destroy();
@@ -119,7 +119,7 @@
     chat.settle();
     if(panel==='concept')hero.finish();
     if(panel==='policies')workbench.select(policyId);
-    if(panel==='checklist'&&busy)invalidate('展示已暫停，已選問題仍然保留。');
+    if(panel==='checklist'&&busy)invalidate('展示已停止。');
     const outgoing=panels.get(panel);outgoing.inert=true;
     await animatePanel(outgoing,[{opacity:1},{opacity:0}],120);
     if(dead||token!==routeVersion)return false;
@@ -171,23 +171,23 @@
     // reads the actual result surface, not an incoming page transition.
     await reveal.play();
     if(dead||token!==resultVersion)return;
-    busy=false;sync();$('[data-exp-result-status]').textContent='提問清單已整理好。勾選可記錄本清單的確認進度；條款與出處可逐項展開。';
+    busy=false;sync();$('[data-exp-result-status]').textContent='清單已生成。';
   }
   async function copy() {
     const text=resultText();if(!text)return;
-    try { await navigator.clipboard.writeText(text);if(!dead)$('[data-exp-result-status]').textContent='已複製提問清單。'; }
-    catch { if(!dead)$('[data-exp-result-status]').textContent='目前無法複製，請改用下載清單。'; }
+    try { await navigator.clipboard.writeText(text);if(!dead)$('[data-exp-result-status]').textContent='已複製。'; }
+    catch { if(!dead)$('[data-exp-result-status]').textContent='無法複製，請下載清單。'; }
   }
   function download() {
     if(!snapshot)return;
     const url=URL.createObjectURL(new Blob([resultText()],{type:'text/plain;charset=utf-8'}));
     const link=document.createElement('a');link.href=url;link.download='POLICY-LENS-提問清單.txt';document.body.append(link);link.click();link.remove();
     window.setTimeout(()=>URL.revokeObjectURL(url),0);
-    $('[data-exp-result-status]').textContent='已準備好可下載的提問清單。';
+    $('[data-exp-result-status]').textContent='已準備下載。';
   }
   async function restart() {
     if(dead)return;
-    routeVersion++;clearNavigation();hero.finish();chat.reset();invalidate('選擇一份保單，開始新的示例梳理。');
+    routeVersion++;clearNavigation();hero.finish();chat.reset();invalidate('');
     for(const item of items)policyNotes.set(item.id,{kept:new Set(item.findings.filter(f=>f.priority<=2).map(f=>f.id)),note:''});
     Object.assign(context,{destination:'Japan',traveller:'Myself',activities:['skiing']});policyId=items[0].id;reached=0;mountWorkbench();renderReading();
     return go('cover',{force:true});
@@ -206,7 +206,7 @@
       case 'replay-result':void generate(true);break;
       case 'cancel':
         resultVersion++;reveal.cancel();busy=false;sync();
-        $('[data-exp-result-status]').textContent='展示已停止，清單與確認進度已保留。';break;
+        $('[data-exp-result-status]').textContent='已停止，清單已保留。';break;
       case 'copy':void copy();break;
       case 'download':download();break;
       case 'restart':void restart();break;
@@ -222,7 +222,7 @@
     if(!document.hidden)return;
     // Cancel geometry travel to its real destination, without changing data.
     clearNavigation();
-    if(busy){resultVersion++;reveal.cancel();busy=false;sync();$('[data-exp-result-status]').textContent='你的提問清單已就緒。';}
+    if(busy){resultVersion++;reveal.cancel();busy=false;sync();$('[data-exp-result-status]').textContent='清單已就緒。';}
   });
   const preferenceChanged=()=>{if(calm())clearNavigation();};
   preference?.addEventListener?.('change',preferenceChanged);contrast?.addEventListener?.('change',preferenceChanged);

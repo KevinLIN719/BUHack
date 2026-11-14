@@ -4,7 +4,7 @@
   const pause=document.querySelector('[data-concept-pause]'),skip=document.querySelector('[data-concept-skip]');
   const update=()=>{
     const state=host.dataset.conceptState;
-    pause.disabled=state==='ready';pause.textContent=state==='paused'?'繼續播放':'暫停';skip.disabled=state==='ready';
+    pause.disabled=state==='ready';pause.textContent=state==='paused'?'繼續':'暫停';skip.disabled=state==='ready';
     pause.setAttribute('aria-label',state==='paused'?'繼續播放概念動畫':'暫停概念動畫');
   };
   if(!data||!window.PolicyConceptMotion){

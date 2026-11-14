@@ -7,9 +7,9 @@
   const escape = value => String(value ?? '').replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
   const labels = Object.freeze({ 1:'首要', 2:'重要', 3:'待確認', 4:'參考' });
   const modes = Object.freeze({
-    explain: { label:'解釋條款', help:'用白話拆解這份保單的條件與限制。', placeholder:'例如：這項保障要符合甚麼條件？' },
-    'what-if': { label:'假設情境', help:'描述你的情況，對照原文看哪些細節仍需確認。', placeholder:'例如：如果發生這個情況，還要確認甚麼？' },
-    ask: { label:'怎樣問', help:'把疑問整理成可以直接向顧問確認的問題。', placeholder:'例如：關於這項條款，我應如何問？' }
+    explain: { label:'解釋條款', help:'解釋條件與限制。', placeholder:'這項保障要符合甚麼條件？' },
+    'what-if': { label:'假設情境', help:'對照你的情況，找出待確認的細節。', placeholder:'如果發生這個情況，還要確認甚麼？' },
+    ask: { label:'怎樣問', help:'整理成向顧問確認的問題。', placeholder:'關於這項條款，我應如何問？' }
   });
   function mount(host, { getPolicy, getContext = () => ({}), onSaveQuestion } = {}) {
     if (!host?.ownerDocument) throw new TypeError('PolicyExperienceChat.mount needs an empty DOM host.');
@@ -20,7 +20,7 @@
     const id = `expchat-draft-${++serial}`;
     const workspace = doc.createElement('div');
     workspace.className = 'agent-workspace expchat-workspace';
-    workspace.innerHTML = `<div class="agent-header"><div><p class="kicker">同一份保單／再看仔細一點</p><h3>一起釐清這個問題。</h3><p class="small-note" data-expchat-policy></p></div><button type="button" data-expchat-reset>清除對話</button></div><div class="agent-layout"><section class="agent-conversation" aria-label="保單對話"><div class="agent-feed" data-expchat-feed role="log" aria-label="你的保單對話" aria-live="off"><div class="agent-stack" data-expchat-stack></div></div><form class="agent-composer" data-expchat-form><label class="visually-hidden" for="${id}">詢問所選虛構保單的條款</label><p class="agent-mode-help" id="${id}-help" data-expchat-mode-help role="status" aria-live="polite"></p><textarea aria-describedby="${id}-help" id="${id}" data-expchat-draft maxlength="1000" rows="2" placeholder="詢問某項條件，或選擇上方的問題……"></textarea><div class="agent-composer-toolbar"><div class="agent-modes" role="group" aria-label="回覆方式">${Object.entries(modes).map(([value,item]) => `<button type="button" data-expchat-mode="${value}" aria-pressed="${value === 'explain'}">${item.label}</button>`).join('')}</div><button type="submit" class="agent-send-button" data-expchat-send aria-label="送出問題" disabled>↑</button></div></form></section><aside class="agent-desk ex-chat-evidence" aria-label="所選保單的確切原文"><div class="agent-desk-content" data-expchat-evidence></div></aside></div><p class="agent-disclosure" data-expchat-status role="status" aria-live="polite"></p>`;
+    workspace.innerHTML = `<div class="agent-header"><div><p class="small-note" data-expchat-policy></p></div><button type="button" data-expchat-reset>清除對話</button></div><div class="agent-layout"><section class="agent-conversation" aria-label="保單對話"><div class="agent-feed" data-expchat-feed role="log" aria-label="你的保單對話" aria-live="off"><div class="agent-stack" data-expchat-stack></div></div><form class="agent-composer" data-expchat-form><label class="visually-hidden" for="${id}">詢問所選虛構保單的條款</label><p class="agent-mode-help" id="${id}-help" data-expchat-mode-help role="status" aria-live="polite"></p><textarea aria-describedby="${id}-help" id="${id}" data-expchat-draft maxlength="1000" rows="2" placeholder="輸入你的問題……"></textarea><div class="agent-composer-toolbar"><div class="agent-modes" role="group" aria-label="回覆方式">${Object.entries(modes).map(([value,item]) => `<button type="button" data-expchat-mode="${value}" aria-pressed="${value === 'explain'}">${item.label}</button>`).join('')}</div><button type="submit" class="agent-send-button" data-expchat-send aria-label="送出問題" disabled>↑</button></div></form></section><aside class="agent-desk ex-chat-evidence" aria-label="所選保單的確切原文"><div class="agent-desk-content" data-expchat-evidence></div></aside></div><p class="agent-disclosure" data-expchat-status role="status" aria-live="polite"></p>`;
     host.appendChild(workspace);
     const $ = selector => workspace.querySelector(selector);
     const feed = $('[data-expchat-feed]'), stack = $('[data-expchat-stack]');
@@ -39,7 +39,7 @@
     function updateMode() {
       const selected = modes[mode];
       field.placeholder = selected.placeholder;
-      const help = $('[data-expchat-mode-help]'), text = `${selected.label} · ${selected.help}`;
+      const help = $('[data-expchat-mode-help]'), text = selected.help;
       if (help.textContent !== text) help.textContent = text;
       workspace.querySelectorAll('[data-expchat-mode]').forEach(button => {
         button.setAttribute('aria-pressed', String(button.dataset.expchatMode === mode));
@@ -52,14 +52,14 @@
       form.setAttribute('aria-busy', String(busy));
       feed.setAttribute('aria-busy', String(busy));
       $('[data-expchat-policy]').textContent = `${readPolicy()?.title || '尚未選擇保單'} · 虛構示例`;
-      status.textContent = busy ? '正在準備附有條款依據的本機示例回覆……' : '示例回覆 · 按 Enter 送出 · 按 Shift + Enter 換行';
+      status.textContent = busy ? '回覆中……' : 'Enter 送出 · Shift + Enter 換行';
     }
     function showSource(findingId, animate = true) {
       const policy = readPolicy(), finding = policy?.findings.find(item => item.id === findingId);
       if (!finding) {
-        evidence.innerHTML = '<p class="kicker">條款參考區</p><h3>未找到相符的示例條款。</h3><p>所選虛構保單沒有與這個問題相符的原文。請選擇一項附有條款的重點，重新開始對照。</p>';
+        evidence.innerHTML = '<h3>未找到相符條款。</h3><p>請選擇有原文依據的問題。</p>';
       } else {
-        evidence.innerHTML = `<p class="kicker">${escape(policy.title)}／虛構條款依據</p><h3>${escape(finding.title)}</h3>${source(finding)}<p class="small-note">${escape(policy.sourceLabel)}</p><p>問題旁會保留確切原文。本機示例說明不代表真實保障已獲確認。</p>`;
+        evidence.innerHTML = `<p class="kicker">${escape(policy.title)}／條款原文</p><h3>${escape(finding.title)}</h3>${source(finding)}<p class="small-note">${escape(policy.sourceLabel)}</p>`;
       }
       if (animate) motion?.transitionDesk(evidence);
     }
@@ -73,7 +73,7 @@
           const next = policy?.findings.find(value => value.question === question);
           return next ? `<button type="button" data-expchat-suggestion="${escape(next.id)}">${escape(question)}</button>` : '';
         }).join('');
-        element.innerHTML = `<p class="agent-mode-label">${modes[item.mode || 'explain'].label}</p><span class="agent-response-label">本機虛構示例 · <span class="pl-marker" data-marker="${reply.grounded ? '12' : '7'}">${reply.grounded ? '附有條款依據' : '需要其他依據'}</span></span><h3>${escape(reply.title)}</h3>${reply.paragraphs.map(paragraph => `<p>${escape(paragraph)}</p>`).join('')}${finding ? `<div class="agent-evidence"><button type="button" data-expchat-source="${escape(finding.id)}">查看確切原文 ↗</button></div><div class="ex-chat-inline-source"><p class="agent-response-label">${escape(policy.title)} · ${escape(policy.sourceLabel)}</p>${source(finding)}</div>` : ''}<div class="agent-followups">${followups}</div>${finding ? `<div class="agent-answer-actions"><button type="button" data-expchat-save="${escape(finding.id)}">保留這個問題</button></div>` : ''}`;
+        element.innerHTML = `<p class="agent-mode-label">${modes[item.mode || 'explain'].label} · <span class="pl-marker" data-marker="${reply.grounded ? '12' : '7'}">${reply.grounded ? '附原文' : '未找到原文'}</span></p><h3>${escape(reply.title)}</h3>${reply.paragraphs.map(paragraph => `<p>${escape(paragraph)}</p>`).join('')}${finding ? `<div class="agent-evidence"><button type="button" data-expchat-source="${escape(finding.id)}">查看原文 ↗</button></div><div class="ex-chat-inline-source"><p class="agent-response-label">${escape(policy.title)} · ${escape(policy.sourceLabel)}</p>${source(finding)}</div>` : ''}<div class="agent-followups">${followups}</div>${finding ? `<div class="agent-answer-actions"><button type="button" data-expchat-save="${escape(finding.id)}">保留這個問題</button></div>` : ''}`;
       }
       stack.appendChild(element);
       return element;
@@ -83,7 +83,7 @@
       if (transcript.length) transcript.forEach(message);
       else {
         const policy = readPolicy();
-        stack.innerHTML = `<div class="agent-empty"><h3>一個問題，<br />再看清楚一點。</h3><p>你可以詢問「${escape(policy?.title || '所選示例')}」的條件。說明與確切原文會放在一起，方便對照。</p><div class="agent-suggestions">${(policy?.findings || []).slice(0,3).map(finding => `<button type="button" data-expchat-suggestion="${escape(finding.id)}">${escape(finding.question)}</button>`).join('')}</div></div>`;
+        stack.innerHTML = `<div class="agent-empty"><p>可從這些問題開始：</p><div class="agent-suggestions">${(policy?.findings || []).slice(0,3).map(finding => `<button type="button" data-expchat-suggestion="${escape(finding.id)}">${escape(finding.question)}</button>`).join('')}</div></div>`;
       }
     }
     function completePending() {
@@ -156,8 +156,8 @@
         if (finding && onSaveQuestion) {
           try {
             const result = onSaveQuestion(finding);
-            status.textContent = result === false ? '這個問題已在你的清單內。' : '已將問題加入你的確認清單。';
-          } catch { status.textContent = '未能保留這個問題，請再試一次。'; }
+            status.textContent = result === false ? '已在問題清單內。' : '已保留問題。';
+          } catch { status.textContent = '未能保留，請重試。'; }
         }
       }
     }
