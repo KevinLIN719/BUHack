@@ -40,14 +40,14 @@ function candidates(view: OverviewInput): OverviewItem[] {
     if (claim.verdict === "contradicted") {
       items.push({
         kind: "broker_conflict",
-        title: "經紀說的和條款原文不一致",
+        title: "和條款原文不一致",
         detail: `${claim.explanation}（經紀原話：「${claim.brokerQuote}」）`,
         citations: [...claim.broker, ...claim.contract],
       });
     } else if (claim.verdict === "overstated") {
       items.push({
         kind: "broker_overstated",
-        title: "經紀的說法比條款寬鬆",
+        title: "說法比條款寬鬆",
         detail: `${claim.explanation}（經紀原話：「${claim.brokerQuote}」）`,
         citations: [...claim.broker, ...claim.contract],
       });
@@ -57,7 +57,7 @@ function candidates(view: OverviewInput): OverviewItem[] {
     if (comparison.relation !== "apparent_conflict") continue;
     items.push({
       kind: "promotion_conflict",
-      title: "宣傳材料與條款有衝突",
+      title: "和條款原文有衝突",
       detail: comparison.explanation,
       citations: [...comparison.marketing, ...comparison.contract],
     });
