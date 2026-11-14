@@ -100,7 +100,7 @@ GET /api/reviews/:id/documents/:docId/content 返回原 PDF。目前提供完整
 | POST | /api/reviews/:id/text-materials | 粘贴沟通记录（JSON：role / fromWhom / capturedAt / text），保存为一页原文材料 |
 | POST | /api/reviews/:id/runs | expectedRevision + kind（investigate 或 scenario）+ goal，可选 resumeFromRunId；创建调查或情景任务 |
 | GET | /api/reviews/:id/runs/:runId | 查询状态 |
-| GET | /api/reviews/:id/runs/:runId/events | SSE；after 或 Last-Event-ID 重放 |
+| GET | /api/reviews/:id/runs/:runId/events | SSE：先重放（`after` 或 `Last-Event-ID`），未结束则持续推送 + 每 15s 心跳 `: ping`，终态自动关闭 |
 | GET | /api/reviews/:id/questions/export?format=md | 提问清单 Markdown 下载（待问问题 / 待补材料 / 未确认结论 / 旧结论变化 / 引用核对）；`format` 只支持 `md`，无报告时 404 `REPORT_NOT_FOUND` |
 | POST | /api/reviews/:id/runs/:runId/cancel | 取消任务，可重复调用 |
 | DELETE | /api/reviews/:id | 删除审阅及其任务、事件 |
@@ -141,4 +141,4 @@ SSE 当前仅重放已保存事件；awaiting_input/cancelled 时关闭连接。
 
 测试使用本地模拟模型端点验证检索→阅读→结构化结果的完整循环，不需要真实 Key，不产生供应商费用。真实 DeepSeek 的账号、模型与端点仍需配置后验证。
 
-当前限制：重启时正在执行的模型任务标记 failed/server_restarted，不自动恢复；需重新创建任务。补件续查、独立语义复核与宣传对照已完成；专题子 Agent、即时 SSE 推送和前端接入尚未完成。GET events 目前为事件重放，可轮询 GET run。删除文件时清除相关审阅的调查快照/输出并取消其调查，避免保留被删材料的派生文本。
+当前限制：重启时正在执行的模型任务标记 `interrupted`（事件 `run.status` 带 `reason: server_restarted`），不自动恢复；材料与事件都保留，需重新创建任务。失败原因统一经 `classifyFailure` 归类为 `timeout` / `budget_exhausted` / `rate_limited` / `model_unreachable` / `model_output_invalid` / `model_failed`，并通过 `GET runs/:runId` 的 `stopReason` 暴露给前端；材料页据此显示一条可操作提示。补件续查、独立语义复核、宣传对照、情景实验、经纪核验、一页概览、版本变化对照、提问清单导出与 SSE 实时推送已完成；剩余可选项为 OCR 与专题子 Agent（见 `PLAN.md:195`）。删除文件时清除相关审阅的调查快照/输出并取消其调查，避免保留被删材料的派生文本。

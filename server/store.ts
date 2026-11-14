@@ -8,9 +8,17 @@ export type Review = {
 };
 export type Run = {
   id: string; reviewId: string; inputRevision: number; kind: "investigate" | "scenario";
-  goal: string; status: "awaiting_input" | "cancelled" | "queued" | "running" | "partial" | "failed";
+  goal: string;
+  // "interrupted" means the server stopped while the run was executing; nothing of it survives
+  // except the events, so the client is told to start again instead of waiting forever.
+  status: "awaiting_input" | "cancelled" | "queued" | "running" | "partial" | "failed" | "interrupted";
   idempotencyKey: string | null; requestHash: string; parentRunId: string | null;
   createdAt: string; updatedAt: string;
+};
+
+// A run event as it is stored and as it is pushed to a live subscriber.
+export type RunEvent = {
+  eventId: number; type: string; data: unknown; timestamp: string; runId: string; inputRevision: number;
 };
 
 // Columns added after the first release; existing local databases must be migrated in place.
@@ -21,6 +29,7 @@ function ensureColumn(db: DatabaseSync, table: string, column: string, ddl: stri
 
 export class Store {
   readonly db: DatabaseSync;
+  private readonly listeners = new Set<(event: RunEvent) => void>();
   constructor(path: string) {
     if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
     this.db = new DatabaseSync(path);
@@ -104,14 +113,40 @@ export class Store {
   }
 
   addEvent(runId: string, type: string, data: unknown) {
-    this.db.prepare("INSERT INTO run_events (runId, type, data, timestamp) VALUES (?, ?, ?, ?)")
-      .run(runId, type, JSON.stringify(data), new Date().toISOString());
+    const timestamp = new Date().toISOString();
+    const inserted = this.db.prepare("INSERT INTO run_events (runId, type, data, timestamp) VALUES (?, ?, ?, ?)")
+      .run(runId, type, JSON.stringify(data), timestamp);
+    const run = this.db.prepare("SELECT inputRevision FROM runs WHERE id = ?").get(runId) as {inputRevision: number} | undefined;
+    const event: RunEvent = {eventId: Number(inserted.lastInsertRowid), type, data, timestamp,
+      runId, inputRevision: run?.inputRevision ?? 0};
+    // A live subscriber must never be able to break the write path that produced the event.
+    for (const listener of this.listeners) {
+      try { listener(event); } catch { /* the stream will recover from the stored event */ }
+    }
+  }
+
+  // Used by the SSE endpoint: the client keeps a request open and receives events as they happen,
+  // instead of polling or reconnecting every second.
+  subscribe(listener: (event: RunEvent) => void) {
+    this.listeners.add(listener);
+    return () => { this.listeners.delete(listener); };
   }
 
   events(run: Run, after = 0) {
     const rows = this.db.prepare("SELECT * FROM run_events WHERE runId = ? AND eventId > ? ORDER BY eventId")
       .all(run.id, after) as {eventId: number; type: string; data: string; timestamp: string}[];
     return rows.map(row => ({ ...row, data: JSON.parse(row.data), runId: run.id, inputRevision: run.inputRevision }));
+  }
+
+  lastEvent(runId: string, type?: string) {
+    const row = (type
+      ? this.db.prepare("SELECT * FROM run_events WHERE runId = ? AND type = ? ORDER BY eventId DESC LIMIT 1").get(runId, type)
+      : this.db.prepare("SELECT * FROM run_events WHERE runId = ? ORDER BY eventId DESC LIMIT 1").get(runId)) as
+      {eventId: number; type: string; data: string; timestamp: string} | undefined;
+    if (!row) return null;
+    let data: unknown = null;
+    try { data = JSON.parse(row.data); } catch { data = null; }
+    return {...row, data, runId};
   }
 
   close() { this.db.close(); }

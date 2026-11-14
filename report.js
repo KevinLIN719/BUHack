@@ -3,7 +3,21 @@
   const $ = id => document.getElementById(id);
   const reviewKey = 'policy-lens-live-review';
   const runKey = 'policy-lens-live-run';
-  const runLabels = {queued:'排隊中',running:'調查中',awaiting_input:'等你補充材料',partial:'已完成初步分析',failed:'調查失敗',cancelled:'已取消'};
+  const runLabels = {queued:'排隊中',running:'調查中',awaiting_input:'等你補充材料',partial:'已完成初步分析',failed:'調查失敗',cancelled:'已取消',interrupted:'服務重啟，調查中斷'};
+  // Server-provided reasons, turned into a sentence the user can act on. No reason is invented:
+  // an unknown code falls back to "see the server log".
+  const stopReasons = {
+    server_restarted: '後端在調查途中重啟了，這次調查沒有完成。材料都還在，重新按一次「開始調查」即可。',
+    timeout: '模型在 120 秒內沒有完成。可以重試，或把問題問得更小一點。',
+    budget_exhausted: '模型把調查步數用完了才給出結論。可以重試，或縮小材料範圍。',
+    rate_limited: '模型接口被限流了，稍等一兩分鐘再試。',
+    model_unreachable: '連不到模型服務，請檢查網絡或 .env 裡的地址。',
+    model_output_invalid: '模型返回的內容不符合格式，自動重試一次後仍然失敗。可以直接重試。',
+    model_failed: '模型執行出錯，詳細原因見後端日誌。',
+    additional_information: '已給出初步結論，補上材料後可以續查。',
+    semantic_review_pending: '初步分析已完成。',
+    user_cancelled: '你取消了這次調查。'
+  };
   const verdictLabels = {supported:'語意相符',partial:'僅部分相符',unsupported:'原文不支援',quote_mismatch:'引文與結論不符'};
   const reviewLabels = {checked:'逐條語意複核完成',issues_found:'語意複核發現問題',unavailable:'語意複核未完成',not_applicable:'沒有可複核的引用結論'};
   const errors = {
@@ -385,7 +399,7 @@
     }
     state.busy = false;
     await load();
-    if (run?.status === 'failed') status(`調查失敗：${run.error?.message ?? '請看後端日誌。'}`);
+    if (run?.status === 'failed' || run?.status === 'interrupted') status(`調查沒有完成：${stopReasons[run.stopReason] ?? '請看後端日誌。'}`);
     else if (run) status(`${runLabels[run.status] ?? run.status}。`);
   }
 

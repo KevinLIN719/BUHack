@@ -39,7 +39,7 @@
 | 提问清单导出（`GET /api/reviews/:id/questions/export?format=md`） | ✅ 完成，材料页有下载链接 | 本批次，`server/export.ts` + `report.js` |
 | 一页概览（报告顶部「先看這幾件事」） | ✅ 完成，服务端确定性排序（模型不参与） | 本批次，`server/overview.ts` + `report.js` |
 | OCR（扫描件） | ⛔ 未做（只标 `needs_ocr`） | — |
-| SSE 实时推送、run 重启恢复、取消的完整状态机 | ⛔ 部分（事件仅重放） | — |
+| SSE 实时推送、run 重启恢复、失败原因分类 | ✅ 完成，服务端推送 + 心跳 + 断线续传；重启中的 run 标 `interrupted` | 本批次，`server/app.ts` 事件流 + `server/agent.ts` `classifyFailure` |
 | `experience.html` 主流程接真实后端 | ⛔ 未做（仍是 mock，属前端队友） | — |
 | 语言切换（i18n）词典覆盖率 | ⚠️ 有缺陷（见 `I18N-TEST-REPORT.md`） | commit `28148da` |
 
@@ -132,7 +132,7 @@ npm run build       # 静态构建
 | POST | `/api/reviews/:id/text-materials` | 粘贴沟通记录（`role`/`fromWhom`/`capturedAt`/`text`）→ 一页原文材料 |
 | POST | `/api/reviews/:id/runs` | `expectedRevision` + `kind`(`investigate`/`scenario`) + `goal`，可选 `resumeFromRunId` |
 | GET | `/api/reviews/:id/runs/:runId` | 状态、`report`、`inputRequests` |
-| GET | `/api/reviews/:id/runs/:runId/events` | 事件重放（`after` / `Last-Event-ID`），暂无实时推送 |
+| GET | `/api/reviews/:id/runs/:runId/events` | SSE：先重放（`after` / `Last-Event-ID` 续传），未结束则持续推送 + 15s 心跳，终态自动关闭 |
 | GET | `/api/reviews/:id/questions/export?format=md` | 提问清单导出（Markdown 附件；无报告时 404 `REPORT_NOT_FOUND`） |
 | POST | `/api/reviews/:id/runs/:runId/cancel` | 取消，可重复调用 |
 | DELETE | `/api/reviews/:id` | 删除审阅及其派生数据 |
@@ -197,7 +197,7 @@ npm run build       # 静态构建
 | # | 事项 | 判据 | 量级 |
 | --- | --- | --- | --- |
 | 1 | OCR | 扫描件走独立 OCR，低质量结果标「待核验」并给页图；不静默丢弃页。**可省略**：HANDOFF 已把「不做 OCR」写成已知边界，验收只要求「低质量 OCR 显示待核验」，当前策略是直接标 `needs_ocr` 不猜测 | 大 |
-| 2 | 系统健壮性 | SSE 实时推送 + 重连、取消状态机、run 重启恢复、限流/预算耗尽的明确状态 | 大 |
+| 2 | 系统健壮性 | ✅ 已完成本批次：SSE 实时推送 + 心跳 + 断线续传、重启中的 run 标 `interrupted`、失败原因分类（`timeout` / `budget_exhausted` / `rate_limited` / `model_unreachable` / `model_output_invalid` / `model_failed`）、步数上限 14 与 120s 预算；剩余可选：多实例 worker 租约、限流退避重试 | 中 |
 | 3 | 专题子 Agent / 限定官方资料搜索 | 只读子 Agent 返回证据与反例；官方域名白名单搜索。**可省略**：`AGENT_V2_PLAN.md:283` 原文为「再加入……**或**……，每项需能证明提高调查质量」，属加分实验项 | 大 |
 
 验收标准原文见 `AGENT_V2_PLAN.md:287`（自主性、反例、续查、证据、增量、情景、回复、系统、安全、告知）。
@@ -219,8 +219,8 @@ npm run build       # 静态构建
 
 - 仅本机单实例开发；监听 127.0.0.1；上线需 HTTPS、安全 cookie、会话生命周期、速率与容量限制。
 - 提取只读文本层，不做 OCR、不推断缺失文字；分块长度不固定，长段在工具返回时按预算截断（`searchSources` 320 字 / `readSource` 目标段 1600 字、相邻段 480 字），但引用以数据库中完整分块为准。
-- `GET events` 只是重放；持续执行靠轮询 `GET run`；`awaiting_input` / `cancelled` 时关闭连接，避免 EventSource 自动重连。
-- 服务重启时正在跑的 run 标记 `failed/server_restarted`，需重新创建任务。
+- `GET events` 是持续 SSE：先重放已发生事件（可用 `after` / `Last-Event-ID` 续传），run 未结束时继续推送并每 15s 发一次心跳，到终态（`awaiting_input` / `partial` / `failed` / `interrupted` / `cancelled`）自动关闭；材料页目前用轮询，接口已支持 EventSource。
+- 服务重启时正在跑的 run 标记 `interrupted`（事件带 `reason: server_restarted`），业务状态与材料都保留，需重新点一次「開始調查」。
 - 情景 run 与调查 run 共用 `currentReport`（取最近一次已发布报告），情景跑完后 findings 会被情景 run 的结论替换。
 - 真实调用会把本次材料与问题发给配置的模型平台；UI 需在上传前告知并支持删除。
 - `.env`、`.data/`、`node_modules/`、`dist/` 不入 Git。
@@ -249,5 +249,6 @@ npm run build       # 静态构建
 - 2026-11-14：新增本文，合并 `AGENT_V2_PLAN` / `HANDOFF` / `BACKEND_LOCAL` / `BACKEND_AGENT_PLAN` / `PR_BACKEND_FOUNDATION`；补入已完成（版面分块、宣传对照、情景实验、经纪核验、粘贴材料、正式前端接入）与未完成/移交清单。
 - 2026-11-14：版本变化对照（`supersedes`）与提问清单导出完成；`currentReport` 改为按材料版本取最新报告，旧 run 迟到结果不再覆盖新版。
 - 2026-11-14：一页概览完成（`overview.items` 最多 3 条 + `remaining` 计数，`server/overview.ts` 纯函数排序：经纪冲突 > 宣传冲突 > 引用不支持 > 无法确认 > 情境缺条件 > 补充材料）；文档标注 OCR 与专题子 Agent 为可省略项。
+- 2026-11-14：系统健壮性完成：`GET events` 改为持续 SSE（重放 + 心跳 + 终态关闭 + `after`/`Last-Event-ID` 续传）；服务重启中的 run 由 `failed` 改标 `interrupted`（保留材料，提示重新开始）；新增 `classifyFailure`（`timeout`/`budget_exhausted`/`rate_limited`/`model_unreachable`/`model_output_invalid`/`model_failed`）与 `stopReason` 对外暴露，材料页按原因给一句可操作提示；步数预算 14、时间预算 120s 显式化。
 - 2026-11-13：PR #1（`feat/backend-pdf-handoff`）交付后端基础；用户接替队友在 `feat/deepseek-live` 继续。
 
