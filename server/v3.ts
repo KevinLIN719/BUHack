@@ -285,8 +285,24 @@ function fastModel() {
   });
   // Explicitly avoid reasoner/high-thinking models for fast turnaround
   const configured = process.env.DEEPSEEK_FAST_MODEL ?? process.env.DEEPSEEK_MODEL ?? "deepseek-chat";
-  const modelName = /reasoner/i.test(configured) ? "deepseek-chat" : configured;
+  const modelName = /reasoner|thinking/i.test(configured) ? "deepseek-chat" : configured;
   return provider(modelName);
+}
+
+/**
+ * A thinking-mode model rejects `tool_choice` with "Thinking mode does not
+ * support this tool_choice", which would break the forced answer submission.
+ * Forcing stays on by default (it is what makes this pipeline reliable) but is
+ * dropped when the API refuses it, or when an operator sets
+ * DEEPSEEK_FORCE_TOOL_CHOICE=0.
+ */
+function toolChoiceAllowed() {
+  return !/^(0|false|off|no)$/i.test(process.env.DEEPSEEK_FORCE_TOOL_CHOICE ?? "1");
+}
+
+function isThinkingToolChoiceError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return /thinking mode .*tool_choice|thinking mode does not support/i.test(message);
 }
 
 function plainLanguageAndLangRule(lang: AnswerLanguage) {
@@ -468,24 +484,37 @@ async function runResearch(opts: {
     return res;
   }) as typeof origSearch;
 
-  const agent = new ToolLoopAgent({
+  const researchInstructions = [
+    opts.instructions,
+    "",
+    lang === "en"
+      ? "【This phase】Only look things up with the tools now. Issue several look-ups in parallel per step and finish within two or three rounds; when you have read enough, reply with just: OK. The structured answer will be requested in the next message."
+      : "【這一階段】現在只用工具查閱條款。每一步盡量同時發出多個查詢（並行調用工具），兩三輪內查完；查夠了就只回覆「OK」，結構化答案會在下一條訊息才要求你輸出。",
+  ].join("\n");
+
+  const buildAgent = (forceToolChoice: boolean) => new ToolLoopAgent({
     model: fastModel(),
     tools: scoped.tools,
     // Short research budget: the write-up also gets locally pre-selected clauses,
     // so a few targeted look-ups are enough. Each step is a model round trip.
     stopWhen: isStepCount(opts.steps ?? 4),
     // Make the model actually read clauses before it may say it is done.
-    prepareStep: ({ stepNumber }) => (stepNumber < 2 ? { toolChoice: "required" as const } : {}),
+    // A thinking-mode model refuses `tool_choice`, so this is dropped on demand.
+    prepareStep: forceToolChoice
+      ? ({ stepNumber }) => (stepNumber < 2 ? { toolChoice: "required" as const } : {})
+      : undefined,
     maxRetries: 1,
-    instructions: [
-      opts.instructions,
-      "",
-      lang === "en"
-        ? "【This phase】Only look things up with the tools now. Issue several look-ups in parallel per step and finish within two or three rounds; when you have read enough, reply with just: OK. The structured answer will be requested in the next message."
-        : "【這一階段】現在只用工具查閱條款。每一步盡量同時發出多個查詢（並行調用工具），兩三輪內查完；查夠了就只回覆「OK」，結構化答案會在下一條訊息才要求你輸出。",
-    ].join("\n"),
+    instructions: researchInstructions,
   });
-  const research = await agent.generate({ prompt: opts.prompt, abortSignal: signal });
+
+  let research;
+  try {
+    research = await buildAgent(toolChoiceAllowed()).generate({ prompt: opts.prompt, abortSignal: signal });
+  } catch (error) {
+    if (!isThinkingToolChoiceError(error)) throw error;
+    console.warn("[v3] model refused tool_choice; retrying the research phase without it");
+    research = await buildAgent(false).generate({ prompt: opts.prompt, abortSignal: signal });
+  }
   // Plain notes without tool names: naming tools here made DeepSeek try to call them again.
   const notes = research.steps.flatMap(step => step.toolResults.map(r => JSON.stringify(r.output).slice(0, 6000)))
     .map((text, i) => `### ${lang === "en" ? "Excerpt" : "摘錄"} ${i + 1}\n${text}`);
@@ -514,15 +543,21 @@ async function submitStructured<T>(opts: {
 }): Promise<T> {
   const submit = tool({ description: "Submit the final answer.", inputSchema: opts.schema });
   let lastError: unknown;
+  // Forced function calling is what makes a large schema usable here, but a
+  // thinking-mode model refuses `tool_choice`. Downgrade once and ask in the
+  // prompt instead of failing the whole report.
+  let forceToolChoice = toolChoiceAllowed();
   for (let attempt = 0; attempt < 3; attempt += 1) {
     if (opts.signal.aborted) throw opts.signal.reason ?? new Error("ABORTED");
     try {
       const result = streamText({
         model: fastModel(),
-        system: opts.instructions,
+        system: forceToolChoice
+          ? opts.instructions
+          : `${opts.instructions}\n\n【提交方式】必須以 ${opts.toolName} 工具提交最終答案，不要用純文字回覆；所有欄位必填。`,
         messages: [{ role: "user", content: opts.content }],
         tools: { [opts.toolName]: submit },
-        toolChoice: { type: "tool", toolName: opts.toolName },
+        ...(forceToolChoice ? { toolChoice: { type: "tool" as const, toolName: opts.toolName } } : {}),
         temperature: attempt === 0 ? undefined : 0.3,
         maxRetries: 1,
         abortSignal: opts.signal,
@@ -550,6 +585,12 @@ async function submitStructured<T>(opts: {
     } catch (err) {
       lastError = err;
       if (opts.signal.aborted) throw err;
+      if (forceToolChoice && isThinkingToolChoiceError(err)) {
+        console.warn(`[v3] ${opts.toolName}: model runs in thinking mode, retrying without tool_choice`);
+        forceToolChoice = false;
+        attempt -= 1;
+        continue;
+      }
     }
     console.warn(`[v3] ${opts.toolName} failed (attempt ${attempt + 1}):`, lastError instanceof Error ? lastError.message.slice(0, 200) : lastError);
   }
