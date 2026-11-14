@@ -2,7 +2,7 @@ import express, { type ErrorRequestHandler, type Request } from "express";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { z } from "zod";
 import multer from "multer";
-import { Investigator, snapshotFor } from "./agent.js";
+import { Investigator, parseLanguage, snapshotFor } from "./agent.js";
 import { DocumentQueue, documentsFor, documentFor, publicDocument, createTextMaterial, MAX_FILE_BYTES } from "./ingest/documents.js";
 import { Store, type Review, type Run } from "./store.js";
 import { reportView } from "./report.js";
@@ -325,7 +325,9 @@ export function createApp(store: Store) {
       store.addEvent(id, "input.required", inputRequest(created));
       return created;
     });
-    if (!replay && run.status === "queued") investigator.start(run);
+    // The report is written in the language the page is currently showing, so the browser tells us
+    // which one via Accept-Language; unknown values fall back to Traditional Chinese.
+    if (!replay && run.status === "queued") investigator.start(run, parseLanguage(req.get("accept-language")));
     res.status(replay ? 200 : 202).json({ ...presentRun(run), eventsUrl: `/api/reviews/${run.reviewId}/runs/${run.id}/events` });
   });
 

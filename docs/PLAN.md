@@ -42,8 +42,11 @@
 | Agent 主动时长边界测试 | ✅ 完成，模型选条款，程序测门槛前/等于/后 | `server/boundary.ts`、`testBoundary` |
 | 一页概览（报告顶部「先看這幾件事」） | ✅ 完成，服务端确定性排序（模型不参与） | 本批次，`server/overview.ts` + `report.js` |
 | OCR（扫描件） | ⛔ 未做（只标 `needs_ocr`） | — |
-| SSE 实时推送、失败原因分类 | ✅ 服务端推送 + 心跳 + 断线续传；重启标 `interrupted`，不会自动从检查点恢复 | 本批次，`server/app.ts` 事件流 + `server/agent.ts` `classifyFailure` |
-| `experience.html` 内部示例聊天改成真实对话 | ⛔ 未做；主页真实入口已完成，示例仍为独立 mock | — |
+| SSE 实时推送、重启中断标记、失败原因分类 | ✅ 完成，服务端推送 + 心跳 + 断线续传；重启中的 run 标 `interrupted` | commit `f091353`（服务端）+ `9fbf380`（材料页改用 EventSource） |
+| 材料页进度由事件驱动 | ✅ 完成，进度行显示「已讀取第 N 段材料」 | commit `9fbf380` |
+| 报告文字语言 | ✅ 默認繁體中文（香港用語），跟隨瀏覽器 `Accept-Language`（en / zh-CN / zh-HK）；引用原文不翻譯 | 本批次，`server/agent.ts` `parseLanguage` + `languageRule` |
+| 真实公开保单复验 | ✅ 完成（QBE 香港 9 页，13 处引用全 verified） | `REAL-CONTRACT-TEST.md` |
+| `experience.html` 内部示例聊天接真实后端 | ⛔ 未做；主页真实入口已完成，示例仍为独立 mock | — |
 | 语言切换（i18n）词典覆盖率 | ⚠️ 有缺陷（见 `I18N-TEST-REPORT.md`） | commit `28148da` |
 
 ---
@@ -195,7 +198,34 @@ npm run build       # 静态构建
 
 ### 8.4 真实材料页（前端队友/用户）
 
-`materials.html` 底部「條款調查」由 `report.js` / `report.css` 驱动：填问题 → 开始调查 → 轮询 → 渲染结论 / 引用（点击跳原文页）/ 语义复核 / 宣传对照 / 情境實驗 / 經紀回覆核驗 / 补充请求 / 待问清单；有新加材料时出现「用新材料續查」。
+`materials.html` 底部「條款調查」由 `report.js` / `report.css` 驱动：填问题 → 开始调查 → 事件流（SSE，轮询兜底）→ 渲染结论 / 引用（点击跳原文页）/ 语义复核 / 宣传对照 / 情境實驗 / 經紀回覆核驗 / 补充请求 / 待问清单；有新加材料时出现「用新材料續查」。
+
+### 8.5 PR #1 之后的增量（`0d034c3..HEAD`，19 个 commit，34 文件 +3484/−90）
+
+按交付顺序，一行一件事、可用来核对提交历史：
+
+| # | 做了什么 | commit |
+| --- | --- | --- |
+| 1 | 修 Windows 下 pdfjs 路径必须正斜杠结尾（否则所有 PDF 上传失败） | `18ff437` |
+| 2 | 补件续查：`resumeFromRunId`、`parentRunId`、`run.resumed`、`NO_NEW_INPUT` / `PARENT_RUN_*` 错误码 | `aa589de` |
+| 3 | `currentReport` 带页码解析与 `citationIntegrity`（材料被删标 `missing`） | `57dc489` |
+| 4 | 开发自检页 `assets/dev-report.html`（可视化 currentReport） | `1fae9a9` |
+| 5 | PDF 标为 binary，避免 git 换行转换破坏字节 | `526d620` |
+| 6 | 独立语义复核：第二条无工具模型调用逐条判 `supported/partial/unsupported/quote_mismatch` | `5379103` |
+| 7 | 材料页接真实调查（`report.js` / `report.css` + 引用点击跳原文） | `32afe28` |
+| 8 | i18n 语言切换实测报告（覆盖率 1–4%，交给前端队友修） | `28148da` |
+| 9 | 宣传与合同对照 `comparisons`（三态 + 双侧逐字引用 + 服务端重算） | `06d8c48` |
+| 10 | 情景实验 `kind=scenario` + `evaluateScenario`（阈值比较由服务端确定性计算） | `ad63442` |
+| 11 | 去掉 schema 长度/数量上限 + 模型输出格式不符时自动重试一次（修复真实调查失败） | `0c30abd` |
+| 12 | 真实 QBE 保单端到端复验记录 | `877b330` |
+| 13 | PDF 改为版面感知分块（页眉页脚 / 分栏顺序 / 表格行 / 段落 / 连字符） | `406dfe6` |
+| 14 | 经纪回复核验 `brokerClaims` + 粘贴沟通记录（来源/时间/对话内容三栏） | `34abb48` |
+| 15 | 合并全部计划与交接文档为 `PLAN.md`（本文） | `4186d4d` |
+| 16 | 版本变化对照 `supersedes`（五 verdict）+ 提问清单 Markdown 导出 | `b4ac3ff` |
+| 17 | 一页概览「先看這幾件事」（服务端确定性排序，最多 3 条 + 剩余计数） | `569ef53` |
+| 18 | 系统健壮性：SSE 推送 + 心跳 + 断线续传、`interrupted` 状态、`classifyFailure` 六类原因 + `stopReason` | `f091353` |
+| 19 | 材料页改用 EventSource 驱动进度，轮询作兜底 | `9fbf380` |
+| 20 | 报告文字默认繁体中文（香港用语），并按 `Accept-Language` 支持 en / zh-CN；引用原文一律不翻译 | 本批次 |
 
 ---
 
@@ -208,8 +238,9 @@ npm run build       # 静态构建
 | 1 | OCR | 扫描件走独立 OCR，低质量结果标「待核验」并给页图；不静默丢弃页。**可省略**：HANDOFF 已把「不做 OCR」写成已知边界，验收只要求「低质量 OCR 显示待核验」，当前策略是直接标 `needs_ocr` 不猜测 | 大 |
 | 2 | 系统健壮性 | ✅ 已完成本批次：SSE 实时推送 + 心跳 + 断线续传、重启中的 run 标 `interrupted`、失败原因分类（`timeout` / `budget_exhausted` / `rate_limited` / `model_unreachable` / `model_output_invalid` / `model_failed`）、步数上限 14 与 120s 预算；仍未做模型逐步检查点恢复；多实例 worker 租约、限流退避重试后续增加 | 中 |
 | 3 | 专题子 Agent / 限定官方资料搜索 | 只读子 Agent 返回证据与反例；官方域名白名单搜索。**可省略**：`AGENT_V2_PLAN.md:283` 原文为「再加入……**或**……，每项需能证明提高调查质量」，属加分实验项 | 大 |
+| 4 | 工程打磨（可选） | 多实例 worker 租约、限流退避重试、内部示例聊天接真后端 | 中 |
 
-验收标准原文见 `AGENT_V2_PLAN.md:287`（自主性、反例、续查、证据、增量、情景、回复、系统、安全、告知）。
+验收标准原文见 `AGENT_V2_PLAN.md:287`（自主性、反例、续查、证据、增量、情景、回复、系统、安全、告知）。逐条对照见 §11 之后的「验收对照」小节。
 
 ---
 
@@ -221,6 +252,7 @@ npm run build       # 静态构建
 4. **可复用**：材料页的 `report.js` 已实现报告渲染，可直接抽成模块；`assets/demo-contract.pdf` + `assets/demo-promotion.pdf` 是虚构演示素材。
 5. **`assets/dev-report.html` 的处置**：这是开发自检页（临时调试用），正式交付前可删或移到 dev 目录；它依赖 `/assets/demo-contract.pdf`。
 6. 原文区禁止被界面翻译改写（i18n 需加排除标记），引用必须显示 PDF 页序与印刷页码。
+7. **三语切换还剩「静态标签」这一半**：报告里的模型文字已按 `Accept-Language` 出对应语言（默认繁体），但服务端写死的标签仍是繁体中文——`server/overview.ts` 的七种 `title`、`report.js` 的 `comparisonLabels` / `scenarioLabels` / `brokerLabels` / `changeLabels` / `stopReasons`、`server/export.ts` 的七个 Markdown 标题。接入三语时把这些键移进 `translations.js` 词典、前端按 lang 选取；服务端只需返回 `kind`（overview 已带 `kind`，可直接映射）。
 
 ---
 
@@ -228,11 +260,29 @@ npm run build       # 静态构建
 
 - 仅本机单实例开发；监听 127.0.0.1；上线需 HTTPS、安全 cookie、会话生命周期、速率与容量限制。
 - 提取只读文本层，不做 OCR、不推断缺失文字；分块长度不固定，长段在工具返回时按预算截断（`searchSources` 320 字 / `readSource` 目标段 1600 字、相邻段 480 字），但引用以数据库中完整分块为准。
-- `GET events` 是持续 SSE：先重放已发生事件（可用 `after` / `Last-Event-ID` 续传），run 未结束时继续推送并每 15s 发一次心跳，到终态（`awaiting_input` / `partial` / `failed` / `interrupted` / `cancelled`）自动关闭；材料页目前用轮询，接口已支持 EventSource。
+- `GET events` 是持续 SSE：先重放已发生事件（可用 `after` / `Last-Event-ID` 续传），run 未结束时继续推送并每 15s 发一次心跳，到终态（`awaiting_input` / `partial` / `failed` / `interrupted` / `cancelled`）自动关闭；材料页已改用 EventSource，无事件 20 秒或浏览器不支持时自动退回轮询。
 - 服务重启时正在跑的 run 标记 `interrupted`（事件带 `reason: server_restarted`），业务状态与材料都保留，需重新点一次「開始調查」。
 - 情景 run 与调查 run 共用 `currentReport`（取最近一次已发布报告），情景跑完后 findings 会被情景 run 的结论替换。
+- 报告文字语言跟随创建 run 时的 `Accept-Language`：默认繁体中文（香港用语），支持 en / zh-CN；引用原文（`quote` / `thresholdQuote` / `brokerQuote`）永不翻译。**已发布报告的语言不会因之后切换页面语言而改写**——想换语言需重新调查（这是有意的：报告与当时的材料快照绑定）。服务端写死的区块标题仍是繁体，待并入三语词典（§10 第 7 条）。
 - 真实调用会把本次材料与问题发给配置的模型平台；UI 需在上传前告知并支持删除。
 - `.env`、`.data/`、`node_modules/`、`dist/` 不入 Git。
+
+---
+
+## 11.5 验收标准对照（`AGENT_V2_PLAN.md:287` 逐条）
+
+| 验收项 | 现状 | 证据 |
+| --- | --- | --- |
+| 自主性：不同材料走不同工具路径 | ✅ | 真实 DeepSeek 两次调查的工具序列不同（QBE 9 页 vs 示例 2 页） |
+| 反例：后页除外能追查并调整结论 | ✅ | `REAL-CONTRACT-TEST.md`：除外 (k) 后括号豁免滑雪 |
+| 续查：缺件指出文件与原因，重启后可继续 | ✅ | `aa589de` + successor run 测试；材料保留在 SQLite |
+| 证据：无依据结论/金额不能发布 | ✅ | 引用逐字校验 + 语义复核 + `citationIntegrity` |
+| 增量：新材料改变旧结论时被复核；旧 run 不覆盖新版 | ✅ | `b4ac3ff` `supersedes` + `latestReportRun` 按 `inputRevision` 排序 |
+| 情景：阈值/起算/单位/上限不混淆，不自编公式 | ✅（工程部分） | `server/scenario.ts` 确定性计算；起算不明 → `insufficient_information` |
+| 回复：经纪说「都可以」时保留未获证据的问题 | ✅ | `34abb48`：`not_in_contract` + 空合同侧 + 提问清单 |
+| 系统：重复点击、SSE 重连、取消、限流、预算耗尽有可解释状态 | ✅ | `f091353` 六类 `stopReason` + `interrupted` |
+| 安全：工具指令不改变权限、接口校验会话、原文安全渲染 | ✅ | 系统提示把材料列为不可信；cookie 会话；`textContent` |
+| 告知：上传前说明第三方模型分析与删除权 | ✅ 已实现删除与说明文案 | `materials.html` 上传区文案 + 删除接口 |
 
 ---
 
@@ -258,6 +308,8 @@ npm run build       # 静态构建
 - 2026-11-14：新增本文，合并 `AGENT_V2_PLAN` / `HANDOFF` / `BACKEND_LOCAL` / `BACKEND_AGENT_PLAN` / `PR_BACKEND_FOUNDATION`；补入已完成（版面分块、宣传对照、情景实验、经纪核验、粘贴材料、正式前端接入）与未完成/移交清单。
 - 2026-11-14：版本变化对照（`supersedes`）与提问清单导出完成；`currentReport` 改为按材料版本取最新报告，旧 run 迟到结果不再覆盖新版。
 - 2026-11-14：一页概览完成（`overview.items` 最多 3 条 + `remaining` 计数，`server/overview.ts` 纯函数排序：经纪冲突 > 宣传冲突 > 引用不支持 > 无法确认 > 情境缺条件 > 补充材料）；文档标注 OCR 与专题子 Agent 为可省略项。
+- 2026-11-14：交接定稿。材料页改用 EventSource 驱动进度（`9fbf380`）；§8.5 补齐 `0d034c3..HEAD` 的逐项交付；§9 未完成收敛为两项可省略项 + 可选打磨；新增 §11.5 验收标准逐条对照。
+- 2026-11-14：报告文字语言定为默认繁体中文（香港用语），并按 `Accept-Language` 支持 en / zh-CN（`parseLanguage` + `languageRule`，引用原文不翻译）；材料页 `report.js` 跟随 `policy-language` / `html.lang` 发头；静态标签待并入三语词典（§10 第 7 条）。
 - 2026-11-14：系统健壮性完成：`GET events` 改为持续 SSE（重放 + 心跳 + 终态关闭 + `after`/`Last-Event-ID` 续传）；服务重启中的 run 由 `failed` 改标 `interrupted`（保留材料，提示重新开始）；新增 `classifyFailure`（`timeout`/`budget_exhausted`/`rate_limited`/`model_unreachable`/`model_output_invalid`/`model_failed`）与 `stopReason` 对外暴露，材料页按原因给一句可操作提示；步数预算 14、时间预算 120s 显式化。
 - 2026-11-13：PR #1（`feat/backend-pdf-handoff`）交付后端基础；用户接替队友在 `feat/deepseek-live` 继续。
 

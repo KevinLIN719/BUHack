@@ -49,9 +49,21 @@
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
   const status = text => { $('run-status').textContent = text; };
 
+  // Mirrors the language switch the frontend already uses (?lang= / localStorage 'policy-language'),
+  // so a report generated in English stays in English. Quotes are never translated by the backend.
+  function preferredLanguage() {
+    let code = null;
+    try { code = localStorage.getItem('policy-language'); } catch {}
+    code = code || document.documentElement.lang || 'zh-HK';
+    if (/^en/i.test(code)) return 'en';
+    if (/cn|hans|sg/i.test(code)) return 'zh-Hans-CN';
+    return 'zh-Hant-HK';
+  }
+
   async function api(path, options = {}) {
     let response;
-    try { response = await fetch('/api' + path, {credentials:'same-origin', signal:AbortSignal.timeout(30000), ...options}); }
+    const headers = {'Accept-Language': preferredLanguage(), ...(options.headers || {})};
+    try { response = await fetch('/api' + path, {credentials:'same-origin', signal:AbortSignal.timeout(30000), ...options, headers}); }
     catch { throw new Error('無法連接服務，請確認前端和後端均已啟動。'); }
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
@@ -507,12 +519,20 @@
     lock(true);
     const deadline = Date.now() + 240000;
     let run;
-    while (Date.now() < deadline && state.epoch === epoch) {
-      run = await api(`/reviews/${reviewId}/runs/${runId}`);
+    const live = typeof EventSource === 'function' ? await watch(reviewId, runId, epoch) : null;
+    if (state.epoch !== epoch) return;
+    if (live?.terminal) run = await api(`/reviews/${reviewId}/runs/${runId}`).catch(() => null);
+    while ((!run || ['queued','running'].includes(run.status)) && Date.now() < deadline && state.epoch === epoch) {
+      run = await api(`/reviews/${reviewId}/runs/${runId}`).catch(error => {
+        if (error.status === 404) throw new Error('這次調查已不存在，請重新開始。');
+        return null;
+      });
       await showActivity(reviewId, runId);
       if (state.epoch !== epoch) return;
-      status(`調查進行中：${runLabels[run.status] ?? run.status}…`);
-      if (!['queued','running'].includes(run.status)) break;
+      if (run) {
+        status(`調查進行中：${runLabels[run.status] ?? run.status}…`);
+        if (!['queued','running'].includes(run.status)) break;
+      }
       await sleep(1500);
     }
     if (state.epoch !== epoch) return;
@@ -525,6 +545,55 @@
     await load();
     if (run?.status === 'failed' || run?.status === 'interrupted') status(`調查沒有完成：${stopReasons[run.stopReason] ?? '請看後端日誌。'}`);
     else if (run) status(`${runLabels[run.status] ?? run.status}。`);
+  }
+
+  // Follows one run over SSE. Resolves with the terminal status once the server announces it, or
+  // with {terminal: null} when the stream never opened / went quiet, so the caller can fall back to
+  // polling. Nothing here decides whether the run succeeded: the server sends the final status.
+  function watch(reviewId, runId, epoch) {
+    return new Promise(resolve => {
+      let source;
+      try { source = new EventSource(`/api/reviews/${reviewId}/runs/${runId}/events`); }
+      catch { resolve({terminal: null}); return; }
+      let settled = false;
+      let tools = 0;
+      let idle;
+      const finish = terminal => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(idle);
+        source.close();
+        resolve({terminal});
+      };
+      // A quiet stream must not leave the button disabled forever; 20s of silence hands over to
+      // the polling loop.
+      const keepAlive = () => { clearTimeout(idle); idle = setTimeout(() => finish(null), 20000); };
+      keepAlive();
+      source.addEventListener('run.status', event => {
+        if (state.epoch !== epoch) { finish(null); return; }
+        keepAlive();
+        let payload;
+        try { payload = JSON.parse(event.data); } catch { return; }
+        const next = payload?.data?.status;
+        if (!next) return;
+        if (['awaiting_input','partial','failed','interrupted','cancelled'].includes(next)) { finish(next); return; }
+        status(`調查進行中：${runLabels[next] ?? next}…`);
+      });
+      source.addEventListener('tool.started', () => {
+        keepAlive();
+        if (state.epoch !== epoch) { finish(null); return; }
+        tools += 1;
+        status(`調查進行中：已執行 ${tools} 次工具操作…`);
+        void showActivity(reviewId, runId).catch(() => {});
+      });
+      source.addEventListener('report.published', () => {
+        keepAlive();
+        if (state.epoch !== epoch) { finish(null); return; }
+        status('結論已發布，正在整理…');
+        void showActivity(reviewId, runId).catch(() => {});
+      });
+      source.onerror = () => { if (source.readyState === EventSource.CLOSED) finish(null); };
+    });
   }
 
   async function start(resume) {

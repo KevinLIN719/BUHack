@@ -493,6 +493,9 @@ test("successor run continues a prior report only when new input arrived", async
     // The model receives the previous requests and the list of new documents.
     assert.ok(prompts.some(prompt => prompt.includes("请补充完整条款")));
     assert.ok(prompts.some(prompt => prompt.includes("newDocuments") && prompt.includes(supplement.id)));
+    // No Accept-Language was sent, and the page is Traditional Chinese, so the model is told to
+    // write 繁體中文 and quotes stay untranslated.
+    assert.ok(prompts.some(prompt => prompt.includes("繁體中文（香港用語）")));
 
     const stale = await api.request(`${path}/runs`, { method: "POST", headers, body: JSON.stringify({ expectedRevision: 2, kind: "investigate", goal: "检查滑雪保障", resumeFromRunId: first.id }) });
     assert.equal(stale.status, 409);
