@@ -100,7 +100,7 @@ GET /api/reviews/:id/documents/:docId/content 返回原 PDF。目前提供完整
 | POST | /api/reviews/:id/text-materials | 粘贴沟通记录（JSON：role / fromWhom / capturedAt / text），保存为一页原文材料 |
 | POST | /api/reviews/:id/runs | expectedRevision + kind（investigate 或 scenario）+ goal，可选 resumeFromRunId；创建调查或情景任务 |
 | GET | /api/reviews/:id/runs/:runId | 查询状态 |
-| GET | /api/reviews/:id/runs/:runId/events | SSE；after 或 Last-Event-ID 重放 |
+| GET | /api/reviews/:id/runs/:runId/events | SSE：先重放（`after` 或 `Last-Event-ID`），未结束则持续推送 + 每 15s 心跳 `: ping`，终态自动关闭 |
 | GET | /api/reviews/:id/questions/export?format=md | 提问清单 Markdown 下载（待问问题 / 待补材料 / 未确认结论 / 旧结论变化 / 引用核对）；`format` 只支持 `md`，无报告时 404 `REPORT_NOT_FOUND` |
 | POST | /api/reviews/:id/runs/:runId/cancel | 取消任务，可重复调用 |
 | DELETE | /api/reviews/:id | 删除审阅及其任务、事件 |
@@ -122,6 +122,8 @@ GET /api/reviews/:id/documents/:docId/content 返回原 PDF。目前提供完整
 `brokerClaims`：经纪回复核验，可为空数组。当审阅里有 `role=broker_reply` 的材料（上传的 PDF 或粘贴的沟通记录）时，模型逐条提取经纪的承诺、条件、限额、除外与期限，再到合同/附表/批单原文里找对应条款。每条含 `verdict`（`supported` 与条款一致 / `overstated` 说法成立但漏了条件或限额 / `not_in_contract` 条款里找不到依据 / `contradicted` 与条款原文冲突）、`brokerQuote`（经纪原文逐字摘录）、`contractQuote`（合同原文逐字摘录，`not_in_contract` 时为空串）、`brokerSourceIds` / `contractSourceIds`、`explanation`（一句说明差在哪），以及解析后的 `broker[]` / `contract[]` 引用（结构同 findings 的 `citations`）。校验规则：经纪侧来源必须是本次运行已读过的 `broker_reply` 材料且引文逐字子串；除 `not_in_contract` 外合同侧必须非空、role 属于 `contract` / `schedule` / `endorsement`、引文逐字子串且 `not_in_contract` 时不得给合同引用；无法核对的整条丢弃并计入 `droppedBrokerClaims`，前端提示「有 N 条核验因原文无法逐字核对而未显示」。该核验只说明「经纪说法与条款是否一致」，不判断销售是否合规，也不核实说话人身份。
 `supersedes`：版本变化对照，只在补件续查（带 `resumeFromRunId`）时出现，可为空数组。每条对应上一份报告里的一条结论：`previousIndex`（父报告 findings 下标，从 0 开始）、`previousConclusion` / `previousEvidenceStatus` / `previousSourceIds`（服务端从父报告抄回，不依赖模型复述）、`verdict`（`unchanged` 仍成立 / `strengthened` 更明确 / `weakened` 条件变多 / `reversed` 被新材料推翻 / `withdrawn` 已不适用）、`currentIndex`（本次 findings 下标，`withdrawn` 时为 -1）、`newSourceIds`（本次实际读过的来源）、`explanation`。校验：`previousIndex` 必须落在父报告范围内且不重复、`currentIndex` 必须落在本次范围内、`withdrawn` 必须配 -1、`newSourceIds` 必须是本次已读来源；旧报告里被删除的材料解析为 `missing` 引用。`supersedesUnchecked` 记录这次没被重新核对的旧结论数量——系统不会把它当成「仍然成立」。`currentReport` 按材料版本发布：`ORDER BY inputRevision DESC, rowid DESC`，因此旧版本任务即使更晚结束也不会覆盖新版本报告。
 
+`overview`：报告顶部「先看這幾件事」的数据，**由服务端确定性生成，模型不参与**（`server/overview.ts`）。`items` 最多 3 条，每条含 `kind`（`broker_conflict` / `broker_overstated` / `promotion_conflict` / `unsupported_claim` / `cannot_confirm` / `scenario_caveat` / `need_material`）、`title`、`detail`、`citations`（已解析的引用，可直接跳转原文）。排序固定：经纪说法与条款冲突 → 宣传与条款冲突 → 语义复核判定引用不支持 → 无法确认的结论 → 情境缺条件 → 待补充材料。`remaining` 是被截断掉的同类条目数（前端显示「另有 N 项」），`integrity` 复制 `citationIntegrity`，便于顶部直接提示「有 N 处原文已删除」。
+
 SSE 当前仅重放已保存事件；awaiting_input/cancelled 时关闭连接。消费端收到这种状态应主动关闭 EventSource，避免自动重连。接入持续运行的 Agent 时，再增加实时订阅和心跳。
 
 模型容错：schema 不使用 maxItems / maxLength 这类上限（DeepSeek 兼容模式会把 schema 写进 system prompt，超限会直接解析失败）；模型返回不符合 schema 的 JSON 时自动重试一次并给更严格的输出要求；仍失败则任务置 failed，服务端日志额外打印 finishReason、底层原因和最多 600 字的原始输出，便于定位。工具输出按预算截断（searchSources 每条 320 字、readSource 目标段 1600 字、相邻段 480 字），instructions 要求读到关键条款就收手，调查循环上限 14 步；模型在步数用尽后没有给出最终报告时，会重新开一次调查并要求 6 次工具调用内输出报告。
@@ -139,4 +141,4 @@ SSE 当前仅重放已保存事件；awaiting_input/cancelled 时关闭连接。
 
 测试使用本地模拟模型端点验证检索→阅读→结构化结果的完整循环，不需要真实 Key，不产生供应商费用。真实 DeepSeek 的账号、模型与端点仍需配置后验证。
 
-当前限制：重启时正在执行的模型任务标记 failed/server_restarted，不自动恢复；需重新创建任务。补件续查、独立语义复核与宣传对照已完成；专题子 Agent、即时 SSE 推送和前端接入尚未完成。GET events 目前为事件重放，可轮询 GET run。删除文件时清除相关审阅的调查快照/输出并取消其调查，避免保留被删材料的派生文本。
+当前限制：重启时正在执行的模型任务标记 `interrupted`（事件 `run.status` 带 `reason: server_restarted`），不自动恢复；材料与事件都保留，需重新创建任务。失败原因统一经 `classifyFailure` 归类为 `timeout` / `budget_exhausted` / `rate_limited` / `model_unreachable` / `model_output_invalid` / `model_failed`，并通过 `GET runs/:runId` 的 `stopReason` 暴露给前端；材料页据此显示一条可操作提示。补件续查、独立语义复核、宣传对照、情景实验、经纪核验、一页概览、版本变化对照、提问清单导出与 SSE 实时推送已完成；剩余可选项为 OCR 与专题子 Agent（见 `PLAN.md:195`）。删除文件时清除相关审阅的调查快照/输出并取消其调查，避免保留被删材料的派生文本。

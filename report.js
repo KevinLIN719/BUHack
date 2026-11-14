@@ -3,7 +3,21 @@
   const $ = id => document.getElementById(id);
   const reviewKey = 'policy-lens-live-review';
   const runKey = 'policy-lens-live-run';
-  const runLabels = {queued:'排隊中',running:'調查中',awaiting_input:'等你補充材料',partial:'已完成初步分析',failed:'調查失敗',cancelled:'已取消'};
+  const runLabels = {queued:'排隊中',running:'調查中',awaiting_input:'等你補充材料',partial:'已完成初步分析',failed:'調查失敗',cancelled:'已取消',interrupted:'服務重啟，調查中斷'};
+  // Server-provided reasons, turned into a sentence the user can act on. No reason is invented:
+  // an unknown code falls back to "see the server log".
+  const stopReasons = {
+    server_restarted: '後端在調查途中重啟了，這次調查沒有完成。材料都還在，重新按一次「開始調查」即可。',
+    timeout: '模型在 120 秒內沒有完成。可以重試，或把問題問得更小一點。',
+    budget_exhausted: '模型把調查步數用完了才給出結論。可以重試，或縮小材料範圍。',
+    rate_limited: '模型接口被限流了，稍等一兩分鐘再試。',
+    model_unreachable: '連不到模型服務，請檢查網絡或 .env 裡的地址。',
+    model_output_invalid: '模型返回的內容不符合格式，自動重試一次後仍然失敗。可以直接重試。',
+    model_failed: '模型執行出錯，詳細原因見後端日誌。',
+    additional_information: '已給出初步結論，補上材料後可以續查。',
+    semantic_review_pending: '初步分析已完成。',
+    user_cancelled: '你取消了這次調查。'
+  };
   const verdictLabels = {supported:'語意相符',partial:'僅部分相符',unsupported:'原文不支援',quote_mismatch:'引文與結論不符'};
   const reviewLabels = {checked:'逐條語意複核完成',issues_found:'語意複核發現問題',unavailable:'語意複核未完成',not_applicable:'沒有可複核的引用結論'};
   const errors = {
@@ -168,6 +182,46 @@
     finally { $('save-context').disabled = state.busy; }
   }
 
+  const overviewTitles = {
+    broker_conflict: '經紀說法',
+    broker_overstated: '經紀說法',
+    promotion_conflict: '宣傳材料',
+    unsupported_claim: '引用核對',
+    cannot_confirm: '尚未確認',
+    scenario_caveat: '情境假設',
+    need_material: '待補材料'
+  };
+
+  // The list comes from the server so the order cannot drift from the evidence; the client only
+  // decides how to lay it out. Empty when nothing needs a decision, in which case nothing renders.
+  function renderOverview(report) {
+    const overview = report.overview;
+    if (!overview?.items?.length) return node('span');
+    const section = node('section', undefined, 'overview');
+    section.append(node('h3', '先看這幾件事'));
+    section.append(node('p', '按「會影響判斷的程度」排出的前幾項，完整內容在下面。', 'muted'));
+    const list = node('ol', undefined, 'overview-list');
+    for (const item of overview.items) {
+      const row = node('li', undefined, 'overview-item');
+      row.append(node('span', overviewTitles[item.kind] ?? item.kind, 'badge overview-kind'));
+      row.append(node('b', item.title));
+      row.append(node('div', item.detail, 'finding-text'));
+      const seen = new Set();
+      for (const citation of item.citations ?? []) {
+        if (seen.has(citation.sourceId)) continue;
+        seen.add(citation.sourceId);
+        row.append(citationButton(citation));
+      }
+      list.append(row);
+    }
+    section.append(list);
+    if (overview.remaining > 0) section.append(node('p', `另有 ${overview.remaining} 項同樣需要確認，見下方分節。`, 'muted'));
+    if (overview.integrity?.missing > 0) {
+      section.append(node('p', `注意：有 ${overview.integrity.missing} 處引用所指的原文已不在這次材料中。`, 'muted'));
+    }
+    return section;
+  }
+
   function renderReport(report) {
     const host = $('report');
     host.replaceChildren();
@@ -187,6 +241,7 @@
     }
     renderChanges(report, host);
     host.append(kpis);
+    host.append(renderOverview(report));
     renderBoundaries(report, host);
 
     const review = report.review;
@@ -468,7 +523,7 @@
     }
     state.selectedReport = null;
     await load();
-    if (run?.status === 'failed') status(`調查失敗：${run.error?.message ?? '請重試或查看後端日誌。'}`);
+    if (run?.status === 'failed' || run?.status === 'interrupted') status(`調查沒有完成：${stopReasons[run.stopReason] ?? '請看後端日誌。'}`);
     else if (run) status(`${runLabels[run.status] ?? run.status}。`);
   }
 

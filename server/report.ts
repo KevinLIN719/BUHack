@@ -1,3 +1,4 @@
+import { buildOverview, type Overview } from "./overview.js";
 import type { Store } from "./store.js";
 import { compareReports } from "./report-changes.js";
 import type { BoundaryExperiment } from "./boundary.js";
@@ -72,6 +73,8 @@ export type ReportView = {
   verification: string | null;
   review: NonNullable<StoredReport["review"]> | null;
   citationIntegrity: {cited: number; verified: number; missing: number};
+  // The three things worth reading first. Derived from the report above, never model-written.
+  overview: Overview;
 };
 
 // Newest material version wins: a report built from revision 3 must keep the slot even when an
@@ -142,7 +145,7 @@ export function reportView(store: Store, reviewId: string, runId?: string): Repo
     }
   }
   const allMissing = [...cited].filter(id => !lookup.has(id)).length;
-  return {
+  const view = {
     kind: run.kind, goal: run.goal, parentRunId: run.parentRunId,
     boundaryExperiments, changes,
     runId: run.runId, runStatus: run.status, inputRevision: run.inputRevision, createdAt: run.createdAt,
@@ -155,4 +158,5 @@ export function reportView(store: Store, reviewId: string, runId?: string): Repo
     review: report.review ?? null,
     citationIntegrity: {cited: cited.size, verified: cited.size - allMissing, missing: allMissing},
   };
+  return {...view, overview: buildOverview(view)};
 }

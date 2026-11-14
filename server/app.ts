@@ -36,8 +36,9 @@ const inputRequest = (run: Pick<Run, "id">) => ({
 });
 const publicRun = ({ requestHash: _hash, idempotencyKey: _key, ...run }: Run) => ({
   ...run, inputRequests: run.status === "awaiting_input" ? [inputRequest(run)] : [],
-  stopReason: run.status === "awaiting_input" ? "missing_documents" : run.status === "cancelled" ? "user_cancelled" : null,
 });
+// Statuses after which no further event can arrive for a run.
+const TERMINAL_STATUSES = new Set(["awaiting_input", "cancelled", "failed", "partial", "interrupted"]);
 
 function cookieToken(req: Request): string | undefined {
   const value = req.headers.cookie?.split(";").map(s => s.trim()).find(s => s.startsWith("pl_session="))?.slice(11);
@@ -70,8 +71,16 @@ export function createApp(store: Store) {
   function presentRun(run: Run) {
     const saved = store.db.prepare("SELECT output FROM investigations WHERE runId = ?").get(run.id);
     const report = saved?.output ? JSON.parse(String(saved.output)) : null;
-    return {...publicRun(run), ...(report ? {report, inputRequests:report.requests,
-      stopReason:run.status === "awaiting_input" ? "additional_information" : "semantic_review_pending"} : {})};
+    // The reason recorded with the last status event is the difference between "failed for no
+    // stated reason" and "the model API was rate limited, try again later".
+    const recorded = store.lastEvent(run.id, "run.status")?.data as {reason?: string} | null;
+    const stopReason =
+      run.status === "awaiting_input" ? (report ? "additional_information" : "missing_documents")
+      : run.status === "cancelled" ? (recorded?.reason ?? "user_cancelled")
+      : run.status === "partial" ? "semantic_review_pending"
+      : run.status === "failed" || run.status === "interrupted" ? (recorded?.reason ?? null)
+      : null;
+    return {...publicRun(run), stopReason, ...(report ? {report, inputRequests:report.requests} : {})};
   }
 
   function requireReview(req: Request) {
@@ -325,17 +334,58 @@ export function createApp(store: Store) {
     res.json(presentRun(run));
   });
 
+  // A real stream: replay what already happened, then keep the connection open and push every new
+  // event until the run reaches a terminal status. A heartbeat keeps proxies and browsers from
+  // dropping an idle connection while the model is thinking.
   app.get("/api/reviews/:id/runs/:runId/events", (req, res) => {
     const run = requireRun(req);
     const raw = req.query.after ?? req.get("Last-Event-ID") ?? "0";
     if (typeof raw !== "string" || !/^\d+$/.test(raw) || !Number.isSafeInteger(Number(raw))) throw new ApiError(400, "INVALID_CURSOR", "事件游标必须是非负整数。");
     res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
     res.setHeader("X-Accel-Buffering", "no");
-    for (const event of store.events(run, Number(raw))) {
+    res.setHeader("Cache-Control", "no-cache, no-transform");
+    res.setHeader("Connection", "keep-alive");
+
+    let closed = false;
+    let heartbeat: NodeJS.Timeout | undefined;
+    let unsubscribe: () => void = () => {};
+    const send = (event: {eventId: number; type: string; data: unknown}) => {
       res.write(`id: ${event.eventId}\nevent: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`);
+    };
+    const finish = () => {
+      if (closed) return;
+      closed = true;
+      if (heartbeat) clearInterval(heartbeat);
+      unsubscribe();
+      res.end();
+    };
+    const current = store.getRun(run.id, run.reviewId);
+    let replayEnded = !current || TERMINAL_STATUSES.has(current.status);
+
+    // The whole replay is written first: a run that already finished may still have events after
+    // its terminal status event, and a reconnecting client must not lose them.
+    for (const event of store.events(run, Number(raw))) {
+      send(event);
+      if (event.type === "run.status" && TERMINAL_STATUSES.has((event.data as {status?: string})?.status ?? "")) {
+        replayEnded = true;
+      }
     }
-    // These runs are suspended or cancelled; the client closes EventSource on status.
-    res.end();
+    if (replayEnded) { res.end(); return; }
+
+    unsubscribe = store.subscribe(event => {
+      if (closed || event.runId !== run.id) return;
+      send(event);
+      if (event.type === "run.status" && TERMINAL_STATUSES.has((event.data as {status?: string})?.status ?? "")) finish();
+    });
+    heartbeat = setInterval(() => { if (!closed) res.write(": ping\n\n"); }, 15_000);
+    // Headers are only flushed once the subscription is in place, so a client that has received
+    // the response cannot miss an event that is emitted immediately afterwards.
+    res.flushHeaders?.();
+    req.on("close", () => {
+      closed = true;
+      if (heartbeat) clearInterval(heartbeat);
+      unsubscribe();
+    });
   });
 
   app.post("/api/reviews/:id/runs/:runId/cancel", (req, res) => {
