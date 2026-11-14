@@ -49,9 +49,21 @@
   const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
   const status = text => { $('run-status').textContent = text; };
 
+  // Mirrors the language switch the frontend already uses (?lang= / localStorage 'policy-language'),
+  // so a report generated in English stays in English. Quotes are never translated by the backend.
+  function preferredLanguage() {
+    let code = null;
+    try { code = localStorage.getItem('policy-language'); } catch {}
+    code = code || document.documentElement.lang || 'zh-HK';
+    if (/^en/i.test(code)) return 'en';
+    if (/cn|hans|sg/i.test(code)) return 'zh-Hans-CN';
+    return 'zh-Hant-HK';
+  }
+
   async function api(path, options = {}) {
     let response;
-    try { response = await fetch('/api' + path, {credentials:'same-origin', signal:AbortSignal.timeout(30000), ...options}); }
+    const headers = {'Accept-Language': preferredLanguage(), ...(options.headers || {})};
+    try { response = await fetch('/api' + path, {credentials:'same-origin', signal:AbortSignal.timeout(30000), ...options, headers}); }
     catch { throw new Error('無法連接服務，請確認前端和後端均已啟動。'); }
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));

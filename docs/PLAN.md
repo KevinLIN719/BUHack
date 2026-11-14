@@ -41,6 +41,7 @@
 | OCR（扫描件） | ⛔ 未做（只标 `needs_ocr`） | — |
 | SSE 实时推送、run 重启恢复、失败原因分类 | ✅ 完成，服务端推送 + 心跳 + 断线续传；重启中的 run 标 `interrupted` | commit `f091353`（服务端）+ `9fbf380`（材料页改用 EventSource） |
 | 材料页进度由事件驱动 | ✅ 完成，进度行显示「已讀取第 N 段材料」 | commit `9fbf380` |
+| 报告文字语言 | ✅ 默認繁體中文（香港用語），跟隨瀏覽器 `Accept-Language`（en / zh-CN / zh-HK）；引用原文不翻譯 | 本批次，`server/agent.ts` `parseLanguage` + `languageRule` |
 | 真实公开保单复验 | ✅ 完成（QBE 香港 9 页，13 处引用全 verified） | `REAL-CONTRACT-TEST.md` |
 | `experience.html` 主流程接真实后端 | ⛔ 未做（仍是 mock，属前端队友） | — |
 | 语言切换（i18n）词典覆盖率 | ⚠️ 有缺陷（见 `I18N-TEST-REPORT.md`） | commit `28148da` |
@@ -217,6 +218,7 @@ npm run build       # 静态构建
 | 17 | 一页概览「先看這幾件事」（服务端确定性排序，最多 3 条 + 剩余计数） | `569ef53` |
 | 18 | 系统健壮性：SSE 推送 + 心跳 + 断线续传、`interrupted` 状态、`classifyFailure` 六类原因 + `stopReason` | `f091353` |
 | 19 | 材料页改用 EventSource 驱动进度，轮询作兜底 | `9fbf380` |
+| 20 | 报告文字默认繁体中文（香港用语），并按 `Accept-Language` 支持 en / zh-CN；引用原文一律不翻译 | 本批次 |
 
 ---
 
@@ -242,6 +244,7 @@ npm run build       # 静态构建
 4. **可复用**：材料页的 `report.js` 已实现报告渲染，可直接抽成模块；`assets/demo-contract.pdf` + `assets/demo-promotion.pdf` 是虚构演示素材。
 5. **`assets/dev-report.html` 的处置**：这是开发自检页（临时调试用），正式交付前可删或移到 dev 目录；它依赖 `/assets/demo-contract.pdf`。
 6. 原文区禁止被界面翻译改写（i18n 需加排除标记），引用必须显示 PDF 页序与印刷页码。
+7. **三语切换还剩「静态标签」这一半**：报告里的模型文字已按 `Accept-Language` 出对应语言（默认繁体），但服务端写死的标签仍是繁体中文——`server/overview.ts` 的七种 `title`、`report.js` 的 `comparisonLabels` / `scenarioLabels` / `brokerLabels` / `changeLabels` / `stopReasons`、`server/export.ts` 的七个 Markdown 标题。接入三语时把这些键移进 `translations.js` 词典、前端按 lang 选取；服务端只需返回 `kind`（overview 已带 `kind`，可直接映射）。
 
 ---
 
@@ -252,6 +255,7 @@ npm run build       # 静态构建
 - `GET events` 是持续 SSE：先重放已发生事件（可用 `after` / `Last-Event-ID` 续传），run 未结束时继续推送并每 15s 发一次心跳，到终态（`awaiting_input` / `partial` / `failed` / `interrupted` / `cancelled`）自动关闭；材料页已改用 EventSource，无事件 20 秒或浏览器不支持时自动退回轮询。
 - 服务重启时正在跑的 run 标记 `interrupted`（事件带 `reason: server_restarted`），业务状态与材料都保留，需重新点一次「開始調查」。
 - 情景 run 与调查 run 共用 `currentReport`（取最近一次已发布报告），情景跑完后 findings 会被情景 run 的结论替换。
+- 报告文字语言跟随创建 run 时的 `Accept-Language`：默认繁体中文（香港用语），支持 en / zh-CN；引用原文（`quote` / `thresholdQuote` / `brokerQuote`）永不翻译。**已发布报告的语言不会因之后切换页面语言而改写**——想换语言需重新调查（这是有意的：报告与当时的材料快照绑定）。服务端写死的区块标题仍是繁体，待并入三语词典（§10 第 7 条）。
 - 真实调用会把本次材料与问题发给配置的模型平台；UI 需在上传前告知并支持删除。
 - `.env`、`.data/`、`node_modules/`、`dist/` 不入 Git。
 
@@ -296,7 +300,8 @@ npm run build       # 静态构建
 - 2026-11-14：新增本文，合并 `AGENT_V2_PLAN` / `HANDOFF` / `BACKEND_LOCAL` / `BACKEND_AGENT_PLAN` / `PR_BACKEND_FOUNDATION`；补入已完成（版面分块、宣传对照、情景实验、经纪核验、粘贴材料、正式前端接入）与未完成/移交清单。
 - 2026-11-14：版本变化对照（`supersedes`）与提问清单导出完成；`currentReport` 改为按材料版本取最新报告，旧 run 迟到结果不再覆盖新版。
 - 2026-11-14：一页概览完成（`overview.items` 最多 3 条 + `remaining` 计数，`server/overview.ts` 纯函数排序：经纪冲突 > 宣传冲突 > 引用不支持 > 无法确认 > 情境缺条件 > 补充材料）；文档标注 OCR 与专题子 Agent 为可省略项。
-- 2026-11-14：交接定稿。材料页改用 EventSource 驱动进度（`9fbf380`）；§8.5 补齐 `0d034c3..HEAD` 19 个 commit 的逐项交付；§9 未完成收敛为两项可省略项 + 可选打磨；新增 §11.5 验收标准逐条对照。
+- 2026-11-14：交接定稿。材料页改用 EventSource 驱动进度（`9fbf380`）；§8.5 补齐 `0d034c3..HEAD` 的逐项交付；§9 未完成收敛为两项可省略项 + 可选打磨；新增 §11.5 验收标准逐条对照。
+- 2026-11-14：报告文字语言定为默认繁体中文（香港用语），并按 `Accept-Language` 支持 en / zh-CN（`parseLanguage` + `languageRule`，引用原文不翻译）；材料页 `report.js` 跟随 `policy-language` / `html.lang` 发头；静态标签待并入三语词典（§10 第 7 条）。
 - 2026-11-14：系统健壮性完成：`GET events` 改为持续 SSE（重放 + 心跳 + 终态关闭 + `after`/`Last-Event-ID` 续传）；服务重启中的 run 由 `failed` 改标 `interrupted`（保留材料，提示重新开始）；新增 `classifyFailure`（`timeout`/`budget_exhausted`/`rate_limited`/`model_unreachable`/`model_output_invalid`/`model_failed`）与 `stopReason` 对外暴露，材料页按原因给一句可操作提示；步数预算 14、时间预算 120s 显式化。
 - 2026-11-13：PR #1（`feat/backend-pdf-handoff`）交付后端基础；用户接替队友在 `feat/deepseek-live` 继续。
 

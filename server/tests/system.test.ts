@@ -8,7 +8,7 @@ import { tmpdir } from "node:os";
 import { type AddressInfo } from "node:net";
 import { randomUUID } from "node:crypto";
 
-import { classifyFailure } from "../agent.js";
+import { classifyFailure, parseLanguage } from "../agent.js";
 import { createApp } from "../app.js";
 import { Store, type Run } from "../store.js";
 
@@ -155,4 +155,17 @@ test("failures are classified into reasons the client can explain", () => {
   assert.equal(classifyFailure(new Error("boom"), false), "model_failed");
   // An abort means the 120s budget ran out (or the user cancelled), not a model defect.
   assert.equal(classifyFailure(new Error("aborted"), true), "timeout");
+});
+
+test("the answer language follows the browser and defaults to Traditional Chinese", () => {
+  // The page ships in zh-Hant-HK, so a request without a language header must not produce
+  // Simplified Chinese text.
+  assert.equal(parseLanguage(undefined), "zh-HK");
+  assert.equal(parseLanguage(""), "zh-HK");
+  assert.equal(parseLanguage("zh-Hant-HK,zh;q=0.9"), "zh-HK");
+  assert.equal(parseLanguage("zh-CN,zh;q=0.9,en;q=0.8"), "zh-CN");
+  assert.equal(parseLanguage("zh-Hans-SG"), "zh-CN");
+  assert.equal(parseLanguage("en-GB,en;q=0.9"), "en");
+  // An unknown tag is not treated as English or as Simplified: it falls back to the site default.
+  assert.equal(parseLanguage("ja-JP"), "zh-HK");
 });
