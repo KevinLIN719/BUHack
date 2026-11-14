@@ -87,9 +87,17 @@ export function createApp(store: Store) {
   app.use((req, res, next) => {
     res.setHeader("X-Request-Id", randomUUID());
     res.setHeader("Cache-Control", "no-store");
-    // Local API: reject cross-origin writes. No public CORS access is enabled.
+    // Reject cross-origin writes. No public CORS access is enabled, so the only
+    // accepted origin is the page's own host. Compare the host only: a deployed
+    // instance is served over https behind a proxy, a local run over plain http.
     if (!["GET", "HEAD", "OPTIONS"].includes(req.method) && req.headers.origin) {
-      if (req.headers.origin !== `http://${req.headers.host}`) {
+      let originHost: string | null = null;
+      try {
+        originHost = new URL(req.headers.origin).host;
+      } catch {
+        originHost = null;
+      }
+      if (!originHost || originHost !== req.headers.host) {
         return next(new ApiError(403, "ORIGIN_DENIED", "请求来源不受支持。"));
       }
     }
