@@ -1,5 +1,7 @@
 # Add PDF upload, cited source reader and backend foundation
 
+> 历史 PR 描述草稿（PR #1）。当前进度见 [PLAN.md](PLAN.md)。
+
 用户可以从首页进入真实材料阅读页，上传合同或附表 PDF，查看逐页文字、引用编号和对应 PDF 页。刷新后恢复材料；虚构示例体验继续使用独立数据。
 
 后端增加 TypeScript/Express、SQLite 持久化、cookie 会话隔离、审阅版本与调查任务 API。PDF 解析在独立工作线程执行，记录无文字页、部分失败和超限情况。开发前端通过同源代理访问 API。

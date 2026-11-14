@@ -1,5 +1,7 @@
 # 后端本地开发（第二阶段：PDF 原文）
 
+> 2026-11-14：总进度与分工见 [统一计划 PLAN.md](PLAN.md)。本文继续作为**接口与字段细节附录**维护（新增接口/字段时同步更新），但「已完成/未完成」以 PLAN.md 为准。
+
 已实现：健康检查、匿名浏览器会话、审阅档案、背景版本、调查任务、状态查询、SSE 事件重放、取消与删除，以及 PDF 上传、后台分页提取、原件访问和原文引用。SQLite 保存数据，关闭服务后仍保留。
 
 已接入初步调查运行器。没有可用合同时进入 awaiting_input；有合同但未配置 Key 时返回 503 AGENT_NOT_CONNECTED。配置模型后运行真实调查，结果由 GET run 的 `report` 字段提供，GET review 的 `currentReport` 提供带页码解析的同款报告（含 `review` 语义复核结论）。补件续查（`resumeFromRunId`）已实现；宣传与条款对照（`comparisons`）、情景实验（`scenarios`，`kind=scenario`）与经纪回复核验（`brokerClaims`）已实现；沟通记录可以文字粘贴（`sourceType=pasted`），不必先转成 PDF。正式前端 `materials.html` 已接入调查、续查、情境与经纪核验，其余示例页仍为模板。
