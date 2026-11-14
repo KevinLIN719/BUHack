@@ -6,6 +6,7 @@ import { Investigator, snapshotFor } from "./agent.js";
 import { DocumentQueue, documentsFor, documentFor, publicDocument, createTextMaterial, MAX_FILE_BYTES } from "./ingest/documents.js";
 import { Store, type Review, type Run } from "./store.js";
 import { reportView } from "./report.js";
+import { buildQuestionChecklist } from "./export.js";
 
 class ApiError extends Error {
   constructor(readonly status: number, readonly code: string, message: string) { super(message); }
@@ -107,6 +108,18 @@ export function createApp(store: Store) {
     const runs = store.db.prepare("SELECT * FROM runs WHERE reviewId = ? ORDER BY rowid DESC").all(review.id) as Run[];
     res.json({ ...publicReview(review), documents: documentsFor(store, review.id).map(publicDocument), runs: runs.map(presentRun),
       currentReport: reportView(store, review.id) });
+  });
+
+  // The checklist is a plain download: no state changes, so a link is enough.
+  app.get("/api/reviews/:id/questions/export", (req, res) => {
+    const review = requireReview(req);
+    const format = String(req.query.format ?? "md");
+    if (format !== "md") throw new ApiError(400, "UNSUPPORTED_FORMAT", "目前只支持 format=md。");
+    const view = reportView(store, review.id);
+    if (!view) throw new ApiError(404, "REPORT_NOT_FOUND", "还没有可导出的调查结果，请先开始一次调查。");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Content-Disposition", 'attachment; filename="policy-questions.md"');
+    res.type("text/markdown; charset=utf-8").send(buildQuestionChecklist(view));
   });
 
   function requireDocument(req: Request) {

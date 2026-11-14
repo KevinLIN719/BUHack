@@ -63,3 +63,17 @@ blockquote{margin:0;padding:9px 12px;border-left:3px solid #d8d2c3;background:#f
 .broker .badge{border-color:#c3cdc9;background:#f1f6f4;color:#0f5f58}
 .broker .badge.warn{border-color:#e7d3b4;background:#fbf5ea;color:#8a5a12}
 .broker .badge.bad{border-color:#e3c4c0;background:#faf0ee;color:#8d3b34}
+
+/* What changed between the previous report and this one. */
+.compare.changes .change { border-color: var(--line); }
+.compare.changes .change .side-label { color: var(--muted); }
+.compare.changes .change blockquote { margin: 4px 0 8px; }
+.export-link {
+  display: inline-block;
+  margin-top: 14px;
+  font-size: 13px;
+  color: var(--accent, #b8492f);
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+}
+.export-link:hover { opacity: .75; }

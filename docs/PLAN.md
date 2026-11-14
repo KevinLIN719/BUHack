@@ -35,8 +35,9 @@
 | 情景实验（`kind=scenario`，服务端确定性计算） | ✅ 完成 | commit `ad63442` |
 | 经纪回复核验（`brokerClaims` + 粘贴沟通记录） | ✅ 完成 | commit `34abb48` |
 | 正式前端接入（材料页「條款調查」区块） | ✅ 完成 | commit `32afe28` + `report.js` |
-| 版本变化对照（旧结论被新材料改变） | ⛔ 未做（下一步） | — |
-| 提问清单导出 / 一页概览 | ⛔ 未做 | — |
+| 版本变化对照（`supersedes`，旧结论被新材料改变） | ✅ 完成，真实联调 3 条对照 | 本批次，`server/agent.ts` 校验 + `server/report.ts` 按材料版本发布 |
+| 提问清单导出（`GET /api/reviews/:id/questions/export?format=md`） | ✅ 完成，材料页有下载链接 | 本批次，`server/export.ts` + `report.js` |
+| 一页概览（报告顶部摘要） | ⛔ 未做 | — |
 | OCR（扫描件） | ⛔ 未做（只标 `needs_ocr`） | — |
 | SSE 实时推送、run 重启恢复、取消的完整状态机 | ⛔ 部分（事件仅重放） | — |
 | `experience.html` 主流程接真实后端 | ⛔ 未做（仍是 mock，属前端队友） | — |
@@ -49,7 +50,7 @@
 | 区域 | 负责人 | 文件 |
 | --- | --- | --- |
 | 视觉 / 组件 / 动效 / mock 体验 / i18n | 前端队友 | `*.html`、`ui-*.css`、`policy-*.js`、`experience-*.js`、`showcase-*.js`、`i18n.js`、`translations.js`、`design/` |
-| 后端 API / 存储 / 解析 | 用户 | `server/index.ts`、`server/app.ts`、`server/store.ts`、`server/ingest/*` |
+| 后端 API / 存储 / 解析 | 后端队友/用户 | `server/index.ts`、`server/app.ts`、`server/store.ts`、`server/ingest/*` |
 | Agent / 工具 / 校验 / 报告视图 | 用户 | `server/agent.ts`、`server/scenario.ts`、`server/report.ts`、`server/tests/*` |
 | 真实材料页接入 | 用户（新增文件，不动队友逻辑） | `materials.html` 尾部区块、`report.js`、`report.css`、`materials.js` 的两个钩子 |
 | 静态白名单 | 共用，改动需通知 | `scripts/serve.mjs`（**新增根目录静态文件必须加白名单，否则 404**） |
@@ -132,6 +133,7 @@ npm run build       # 静态构建
 | POST | `/api/reviews/:id/runs` | `expectedRevision` + `kind`(`investigate`/`scenario`) + `goal`，可选 `resumeFromRunId` |
 | GET | `/api/reviews/:id/runs/:runId` | 状态、`report`、`inputRequests` |
 | GET | `/api/reviews/:id/runs/:runId/events` | 事件重放（`after` / `Last-Event-ID`），暂无实时推送 |
+| GET | `/api/reviews/:id/questions/export?format=md` | 提问清单导出（Markdown 附件；无报告时 404 `REPORT_NOT_FOUND`） |
 | POST | `/api/reviews/:id/runs/:runId/cancel` | 取消，可重复调用 |
 | DELETE | `/api/reviews/:id` | 删除审阅及其派生数据 |
 
@@ -152,6 +154,8 @@ npm run build       # 静态构建
 | `comparisons[]` | 宣传对照：`relation`（`supported_with_conditions` / `apparent_conflict` / `insufficient_basis`）+ 两侧逐字引用 + `explanation`；丢弃数 `droppedComparisons` |
 | `scenarios[]` | 情景实验：`question`、`assumption`、`thresholdQuote`、`actualValue/Unit`、`status`（`satisfied` / `not_satisfied` / `boundary` / `insufficient_information`）、`detail`、`unknowns`、`citations` |
 | `brokerClaims[]` | 经纪核验：`verdict`（`supported` / `overstated` / `not_in_contract` / `contradicted`）+ `brokerQuote` / `contractQuote` + 两侧引用 + `explanation`；丢弃数 `droppedBrokerClaims` |
+| `supersedes[]` | 版本变化对照：`previousIndex` / `previousConclusion`（父报告结论原文）/ `verdict`（`unchanged` / `strengthened` / `weakened` / `reversed` / `withdrawn`）/ `currentIndex`（撤回为 -1）/ `explanation` / 新旧引用；`supersedesUnchecked` = 这次没重新核对的旧结论数 |
+| `citationIntegrity` | `cited` / `verified` / `missing`（原文已被删除的引用仍列出，标 `missing`，不改写结论） |
 | `requests[]` / `openQuestions[]` | 补充请求与待问清单 |
 | `verification` | 一句话说明本次做了哪些校验 |
 
@@ -169,7 +173,7 @@ npm run build       # 静态构建
 - 繁中本地化：主要界面、示例保单、聊天、导出清单均为 zh-Hant-HK；机器 ID / enums 未改名。
 - 语言切换：`i18n.js` 支持 `?lang=` / localStorage / navigator，机制正确但词典是片段式、覆盖率仅 1–4%，`materials.html` 未加载（详见 `I18N-TEST-REPORT.md`，属队友待修）。
 
-### 8.2 后端基础（用户）
+### 8.2 后端基础（后端队友/用户）
 
 - `server/index.ts` / `app.ts` / `store.ts`：Express + SQLite + cookie 会话隔离 + 版本校验 + 幂等。
 - `server/ingest/*`：PDF worker（超时、内存预算、重启重排队）、分页解析、材料删除的连带清理。
@@ -182,7 +186,7 @@ npm run build       # 静态构建
 - 补件续查：`parentRunId`、`run.resumed` 事件、`prior{findings, openQuestions, requests}`、新文件清单、旧引用须重读。
 - 真实样本复验：QBE 香港全年旅游险 9 页真实保单，13 处引用全部 verified，正确识别除外 (k) 但括号豁免滑雪（见 `REAL-CONTRACT-TEST.md`）。
 
-### 8.4 真实材料页（用户）
+### 8.4 真实材料页（前端队友/用户）
 
 `materials.html` 底部「條款調查」由 `report.js` / `report.css` 驱动：填问题 → 开始调查 → 轮询 → 渲染结论 / 引用（点击跳原文页）/ 语义复核 / 宣传对照 / 情境實驗 / 經紀回覆核驗 / 补充请求 / 待问清单；有新加材料时出现「用新材料續查」。
 
@@ -192,12 +196,10 @@ npm run build       # 静态构建
 
 | # | 事项 | 判据 | 量级 |
 | --- | --- | --- | --- |
-| 1 | **版本变化对照** | 上传新版材料后，报告标出「此前结论已被改变」：旧 sourceId 失效、受影响结论重判并给新旧对照；旧 run 迟到结果不覆盖新版 | 一个批次 |
-| 2 | 提问清单导出 | `POST /api/reviews/:id/checklist`（或 `/questions/export`）按选定问题 + 出处导出 Markdown/文本；前端按钮 | 小 |
-| 3 | 一页概览 | 报告顶部摘要：最需要确认的 3 件、已确认范围、缺件 | 小到中 |
-| 4 | OCR | 扫描件走独立 OCR，低质量结果标「待核验」并给页图；不静默丢弃页 | 大 |
-| 5 | 系统健壮性 | SSE 实时推送 + 重连、取消状态机、run 重启恢复、限流/预算耗尽的明确状态 | 大 |
-| 6 | 专题子 Agent / 限定官方资料搜索 | 只读子 Agent 返回证据与反例；官方域名白名单搜索 | 大 |
+| 1 | 一页概览 | 报告顶部摘要：最需要确认的 3 件、已确认范围、缺件 | 小到中 |
+| 2 | OCR | 扫描件走独立 OCR，低质量结果标「待核验」并给页图；不静默丢弃页 | 大 |
+| 3 | 系统健壮性 | SSE 实时推送 + 重连、取消状态机、run 重启恢复、限流/预算耗尽的明确状态 | 大 |
+| 4 | 专题子 Agent / 限定官方资料搜索 | 只读子 Agent 返回证据与反例；官方域名白名单搜索 | 大 |
 
 验收标准原文见 `AGENT_V2_PLAN.md:287`（自主性、反例、续查、证据、增量、情景、回复、系统、安全、告知）。
 
@@ -246,4 +248,6 @@ npm run build       # 静态构建
 ## 13. 变更记录
 
 - 2026-11-14：新增本文，合并 `AGENT_V2_PLAN` / `HANDOFF` / `BACKEND_LOCAL` / `BACKEND_AGENT_PLAN` / `PR_BACKEND_FOUNDATION`；补入已完成（版面分块、宣传对照、情景实验、经纪核验、粘贴材料、正式前端接入）与未完成/移交清单。
+- 2026-11-14：版本变化对照（`supersedes`）与提问清单导出完成；`currentReport` 改为按材料版本取最新报告，旧 run 迟到结果不再覆盖新版。
 - 2026-11-13：PR #1（`feat/backend-pdf-handoff`）交付后端基础；用户接替队友在 `feat/deepseek-live` 继续。
+

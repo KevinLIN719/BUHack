@@ -127,3 +127,42 @@ test("not_in_contract is the only verdict that may leave the contract side empty
   const stillQuoting = {...claimBase, brokerClaims: [{...claim, verdict: "not_in_contract" as const}]};
   assert.throws(() => validateAnswer(stillQuoting, brokerSnapshot, seen), /BROKER_CLAIM_INVALID:contract_source_0/);
 });
+
+const priorFindings = [
+  {explanation: "旧版说门槛是 6 小时。", evidenceStatus: "document_supported", sourceIds: ["doc1:p2:b1"]},
+  {explanation: "旧版说需要证明。", evidenceStatus: "unknown", sourceIds: []},
+];
+const changeBase = {findings: [{explanation: "附表把门槛写成 8 小时。", evidenceStatus: "document_supported",
+  sourceIds: ["doc1:p2:b1"]}], openQuestions: [], requests: []};
+
+test("a successor run may only revise conclusions that existed before", () => {
+  const seen = new Set(["doc1:p2:b1", "chat1:p1:b1"]);
+  const prior = {findings: priorFindings};
+  const ok = validateAnswer({...changeBase, supersedes: [{previousIndex: 0, verdict: "reversed" as const,
+    explanation: "新材料把门槛改成 8 小时。", currentIndex: 0, newSourceIds: ["doc1:p2:b1"]}]}, brokerSnapshot, seen, prior);
+  assert.equal(ok.supersedes.length, 1);
+  assert.equal(ok.supersedes[0].previousConclusion, "旧版说门槛是 6 小时。");
+  assert.equal(ok.supersedes[0].previousEvidenceStatus, "document_supported");
+  assert.equal(ok.supersedesUnchecked, 1, "the untouched prior conclusion is counted, not invented as unchanged");
+
+  const missing = {...changeBase, supersedes: [{previousIndex: 9, verdict: "unchanged" as const,
+    explanation: "x", currentIndex: 0, newSourceIds: []}]};
+  assert.throws(() => validateAnswer(missing, brokerSnapshot, seen, prior), /SUPERSEDES_INVALID:previous_index_0/);
+
+  const duplicate = {...changeBase, supersedes: [
+    {previousIndex: 0, verdict: "unchanged" as const, explanation: "a", currentIndex: 0, newSourceIds: []},
+    {previousIndex: 0, verdict: "unchanged" as const, explanation: "b", currentIndex: 0, newSourceIds: []}]};
+  assert.throws(() => validateAnswer(duplicate, brokerSnapshot, seen, prior), /SUPERSEDES_INVALID:duplicate_index_1/);
+
+  const withdrawnWithIndex = {...changeBase, supersedes: [{previousIndex: 1, verdict: "withdrawn" as const,
+    explanation: "x", currentIndex: 0, newSourceIds: []}]};
+  assert.throws(() => validateAnswer(withdrawnWithIndex, brokerSnapshot, seen, prior), /SUPERSEDES_INVALID:withdrawn_index_0/);
+
+  const unread = {...changeBase, supersedes: [{previousIndex: 0, verdict: "strengthened" as const,
+    explanation: "x", currentIndex: 0, newSourceIds: ["doc1:p9:b1"]}]};
+  assert.throws(() => validateAnswer(unread, brokerSnapshot, seen, prior), /SUPERSEDES_INVALID:source_0/);
+
+  const firstRun = {...changeBase, supersedes: [{previousIndex: 0, verdict: "unchanged" as const,
+    explanation: "x", currentIndex: 0, newSourceIds: []}]};
+  assert.throws(() => validateAnswer(firstRun, brokerSnapshot, seen), /SUPERSEDES_INVALID:no_prior/);
+});

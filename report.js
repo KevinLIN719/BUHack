@@ -22,6 +22,8 @@
   const scenarioUnitLabels = {minutes:'分鐘',hours:'小時',days:'天'};
   const brokerLabels = {supported:'與條款一致',overstated:'說大了，漏了條件',not_in_contract:'條款裡找不到依據',contradicted:'與條款原文衝突'};
   const brokerTone = {supported:'ok',overstated:'warn',not_in_contract:'warn',contradicted:'bad'};
+  const changeLabels = {unchanged:'仍成立',strengthened:'更明確',weakened:'條件變多',reversed:'被推翻',withdrawn:'已不適用'};
+  const changeTone = {unchanged:'ok',strengthened:'ok',weakened:'warn',reversed:'bad',withdrawn:'warn'};
   const state = {reviewId:null, review:null, runId:null, busy:false};
 
   const node = (tag, text, className) => {
@@ -124,6 +126,34 @@
       findingsHost.append(article);
     });
     host.append(findingsHost.childElementCount ? findingsHost : node('p', '本次沒有可引用的結論。', 'muted'));
+
+    if (report.supersedes?.length || report.supersedesUnchecked) {
+      const section = node('section', undefined, 'compare changes');
+      section.append(node('h3', '結論的變化'));
+      section.append(node('p', '上次調查的結論，在這次補充材料之後的變化。沒被提到的舊結論只算「未重新核對」，不代表仍然成立。', 'muted'));
+      for (const item of report.supersedes ?? []) {
+        const card = node('article', undefined, 'change');
+        card.append(node('span', changeLabels[item.verdict] ?? item.verdict, `badge ${changeTone[item.verdict] ?? ''}`));
+        card.append(node('p', `上次：${item.previousConclusion}`, 'side-label'));
+        const previousIds = new Set((item.previous ?? []).map(citation => citation.sourceId));
+        for (const citation of item.previous ?? []) {
+          card.append(citationButton(citation));
+          if (citation.quote) card.append(node('blockquote', citation.quote));
+        }
+        if (item.explanation) card.append(node('div', item.explanation, 'finding-text'));
+        for (const citation of item.current ?? []) {
+          // The same passage is often quoted on both sides; showing it twice just adds noise.
+          if (previousIds.has(citation.sourceId) && citation.status !== 'missing') continue;
+          card.append(citationButton(citation));
+          if (citation.quote) card.append(node('blockquote', citation.quote));
+        }
+        section.append(card);
+      }
+      if (report.supersedesUnchecked) {
+        section.append(node('p', `另有 ${report.supersedesUnchecked} 條上次的結論，這次沒有重新核對。`, 'muted'));
+      }
+      host.append(section);
+    }
 
     if (report.comparisons?.length || report.droppedComparisons) {
       const section = node('section', undefined, 'compare');
@@ -232,6 +262,15 @@
     host.append(node('p', verified
       ? '以上為初步分析。語意複核只判斷引用是否支持結論，不代表條款本身合法或一定賠付。'
       : '以上為初步分析，尚未完成獨立語意複核，不代表條款本身合法或一定賠付。', 'disclaimer'));
+
+    if (state.reviewId) {
+      const link = document.createElement('a');
+      link.className = 'export-link';
+      link.href = `/api/reviews/${encodeURIComponent(state.reviewId)}/questions/export?format=md`;
+      link.setAttribute('download', 'policy-questions.md');
+      link.textContent = '匯出提問清單（Markdown）↗';
+      host.append(link);
+    }
   }
 
   function render() {
