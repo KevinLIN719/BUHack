@@ -301,7 +301,7 @@ test("textless, mixed, corrupt and over-page-limit PDFs are distinguished", asyn
       { bytes: pdfFixture([""]), status: "needs_ocr", code: null },
       { bytes: pdfFixture(["Coverage limit 1000.", ""]), status: "partial", code: null },
       { bytes: Buffer.from("%PDF-1.4\nbroken\n%%EOF"), status: "failed", code: "INVALID_PDF" },
-      { bytes: pdfFixture(Array.from({ length: 31 }, () => "Text")), status: "failed", code: "PAGE_LIMIT" },
+      { bytes: pdfFixture(Array.from({ length: 121 }, () => "Text")), status: "failed", code: "PAGE_LIMIT" },
     ];
     for (const item of cases) {
       const upload = await uploadPdf(api, path, cookie, item.bytes);

@@ -4,7 +4,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { Store } from "../store.js";
 
 export const MAX_FILE_BYTES = 10 * 1024 * 1024;
-export const MAX_PAGES = 30;
+export const MAX_PAGES = 120;
 export type DocumentRole = "contract" | "promotion" | "schedule" | "endorsement" | "broker_reply";
 export type MaterialSource = "upload" | "pasted";
 export type DocumentRow = {

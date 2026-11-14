@@ -1,4 +1,4 @@
-import express, { type ErrorRequestHandler, type Request } from "express";
+import express, { type ErrorRequestHandler, type Request, type Response } from "express";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { z } from "zod";
 import multer from "multer";
@@ -7,6 +7,7 @@ import { DocumentQueue, documentsFor, documentFor, publicDocument, createTextMat
 import { Store, type Review, type Run } from "./store.js";
 import { reportView } from "./report.js";
 import { buildQuestionChecklist } from "./export.js";
+import { runV3Intake, streamV3Analysis, streamV3Claims, streamV3WhatIf } from "./v3.js";
 
 class ApiError extends Error {
   constructor(readonly status: number, readonly code: string, message: string) { super(message); }
@@ -28,8 +29,36 @@ const runSchema = z.object({
 const contextUpdateSchema = z.object({
   expectedRevision: z.number().int().positive(), context: contextSchema,
 }).strict();
+const v3IntakeBodySchema = z.object({
+  lang: z.enum(["zh-HK", "zh-Hant", "zh-CN", "en"]).optional(),
+  userNote: z.string().trim().max(800).optional(),
+}).strict();
+const v3StreamSchema = z.object({
+  context: z.record(z.string(), z.array(z.string().trim().max(80)).max(12)).default({}),
+  contextTags: z.array(z.string().trim().max(80)).max(24).default([]),
+  userNote: z.string().trim().max(800).optional(),
+  lang: z.enum(["zh-HK", "zh-Hant", "zh-CN", "en"]).optional(),
+  resume: z.boolean().optional(),
+}).strict();
+const v3ClaimsSchema = z.object({
+  lang: z.enum(["zh-HK", "zh-Hant", "zh-CN", "en"]).optional(),
+}).strict();
+const v3WhatIfSchema = z.object({
+  question: z.string().trim().min(2).max(400),
+  lang: z.enum(["zh-HK", "zh-Hant", "zh-CN", "en"]).optional(),
+}).strict();
+const normalizeV3Lang = (raw: string | undefined, fallbackHeader: string | undefined) => {
+  if (raw === "en") return "en" as const;
+  if (raw === "zh-CN") return "zh-CN" as const;
+  if (raw === "zh-HK" || raw === "zh-Hant") return "zh-HK" as const;
+  return parseLanguage(fallbackHeader);
+};
 const hash = (value: string) => createHash("sha256").update(value).digest("hex");
-const publicReview = ({ owner: _owner, context, ...review }: Review) => ({ ...review, context: JSON.parse(context) });
+const publicReview = ({ owner: _owner, context, ...review }: Review) => {
+  // Internal v3 caches stay on the server; they are large and not part of the public shape.
+  const { v3Intake: _a, v3IntakeRevision: _b, v3Analysis: _c, v3AnalysisKey: _d, v3Claims: _e, v3ClaimsKey: _f, ...rest } = review as Review & Record<string, unknown>;
+  return { ...rest, context: JSON.parse(context) };
+};
 const inputRequest = (run: Pick<Run, "id">) => ({
   id: `${run.id}:contract`, requestedRole: "contract", status: "open",
   message: "请上传保险合同，收到材料后才能开始调查。",
@@ -401,6 +430,130 @@ export function createApp(store: Store) {
       return store.getRun(current.id, current.reviewId)!;
     });
     res.json(publicRun(run));
+  });
+
+  app.post("/api/reviews/:id/intake", async (req, res, next) => {
+    try {
+      const review = requireReview(req);
+      const body = v3IntakeBodySchema.safeParse(req.body ?? {});
+      if (!body.success) throw new ApiError(400, "INVALID_V3_INTAKE", "預檢請求參數無效。");
+      const snapshot = snapshotFor(store, review.id);
+      if (snapshot.documents.some(doc => ["queued", "parsing"].includes(doc.status))) {
+        throw new ApiError(409, "DOCUMENTS_PROCESSING", "請等待文件解析完成。");
+      }
+      if (!snapshot.documents.some(doc => doc.role === "contract" && ["ready", "partial"].includes(doc.status))) {
+        throw new ApiError(409, "MISSING_CONTRACT", "請先上傳保單文件。");
+      }
+      const lang = normalizeV3Lang(body.data.lang, req.get("accept-language"));
+      const intake = await runV3Intake(store, review.id, lang, body.data.userNote);
+      res.json(intake);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  /**
+   * Run one v3 job as a Server-Sent Events response.
+   * `res` "close" (not `req` "close") marks a real disconnect: on Node 16+ `req` "close" fires as
+   * soon as the JSON body has been read, which used to abort the agent at once and leave the
+   * response open forever. The job is also capped at 150 s and the response is always ended.
+   */
+  async function runV3Sse(req: Request, res: Response, job: (signal: AbortSignal, emit: (event: Record<string, unknown>) => void) => Promise<void>, lang: string) {
+    res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+    res.setHeader("X-Accel-Buffering", "no");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders?.();
+
+    const controller = new AbortController();
+    const timeout = AbortSignal.timeout(150_000);
+    const signal = AbortSignal.any([controller.signal, timeout]);
+    let closed = false;
+    const heartbeat = setInterval(() => { if (!closed) res.write(": ping\n\n"); }, 12_000);
+    res.on("close", () => {
+      closed = true;
+      clearInterval(heartbeat);
+      controller.abort();
+    });
+    const emit = (event: Record<string, unknown>) => {
+      if (closed) return;
+      res.write(`data: ${JSON.stringify(event)}\n\n`);
+    };
+    try {
+      await job(signal, emit);
+    } catch (error) {
+      if (!closed) {
+        const message = timeout.aborted
+          ? (lang === "en" ? "This took too long. Please retry." : "處理超時，請重試。")
+          : error instanceof Error && error.message === "REPORT_GENERATION_FAILED"
+            ? (lang === "en" ? "The AI reply came back garbled. Please retry." : "AI 回覆格式出錯，請重試。")
+            : error instanceof Error ? error.message : "處理過程發生錯誤，請重試。";
+        emit({ type: "error", message });
+      }
+    } finally {
+      clearInterval(heartbeat);
+      if (!res.writableEnded) {
+        closed = true;
+        res.end();
+      }
+    }
+  }
+
+  function v3Ready(review: Review) {
+    const snapshot = snapshotFor(store, review.id);
+    if (snapshot.documents.some(doc => ["queued", "parsing"].includes(doc.status))) {
+      throw new ApiError(409, "DOCUMENTS_PROCESSING", "請等待文件解析完成。");
+    }
+    if (!snapshot.documents.some(doc => doc.role === "contract" && ["ready", "partial"].includes(doc.status))) {
+      throw new ApiError(409, "MISSING_CONTRACT", "請先上傳保單文件。");
+    }
+    if (!investigator.configured()) {
+      throw new ApiError(503, "AGENT_NOT_CONNECTED", "請在本機 .env 配置 DEEPSEEK_API_KEY 後重啟服務。");
+    }
+  }
+
+  app.post("/api/reviews/:id/v3-stream", async (req, res, next) => {
+    let review: Review;
+    let body: z.infer<typeof v3StreamSchema>;
+    try {
+      review = requireReview(req);
+      const parsed = v3StreamSchema.safeParse(req.body ?? {});
+      if (!parsed.success) throw new ApiError(400, "INVALID_V3_STREAM", "解讀請求參數無效。");
+      body = parsed.data;
+      v3Ready(review);
+    } catch (error) { return next(error); }
+    const lang = normalizeV3Lang(body.lang, req.get("accept-language"));
+    await runV3Sse(req, res, (signal, emit) => streamV3Analysis({
+      store, reviewId: review.id, contextSelections: body.context, contextTags: body.contextTags,
+      userNote: body.userNote, lang, resume: body.resume, signal, emit,
+    }), lang);
+  });
+
+  app.post("/api/reviews/:id/v3-claims", async (req, res, next) => {
+    let review: Review;
+    let lang: ReturnType<typeof normalizeV3Lang>;
+    try {
+      review = requireReview(req);
+      const parsed = v3ClaimsSchema.safeParse(req.body ?? {});
+      if (!parsed.success) throw new ApiError(400, "INVALID_V3_CLAIMS", "核對請求參數無效。");
+      v3Ready(review);
+      lang = normalizeV3Lang(parsed.data.lang, req.get("accept-language"));
+    } catch (error) { return next(error); }
+    await runV3Sse(req, res, (signal, emit) => streamV3Claims({ store, reviewId: review.id, lang, signal, emit }), lang);
+  });
+
+  app.post("/api/reviews/:id/v3-whatif", async (req, res, next) => {
+    let review: Review;
+    let body: z.infer<typeof v3WhatIfSchema>;
+    try {
+      review = requireReview(req);
+      const parsed = v3WhatIfSchema.safeParse(req.body ?? {});
+      if (!parsed.success) throw new ApiError(400, "INVALID_V3_WHATIF", "請用一兩句話描述你的情況。");
+      body = parsed.data;
+      v3Ready(review);
+    } catch (error) { return next(error); }
+    const lang = normalizeV3Lang(body.lang, req.get("accept-language"));
+    await runV3Sse(req, res, (signal, emit) => streamV3WhatIf({ store, reviewId: review.id, question: body.question, lang, signal, emit }), lang);
   });
 
   app.delete("/api/reviews/:id", (req, res) => {

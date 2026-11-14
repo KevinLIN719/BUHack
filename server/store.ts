@@ -87,6 +87,13 @@ export class Store {
     ensureColumn(this.db, "documents", "mediaType", "mediaType TEXT NOT NULL DEFAULT 'application/pdf'");
     ensureColumn(this.db, "documents", "fromWhom", "fromWhom TEXT");
     ensureColumn(this.db, "documents", "capturedAt", "capturedAt TEXT");
+    // Cached v3 intake & v3 structured analysis keyed by review input revision.
+    ensureColumn(this.db, "reviews", "v3Intake", "v3Intake TEXT");
+    ensureColumn(this.db, "reviews", "v3IntakeRevision", "v3IntakeRevision INTEGER");
+    ensureColumn(this.db, "reviews", "v3Analysis", "v3Analysis TEXT");
+    ensureColumn(this.db, "reviews", "v3AnalysisKey", "v3AnalysisKey TEXT");
+    ensureColumn(this.db, "reviews", "v3Claims", "v3Claims TEXT");
+    ensureColumn(this.db, "reviews", "v3ClaimsKey", "v3ClaimsKey TEXT");
   }
 
   transaction<T>(work: () => T): T {
@@ -97,7 +104,7 @@ export class Store {
 
   createReview(owner: string) {
     const id = randomUUID();
-    this.db.prepare("INSERT INTO reviews VALUES (?, ?, 1, '{}', ?)")
+    this.db.prepare("INSERT INTO reviews (id, owner, revision, context, createdAt) VALUES (?, ?, 1, '{}', ?)")
       .run(id, owner, new Date().toISOString());
     return this.getReview(id, owner)!;
   }
