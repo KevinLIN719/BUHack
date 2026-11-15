@@ -8,6 +8,10 @@
 
 Vercel 项目使用 `npm run build:vercel`、`dist` 输出目录、Node 24。`api/index.ts` 是 API 入口，`/scan` 是手机页面；`/showcase.html` 保留原组件库。
 
+函数运行区设置为新加坡 `sin1`，以支持 Gemini API 直连；香港运行区会被 Google 返回 `User location is not supported for the API use`。Blob 仍使用原私有存储区域。
+
+OCR 的模型生成 schema 只声明字段和类型，避免 Gemini 展开数组上限后拒绝请求；服务端仍使用完整 schema 校验段落数量、文字长度和类型，不合格输出不会导入。
+
 | 环境变量 | 用途 |
 | --- | --- |
 | `BLOB_READ_WRITE_TOKEN` | 连接**私有** Vercel Blob 后自动注入；持久保存数据库快照、配对状态和照片 |
@@ -16,6 +20,7 @@ Vercel 项目使用 `npm run build:vercel`、`dist` 输出目录、Node 24。`ap
 | `CAPTURE_SESSION_TTL_MINUTES` | 配对有效期，默认 30 分钟，允许 5–60 分钟 |
 | `CAPTURE_ICE_SERVERS_JSON` | 可选 STUN/TURN 配置；受限网络需要自己的 TURN 中继凭据 |
 | `AI_GATEWAY_API_KEY` | 本地使用 Gateway 时可配置；Vercel 优先使用项目短期 OIDC 身份 |
+| `POLICY_LENS_GOOGLE_TEXT_MODEL` / `POLICY_LENS_GOOGLE_OCR_MODEL` | Gemini 直连使用的模型，默认 `gemini-3.6-flash`；与 Gateway 模型名分开配置 |
 | `GOOGLE_GENERATIVE_AI_API_KEY` | 可选 Gemini 直连；用于 OCR，且未配置 DeepSeek key 时也用于文本分析，可绕过 Gateway 账单设置 |
 | `DEEPSEEK_API_KEY` | 可选；显式设置时，原 DeepSeek provider 配置继续优先用于文字分析 |
 

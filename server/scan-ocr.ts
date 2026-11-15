@@ -28,6 +28,14 @@ export const scanPageSchema = z.object({
 }).strict();
 export type ScanPageReading = z.infer<typeof scanPageSchema>;
 
+// Google expands array bounds into its structured-output grammar. Keep the
+// generation schema small; scanPageSchema still enforces limits after parsing.
+const scanPageModelSchema = z.object({
+  blocks: z.array(z.object({ text: z.string(), uncertain: z.boolean() }).strict()),
+  unreadable: z.boolean(),
+  warning: z.string(),
+}).strict();
+
 export class ScanImportError extends Error {
   constructor(readonly code: string, readonly status: number, message: string) { super(message); }
 }
@@ -72,7 +80,7 @@ export async function recognizeScanPage(image: ScanImage, options: { model?: Lan
     : AbortSignal.timeout(45_000);
   const { output } = await generateText({
     model: options.model ?? scanModel(),
-    output: Output.object({ schema: scanPageSchema }),
+    output: Output.object({ schema: scanPageModelSchema }),
     temperature: 0,
     maxOutputTokens: 16384,
     maxRetries: 1,

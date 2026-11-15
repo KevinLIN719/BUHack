@@ -24,12 +24,18 @@ export function textModel(options: { fast?: boolean } = {}): LanguageModel {
       : process.env.DEEPSEEK_MODEL ?? "deepseek-flash";
     return provider(options.fast && /reasoner/i.test(configured) ? "deepseek-chat" : configured);
   }
-  if (process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim()) return createGoogleGenerativeAI({apiKey:process.env.GOOGLE_GENERATIVE_AI_API_KEY})(process.env.POLICY_LENS_GOOGLE_TEXT_MODEL || 'gemini-2.5-flash');
+  const googleKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim();
+  if (googleKey) {
+    return createGoogleGenerativeAI({ apiKey: googleKey })(process.env.POLICY_LENS_GOOGLE_TEXT_MODEL?.trim() || "gemini-3.6-flash");
+  }
   return gateway(process.env.POLICY_LENS_TEXT_MODEL?.trim() || "deepseek/deepseek-v3.1");
 }
 
 export function scanModel(): LanguageModel {
   // Vision is separate from the text-only DeepSeek provider configuration.
-  if (process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim()) return createGoogleGenerativeAI({apiKey:process.env.GOOGLE_GENERATIVE_AI_API_KEY})(process.env.POLICY_LENS_GOOGLE_OCR_MODEL || 'gemini-2.5-flash');
+  const googleKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim();
+  if (googleKey) {
+    return createGoogleGenerativeAI({ apiKey: googleKey })(process.env.POLICY_LENS_GOOGLE_OCR_MODEL?.trim() || "gemini-3.6-flash");
+  }
   return gateway(process.env.POLICY_LENS_OCR_MODEL?.trim() || "google/gemini-2.5-flash");
 }

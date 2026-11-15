@@ -136,8 +136,16 @@ test("OCR schema rejects malformed model output rather than silently generating 
   await assert.rejects(recognizeScanPage(image(), { model: mockModel({ summary: "Not a transcription" }) }));
 });
 
+test("OCR keeps bounded output validation outside the provider generation grammar", async () => {
+  let requestSchema = "";
+  await recognizeScanPage(image(), { model: mockModel(reading(), options => { requestSchema = JSON.stringify(options); }) });
+  assert.doesNotMatch(requestSchema, /maxItems|maxLength/);
+  await assert.rejects(recognizeScanPage(image(), { model: mockModel({ ...reading(), blocks: Array.from({ length: 301 }, () => ({ text: "a", uncertain: false })) }) }));
+  await assert.rejects(recognizeScanPage(image(), { model: mockModel(reading("a".repeat(6001))) }));
+});
+
 test("model configuration preserves explicit DeepSeek settings and supports Gateway OIDC", () => {
-  const names = ["DEEPSEEK_API_KEY", "GOOGLE_GENERATIVE_AI_API_KEY", "AI_GATEWAY_API_KEY", "VERCEL_OIDC_TOKEN", "VERCEL", "POLICY_LENS_TEXT_MODEL", "POLICY_LENS_OCR_MODEL"];
+  const names = ["DEEPSEEK_API_KEY", "GOOGLE_GENERATIVE_AI_API_KEY", "AI_GATEWAY_API_KEY", "VERCEL_OIDC_TOKEN", "VERCEL", "POLICY_LENS_TEXT_MODEL", "POLICY_LENS_OCR_MODEL", "POLICY_LENS_GOOGLE_TEXT_MODEL", "POLICY_LENS_GOOGLE_OCR_MODEL"];
   const saved = Object.fromEntries(names.map(name => [name, process.env[name]]));
   try {
     for (const name of names) delete process.env[name];
@@ -153,7 +161,7 @@ test("model configuration preserves explicit DeepSeek settings and supports Gate
     delete process.env.DEEPSEEK_API_KEY;
     process.env.GOOGLE_GENERATIVE_AI_API_KEY = "test-only-not-a-real-key";
     assert.match((textModel() as { provider:string }).provider,/^google/);
-    assert.equal((scanModel() as { modelId:string }).modelId,"gemini-2.5-flash");
+    assert.equal((scanModel() as { modelId:string }).modelId,"gemini-3.6-flash");
   } finally {
     for (const name of names) { if (saved[name] === undefined) delete process.env[name]; else process.env[name] = saved[name]; }
   }
