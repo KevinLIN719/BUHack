@@ -1,12 +1,12 @@
 import { Worker } from "node:worker_threads";
-import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { createHash, randomUUID } from "node:crypto";
 import { Store } from "../store.js";
 
-export const MAX_FILE_BYTES = 10 * 1024 * 1024;
+export const MAX_FILE_BYTES = (process.env.VERCEL ? 4 : 10) * 1024 * 1024;
 export const MAX_PAGES = 120;
 export type DocumentRole = "contract" | "promotion" | "schedule" | "endorsement" | "broker_reply";
-export type MaterialSource = "upload" | "pasted";
+export type MaterialSource = "upload" | "pasted" | "scan";
 export type DocumentRow = {
   id: string; reviewId: string; role: DocumentRole; name: string; sha256: string;
   byteSize: number; status: "queued" | "parsing" | "ready" | "partial" | "needs_ocr" | "failed";
@@ -29,7 +29,7 @@ export function documentFor(store: Store, reviewId: string, documentId: string) 
   return documentsFor(store, reviewId).find(doc => doc.id === documentId);
 }
 export function publicDocument(doc: DocumentRow) {
-  return { ...doc, documentVersion: doc.sha256, method: doc.mediaType === "text/plain" ? "pasted_text" : "pdf_text" };
+  return { ...doc, documentVersion: doc.sha256, method: doc.sourceType === "scan" ? "ocr" : doc.mediaType === "text/plain" ? "pasted_text" : "pdf_text" };
 }
 
 // Pasted chat records are materials too: the text is stored verbatim as a single page and its
@@ -59,7 +59,7 @@ export function createTextMaterial(store: Store, input: {
 }
 
 function parsePdf(bytes: Uint8Array): { promise: Promise<ParseResult>; stop: () => void } {
-  const worker = new Worker(resolve(__dirname, "pdf-worker.mjs"), {
+  const worker = new Worker(fileURLToPath(new URL("./pdf-worker.mjs", import.meta.url)), {
     // This worker is plain ESM. Do not inherit tsx/watch/test loaders: they can
     // transform PDF.js again and consume the worker's entire memory budget.
     execArgv: [],
@@ -101,9 +101,9 @@ export class DocumentQueue {
   private closed = false;
   private active: ReturnType<typeof parsePdf> | undefined;
   private draining: Promise<void> | undefined;
-  constructor(private store: Store) {
+  constructor(private store: Store, options: { recover?: boolean } = {}) {
     // Durable queue: interrupted work can be parsed again from the stored bytes.
-    store.db.prepare("UPDATE documents SET status = 'queued' WHERE status = 'parsing'").run();
+    if (options.recover !== false) store.db.prepare("UPDATE documents SET status = 'queued' WHERE status = 'parsing'").run();
   }
   wake() {
     if (this.closed || this.draining) return;
@@ -144,6 +144,10 @@ export class DocumentQueue {
         this.store.db.prepare("UPDATE reviews SET revision = revision + 1 WHERE id = ?").run(current.reviewId);
       });
     }
+  }
+  // Serverless callers await committed parsing before ending their request.
+  async waitUntilIdle() {
+    while (this.draining) await this.draining;
   }
   async close() {
     this.closed = true;

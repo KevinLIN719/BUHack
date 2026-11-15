@@ -11,15 +11,25 @@
     "check:api": "tsc -p tsconfig.server.json",
     "test:api": "node --import tsx --test server/tests/api.test.ts server/tests/scenario.test.ts server/tests/overview.test.ts server/tests/system.test.ts server/tests/v3.test.ts",
     "sample:pdf": "node --import tsx scripts/create-sample.mjs",
-    "start:v3": "node --import tsx v3/server.mjs"
+    "start:v3": "node --import tsx v3/server.mjs",
+    "build:vercel": "node scripts/build-vercel.mjs",
+    "check:capture": "node --check v3/js/capture.js && node --check v3/js/scan.js && node --check v3/js/screens/home.js && node --check v3/js/screens/document.js",
+    "test:capture": "node --import tsx --test server/tests/capture.test.ts server/tests/scan-ocr.test.ts server/tests/cloud.test.ts"
   },
   "dependencies": {
     "@ai-sdk/deepseek": "^3.0.86",
+    "@ai-sdk/google": "^4.0.121",
+    "@napi-rs/canvas": "^1.1.1",
+    "@vercel/blob": "^2.9.0",
+    "@vercel/functions": "^3.11.3",
     "ai": "^7.0.172",
     "dotenv": "^18.0.10",
     "express": "^5.3.0",
     "multer": "^2.5.0",
+    "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^6.5.438",
+    "qrcode": "^1.5.4",
+    "ws": "^8.23.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {
@@ -27,10 +37,13 @@
     "@types/json-schema": "^7.0.15",
     "@types/multer": "^2.3.0",
     "@types/node": "^24.19.2",
+    "@types/qrcode": "^1.5.6",
+    "@types/ws": "^8.18.2",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2"
   },
   "engines": {
-    "node": ">=24.14.0"
-  }
+    "node": "24.x"
+  },
+  "type": "module"
 }
