@@ -28,8 +28,13 @@
       h('span', { class: 'drop-icon', 'aria-hidden': 'true' }, '↑'),
       h('span', { class: 'drop-main' }, PL.t('拖入保單 PDF', 'Drop a policy PDF')),
       h('span', { class: 'drop-sub' }, PL.t('或點擊選擇檔案 · 最多 4 MB、120 頁', 'or choose a file · up to 4 MB and 120 pages')));
-    const phoneScan = h('button', { type: 'button', class: 'cap-btn home-scan-entry', 'data-a': '', onclick: () => PL.capture.open() },
-      PL.t('用手機掃描保單', 'Scan with your phone'), h('span', { 'aria-hidden': 'true' }, '↗'));
+    const phoneScan = h('button', { type: 'button', class: 'cap-btn home-scan-entry', onclick: () => PL.capture.open() },
+      PL.t('拍照補充信息', 'Add information with photos'), h('span', { 'aria-hidden': 'true' }, '↗'));
+
+    const voiceEntry = h('button', { type: 'button', class: 'cap-btn home-scan-entry', onclick: () => PL.voice.open() },
+      PL.t('錄音補充信息', 'Add information by voice'), h('span', { 'aria-hidden': 'true' }, '＋'));
+    const voiceNote = h('p', { class: 'home-voice-note', hidden: !PL.getState().userNote }, PL.t('已加入個人背景，上傳保單後會一併使用。', 'Personal context added. It will be used when you upload a policy.'));
+    const unsubscribe = PL.subscribe((next, prev) => { if (next.userNote !== prev.userNote) voiceNote.hidden = !next.userNote; });
 
     drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('is-over'); });
     drop.addEventListener('dragleave', () => drop.classList.remove('is-over'));
@@ -61,12 +66,12 @@
           h('span', {}, PL.t('先看清你買了甚麼。', 'before you pay.'))),
         h('p', { class: 'home-sub', 'data-a': '' },
           PL.t('上傳 PDF 查看條款原文，或選一份示例體驗完整流程。', 'Upload a PDF to read its wording, or try the full flow with a sample.')),
-        drop, phoneScan, error, resume,
+        drop, h('div', { class: 'home-input-actions', 'data-a': '' }, phoneScan, voiceEntry), voiceNote, error, resume,
         h('p', { class: 'home-or', 'data-a': '' }, PL.t('或試試這三份保單', 'Or try one of these')),
         h('div', { class: 'samples' }, ...samples)),
       stack);
 
-    return { el, enter: () => enter(stack) };
+    return { el, enter: () => enter(stack), destroy: () => { unsubscribe(); PL.voice?.close(); } };
   }
 
   let floatTl = null;
@@ -80,7 +85,7 @@
   function onFile(file, error) {
     if (!file) return;
     let message = '';
-    if (!/\.pdf$/i.test(file.name)) message = PL.t('目前請選擇 PDF 文件，圖片暫不支援。', 'Please choose a PDF. Images are not supported yet.');
+    if (!/\.pdf$/i.test(file.name)) message = PL.t('請選擇 PDF，或使用「拍照補充信息」加入照片。', 'Choose a PDF, or use the photo button to add images.');
     else if (file.size > 4 * 1024 * 1024) message = PL.t('單份 PDF 不能超過 4 MB。', 'A PDF must be 4 MB or smaller.');
     else if (!file.size) message = PL.t('這個檔案是空的，請選擇另一份。', 'This file is empty. Please choose another.');
     if (message) { error.textContent = message; error.hidden = false; return; }
@@ -104,5 +109,5 @@
       .to(ghost, { left: 0, top: 64, width: window.innerWidth, height: window.innerHeight - 64, borderRadius: 0, duration: 0.7, ease: 'expo.inOut' }, 0.15);
   }
 
-  PL.screens.home = { render, destroy: () => { floatTl?.kill(); PL.capture?.close(); } };
+  PL.screens.home = { render, destroy: () => { floatTl?.kill(); PL.capture?.close(); PL.voice?.close(); } };
 })();

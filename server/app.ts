@@ -10,6 +10,7 @@ import { buildQuestionChecklist } from "./export.js";
 import { runV3Intake, streamV3Analysis, streamV3Claims, streamV3WhatIf } from "./v3.js";
 import { capturePages, captureImportState, CaptureError, createCaptureRouter } from "./capture.js";
 import { importScannedPages, ScanImportError } from "./scan-ocr.js";
+import { createAsrRouter } from "./asr.js";
 
 class ApiError extends Error {
   constructor(readonly status: number, readonly code: string, message: string) { super(message); }
@@ -102,6 +103,7 @@ export function createApp(store: Store, options: { readOnly?: boolean } = {}) {
     next();
   });
   app.use("/api/capture", createCaptureRouter());
+  app.use("/api/audio", createAsrRouter());
   app.use(express.json({ limit: "1mb" }));
 
   function presentRun(run: Run) {
@@ -223,7 +225,7 @@ export function createApp(store: Store, options: { readOnly?: boolean } = {}) {
   app.post("/api/reviews/:id/scans", async (req, res, next) => {
     try {
       const review = requireReview(req);
-      const input = z.object({ sessionId: z.string().uuid(), token: z.string().regex(/^[0-9a-f]{64}$/), name: z.string().trim().max(120).optional() }).strict().parse(req.body);
+      const input = z.object({ sessionId: z.string().uuid(), token: z.string().regex(/^[0-9a-f]{64}$/), name: z.string().trim().max(120).optional(), role: z.enum(["contract", "schedule", "endorsement", "promotion"]).default("contract") }).strict().parse(req.body);
       if (documentsFor(store, review.id).length >= 8) throw new ApiError(413, "DOCUMENT_LIMIT", "一次審閱最多保留8份材料。");
       await captureImportState(input.sessionId, input.token, "processing");
       const controller = new AbortController();
@@ -232,7 +234,7 @@ export function createApp(store: Store, options: { readOnly?: boolean } = {}) {
       let document;
       try {
         const pages = await capturePages(input.sessionId, input.token);
-        document = await importScannedPages(store, review.id, pages, { name: input.name || "手機掃描保單", signal: controller.signal });
+        document = await importScannedPages(store, review.id, pages, { name: input.name || "手機掃描保單", role: input.role, signal: controller.signal });
         if (app.locals.cloudTransactions) {
           app.locals.afterCommit = () => captureImportState(input.sessionId,input.token,"imported");
           app.locals.onCommitFailure = () => captureImportState(input.sessionId,input.token,"connected");

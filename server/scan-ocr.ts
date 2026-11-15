@@ -3,7 +3,7 @@ import { PDFDocument } from "pdf-lib";
 import { generateText, Output, type LanguageModel } from "ai";
 import { z } from "zod";
 import { Store } from "./store.js";
-import { documentFor, type DocumentRow } from "./ingest/documents.js";
+import { documentFor, type DocumentRow, type DocumentRole } from "./ingest/documents.js";
 import { scanModelConfigured, scanModel } from "./models.js";
 
 export const MAX_SCAN_PAGES = 20;
@@ -103,6 +103,7 @@ export async function recognizeScanPage(image: ScanImage, options: { model?: Lan
 
 type ScanOptions = {
   name?: string;
+  role?: Exclude<DocumentRole, "broker_reply">;
   signal?: AbortSignal;
   model?: LanguageModel;
   /** Injection is used in deterministic tests and explicit OCR adapters, never client input. */
@@ -112,6 +113,7 @@ type ScanOptions = {
 
 /** OCR finishes before the transaction, so a failed attempt leaves no half-imported document. */
 export async function importScannedPages(store: Store, reviewId: string, pages: ScanImage[], options: ScanOptions = {}): Promise<DocumentRow> {
+  const role = options.role ?? "contract";
   if (!Array.isArray(pages) || !pages.length || pages.length > MAX_SCAN_PAGES) {
     throw new ScanImportError("SCAN_PAGE_LIMIT", 413, "請加入 1 至 20 頁照片。");
   }
@@ -126,7 +128,7 @@ export async function importScannedPages(store: Store, reviewId: string, pages: 
   }
   const sha256 = hash.digest("hex");
   const findDuplicate = () => {
-    const existing = store.db.prepare("SELECT id FROM documents WHERE reviewId = ? AND sha256 = ? AND role = 'contract'").get(reviewId, sha256);
+    const existing = store.db.prepare("SELECT id FROM documents WHERE reviewId = ? AND sha256 = ? AND role = ?").get(reviewId, sha256, role);
     return existing ? documentFor(store, reviewId, String(existing.id)) : undefined;
   };
   const duplicate = findDuplicate();
@@ -187,8 +189,8 @@ export async function importScannedPages(store: Store, reviewId: string, pages: 
     const count = store.db.prepare("SELECT COUNT(*) AS count FROM documents WHERE reviewId = ?").get(reviewId)!;
     if (Number(count.count) >= 8) throw new ScanImportError("DOCUMENT_LIMIT", 413, "一次審閱最多保留 8 份材料。");
     const id = randomUUID();
-    store.db.prepare("INSERT INTO documents (id,reviewId,role,name,sha256,byteSize,content,status,pageCount,errorCode,sourceType,mediaType,createdAt) VALUES (?,?,'contract',?,?,?,?,?,?,?,'scan','application/pdf',?)")
-      .run(id, reviewId, name, sha256, content.length, content, status, pages.length, status === "ready" ? null : "OCR_REVIEW_REQUIRED", new Date().toISOString());
+    store.db.prepare("INSERT INTO documents (id,reviewId,role,name,sha256,byteSize,content,status,pageCount,errorCode,sourceType,mediaType,createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,'scan','application/pdf',?)")
+      .run(id, reviewId, role, name, sha256, content.length, content, status, pages.length, status === "ready" ? null : "OCR_REVIEW_REQUIRED", new Date().toISOString());
     processed.forEach((page, index) => {
       const pageIndex = index + 1;
       store.db.prepare("INSERT INTO pages (documentId,pageIndex,printedPageLabel,text,status) VALUES (?,?,?,?,?)")

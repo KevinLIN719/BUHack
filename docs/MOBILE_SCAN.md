@@ -24,6 +24,16 @@ OCR 的模型生成 schema 只声明字段和类型，避免 Gemini 展开数组
 | `GOOGLE_GENERATIVE_AI_API_KEY` | 可选 Gemini 直连；用于 OCR，且未配置 DeepSeek key 时也用于文本分析，可绕过 Gateway 账单设置 |
 | `DEEPSEEK_API_KEY` | 可选；显式设置时，原 DeepSeek provider 配置继续优先用于文字分析 |
 
+## 补充信息
+
+首页使用「拍照补充信息」入口。已打开保单时，也能从「补充材料」拍摄附表、批单或宣传单；识别后的页面加入当前审阅，并保留所选材料类型。
+
+「录音补充信息」支持麦克风录音或选择音频文件，单次最多 60 秒。浏览器将音频转换为 16 kHz、单声道 PCM16 WAV（最多 2 MB），通过 `POST /api/audio/transcriptions` 交给百炼 ASR。服务端只在内存中处理音频，不保存录音文件。
+
+配置服务端 `DASHSCOPE_API_KEY`、`DASHSCOPE_REGION`（默认 `cn`，北京；新加坡使用 `intl`）和 `POLICY_LENS_ASR_MODEL`（默认 `qwen3-asr-flash`）。Key 的地域须与接口地域匹配。支持的同步模型也包括 `qwen-audio-3.0-asr-flash` 和 `qwen-audio-3.1-asr-flash`，不使用异步 filetrans 协议。部署的 `Permissions-Policy` 须允许 `microphone=(self)`。
+
+转写结果先显示在可编辑文本框中，确认后追加为个人背景，总计不超过 800 字；超限须先修改，不会静默截断。它不作为合同原文或顾问承诺。已有解读时须点击「重新解读」才会应用新背景。关闭窗口或离开页面会停止麦克风和未完成请求。
+
 密钥只配置在服务端环境，不能加公开变量前缀或提交 `.env`。手机配对 token 放在链接 fragment 中，API 使用 Bearer 鉴权，日志不记录照片、token 或原文。
 
 AI Gateway 的 OIDC 身份并不等于账户已经具备模型调用额度。若 Gateway 返回 403 并要求完成账单设置，需在 Vercel 账户启用账单，或配置已有的 `GOOGLE_GENERATIVE_AI_API_KEY` 直连；此时界面保留照片供重试，不生成假的识别结果。

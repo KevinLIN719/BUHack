@@ -13,8 +13,9 @@
     "sample:pdf": "node --import tsx scripts/create-sample.mjs",
     "start:v3": "node --import tsx v3/server.mjs",
     "build:vercel": "node scripts/build-vercel.mjs",
-    "check:capture": "node --check v3/js/capture.js && node --check v3/js/scan.js && node --check v3/js/screens/home.js && node --check v3/js/screens/document.js",
-    "test:capture": "node --import tsx --test server/tests/capture.test.ts server/tests/scan-ocr.test.ts server/tests/cloud.test.ts"
+    "check:capture": "node --check v3/js/capture.js && node --check v3/js/scan.js && node --check v3/js/screens/home.js && node --check v3/js/screens/document.js && node --check v3/js/voice.js && node --check v3/js/materials.js && node --check v3/js/screens/context.js",
+    "test:capture": "node --import tsx --test server/tests/capture.test.ts server/tests/scan-ocr.test.ts server/tests/cloud.test.ts",
+    "test:voice": "node --import tsx --test server/tests/asr.test.ts"
   },
   "dependencies": {
     "@ai-sdk/deepseek": "^3.0.86",

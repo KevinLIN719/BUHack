@@ -102,6 +102,24 @@ test("upstream OCR failure does not persist a partial document or increment revi
   } finally { store.close(); }
 });
 
+test("photo supplements retain their material role and deduplicate within that role", async () => {
+  const { store, review } = fixture();
+  let calls = 0;
+  const recognize = async () => { calls++; return reading(); };
+  try {
+    const contract = await importScannedPages(store, review.id, [image()], { recognize });
+    const schedule = await importScannedPages(store, review.id, [image()], { recognize, role: "schedule" });
+    const again = await importScannedPages(store, review.id, [image()], { recognize, role: "schedule" });
+    const promotion = await importScannedPages(store, review.id, [image()], { recognize, role: "promotion" });
+    assert.equal(contract.role, "contract");
+    assert.equal(schedule.role, "schedule");
+    assert.equal(promotion.role, "promotion");
+    assert.notEqual(schedule.id, contract.id);
+    assert.equal(again.id, schedule.id);
+    assert.equal(calls, 3);
+  } finally { store.close(); }
+});
+
 test("a review deleted or a request aborted during recognition cannot be resurrected", async () => {
   const { store, review } = fixture();
   try {

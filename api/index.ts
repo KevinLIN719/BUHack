@@ -1,6 +1,7 @@
 import express from "express";
 import { createCaptureRouter } from "../server/capture.js";
 import { cloudHandler } from "../server/cloud.js";
+import { createAsrRouter } from "../server/asr.js";
 
 const app = express();
 app.disable("x-powered-by");
@@ -16,6 +17,7 @@ app.use((req, _res, next) => {
   next();
 });
 app.use("/api/capture", createCaptureRouter());
+app.use("/api/audio", createAsrRouter());
 app.use(cloudHandler);
 
 export const config = { maxDuration: 300, api: { bodyParser: false } };

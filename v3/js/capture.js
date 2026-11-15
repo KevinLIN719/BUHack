@@ -206,12 +206,12 @@
     } finally { URL.revokeObjectURL(url); }
   }
 
-  function open() {
+  function open({ reviewId = null, role = 'contract', onImported = null } = {}) {
     if (current) return current.dialog.focus();
     const previous = document.activeElement;
     const controller = new AbortController();
     let dead = false, terminal = false, session = null, transport = null, rtc = null, connected = false, importing = false;
-    let pages = [], createdReview = null, pageKey = '', requestVersion = 0, shutterTimer = 0, sessionStatus = '';
+    let pages = [], createdReview = reviewId ? { id: reviewId } : null, pageKey = '', requestVersion = 0, shutterTimer = 0, sessionStatus = '';
     const urls = new Set(), imageUrls = new Map();
     const titleId = `capture-title-${crypto.randomUUID()}`;
     const say = (value, error = false) => { if (!dead) { status.textContent = value; status.classList.toggle('is-error', error); } };
@@ -239,7 +239,7 @@
     const start = h('button', { type: 'button', class: 'cap-btn is-primary', disabled: true, onclick: () => { void importPages(); } }, t('開始識別', 'Read these pages'));
     const closer = h('button', { type: 'button', class: 'cap-btn cap-close', 'aria-label': t('關閉手機掃描', 'Close phone scan'), onclick: () => close() }, '×');
     const dialog = h('dialog', { class: 'cap-dialog', 'aria-labelledby': titleId },
-      h('div', { class: 'cap-heading' }, h('div', {}, h('p', { class: 'eyebrow' }, 'Policy Lens'), h('h2', { id: titleId }, t('用手機掃描保單', 'Scan with your phone'))), closer),
+      h('div', { class: 'cap-heading' }, h('div', {}, h('p', { class: 'eyebrow' }, 'Policy Lens'), h('h2', { id: titleId }, t('拍照補充信息', 'Add information with photos'))), closer),
       status,
       h('div', { class: 'cap-layout' },
         h('section', { class: 'cap-camera-panel', 'aria-label': t('取景與配對', 'Camera and pairing') },
@@ -294,7 +294,7 @@
       if (importing || !pages.length || !session) return;
       importing = true; syncButtons();
       start.textContent = t('正在識別……', 'Reading…');
-      say(t('正在逐頁識別文字，完成後會打開保單。', 'Reading each page. Your policy will open when it is ready.'));
+      say(reviewId ? t('正在識別並加入這份保單的材料。', 'Reading and adding these pages to this policy.') : t('正在逐頁識別文字，完成後會打開保單。', 'Reading each page. Your policy will open when it is ready.'));
       dialog.setAttribute('aria-busy', 'true');
       try {
         if (!createdReview) {
@@ -303,9 +303,14 @@
         }
         const doc = await request(`/api/reviews/${encodeURIComponent(createdReview.id)}/scans`, {
           method: 'POST', signal: controller.signal,
-          body: JSON.stringify({ sessionId: session.id, token: session.hostToken, name: t('手機掃描保單', 'Phone-scanned policy') }),
+          body: JSON.stringify({ sessionId: session.id, token: session.hostToken, role, name: reviewId ? t('拍照補充資料', 'Photographed material') : t('手機掃描保單', 'Phone-scanned policy') }),
         });
         if (dead) return;
+        if (reviewId) {
+          close();
+          await (onImported ? onImported(doc) : PL.materials?.refresh());
+          return;
+        }
         const record = { reviewId: createdReview.id, documentId: doc.id, name: doc.name, pageIndex: 1 };
         PL.documents.remember(record);
         PL.setState({ document: record, intake: null, intakeLoading: false, analysis: null, context: {}, selected: [], materials: [], materialsRevision: 0, analysisRevision: null, prevAnalysis: null, claims: null });
