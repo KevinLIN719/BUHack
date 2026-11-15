@@ -34,3 +34,4 @@
   .mat-input-actions .cap-btn { width:100%; }
 }
 @media(prefers-reduced-motion:reduce) { .is-recording .voice-bars i { animation:none; height:17px; } }
+@media(max-width:380px) { .home-title { font-size:32px; } }
