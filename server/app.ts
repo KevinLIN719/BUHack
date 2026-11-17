@@ -8,6 +8,9 @@ import { Store, type Review, type Run } from "./store.js";
 import { reportView } from "./report.js";
 import { buildQuestionChecklist } from "./export.js";
 import { runV3Intake, streamV3Analysis, streamV3Claims, streamV3WhatIf } from "./v3.js";
+import { capturePages, captureImportState, CaptureError, createCaptureRouter } from "./capture.js";
+import { importScannedPages, ScanImportError } from "./scan-ocr.js";
+import { createAsrRouter } from "./asr.js";
 
 class ApiError extends Error {
   constructor(readonly status: number, readonly code: string, message: string) { super(message); }
@@ -74,16 +77,20 @@ function cookieToken(req: Request): string | undefined {
   return value && /^[a-f0-9]{64}$/.test(value) ? value : undefined;
 }
 
-export function createApp(store: Store) {
+export function createApp(store: Store, options: { readOnly?: boolean } = {}) {
   const app = express();
-  const documentQueue = new DocumentQueue(store);
-  const investigator = new Investigator(store);
+  const documentQueue = new DocumentQueue(store, { recover: !options.readOnly });
+  const investigator = new Investigator(store, { recover: !options.readOnly });
+  app.locals.waitUntilIdle = async () => {
+    await Promise.all([documentQueue.waitUntilIdle(), investigator.waitUntilIdle()]);
+  };
   app.locals.close = async () => { await investigator.close(); await documentQueue.close(); };
-  documentQueue.wake();
+  if (!options.readOnly) documentQueue.wake();
   const upload = multer({ storage: multer.memoryStorage(), defParamCharset: "utf8", limits: {
     fileSize: MAX_FILE_BYTES, files: 1, fields: 1, parts: 2, fieldSize: 100,
   } }).single("file");
   app.disable("x-powered-by");
+  if (process.env.VERCEL) app.set("trust proxy", 1);
   app.use((req, res, next) => {
     res.setHeader("X-Request-Id", randomUUID());
     res.setHeader("Cache-Control", "no-store");
@@ -103,6 +110,8 @@ export function createApp(store: Store) {
     }
     next();
   });
+  app.use("/api/capture", createCaptureRouter());
+  app.use("/api/audio", createAsrRouter());
   app.use(express.json({ limit: "1mb" }));
 
   function presentRun(run: Run) {
@@ -144,7 +153,7 @@ export function createApp(store: Store) {
     let token = cookieToken(req);
     if (!token) {
       token = randomBytes(32).toString("hex");
-      res.cookie("pl_session", token, { httpOnly: true, sameSite: "strict", maxAge: 7 * 86400_000, path: "/" });
+      res.cookie("pl_session", token, { httpOnly: true, sameSite: "strict", secure: req.secure, maxAge: 7 * 86400_000, path: "/" });
     }
     res.status(201).json(publicReview(store.createReview(hash(token))));
   });
@@ -221,6 +230,41 @@ export function createApp(store: Store) {
     documentQueue.wake();
   });
 
+  app.post("/api/reviews/:id/scans", async (req, res, next) => {
+    try {
+      const review = requireReview(req);
+      const input = z.object({ sessionId: z.string().uuid(), token: z.string().regex(/^[0-9a-f]{64}$/), name: z.string().trim().max(120).optional(), role: z.enum(["contract", "schedule", "endorsement", "promotion"]).default("contract") }).strict().parse(req.body);
+      if (documentsFor(store, review.id).length >= 8) throw new ApiError(413, "DOCUMENT_LIMIT", "一次審閱最多保留8份材料。");
+      await captureImportState(input.sessionId, input.token, "processing");
+      const controller = new AbortController();
+      const disconnected = () => { if (!res.writableEnded) controller.abort(); };
+      res.once("close", disconnected);
+      let document;
+      try {
+        const pages = await capturePages(input.sessionId, input.token);
+        document = await importScannedPages(store, review.id, pages, { name: input.name || "手機掃描保單", role: input.role, signal: controller.signal });
+        if (app.locals.cloudTransactions) {
+          app.locals.afterCommit = () => captureImportState(input.sessionId,input.token,"imported");
+          app.locals.onCommitFailure = () => captureImportState(input.sessionId,input.token,"connected");
+        } else await captureImportState(input.sessionId,input.token,"imported");
+      }
+      catch (error) {
+        await captureImportState(input.sessionId,input.token,"connected").catch(()=>{});
+        if (error instanceof ScanImportError || error instanceof CaptureError) throw error;
+        // Provider errors can contain request payloads. Expose only an actionable
+        // category, never SDK bodies, tokens or OCR image data.
+        const status = error && typeof error === "object" && "statusCode" in error ? Number(error.statusCode) : 0;
+        console.warn("[scan] recognition unavailable", { name:error instanceof Error ? error.name : "unknown", status });
+        throw new ApiError(503, status===401||status===403 ? "OCR_AUTH_REQUIRED" : "OCR_UNAVAILABLE", status===401||status===403 ? "識別服務尚未啟用，請聯絡管理員配置模型服務。照片已保留，可稍後重試。" : "識別服務暫時無法使用，照片已保留，請重試。");
+      }
+      finally { res.off("close", disconnected); }
+      res.status(201).json(publicDocument(document));
+    } catch (error) {
+      if (error instanceof CaptureError || error instanceof ScanImportError) return next(new ApiError(error.status, error.code, error.message));
+      next(error);
+    }
+  });
+
   // Pasted chat records: same review, same source/citation rules as an uploaded PDF, but the
   // provenance is recorded instead of inferred from a file.
   app.post("/api/reviews/:id/text-materials", (req, res) => {
@@ -252,18 +296,18 @@ export function createApp(store: Store) {
     const page = store.db.prepare("SELECT pageIndex, printedPageLabel, text, status FROM pages WHERE documentId = ? AND pageIndex = ?").get(document.id, Number(index));
     if (!page) throw new ApiError(404, "PAGE_NOT_FOUND", "该页不存在或尚未完成提取。");
     const sources = store.db.prepare("SELECT id AS sourceId, blockId, quote FROM sources WHERE documentId = ? AND pageIndex = ? ORDER BY rowid").all(document.id, Number(index));
-    res.json({ ...page, documentId: document.id, documentVersion: document.sha256, method: "pdf_text", sources });
+    res.json({ ...page, documentId: document.id, documentVersion: document.sha256, method: document.sourceType === "scan" ? "ocr" : "pdf_text", sources });
   });
 
   app.get("/api/reviews/:id/sources/:sourceId", (req, res) => {
     const review = requireReview(req);
     const source = store.db.prepare(`SELECT s.id AS sourceId, s.documentId, s.pageIndex, s.blockId, s.quote,
-      d.sha256 AS documentVersion, d.name AS documentName, d.role, p.printedPageLabel
+      d.sha256 AS documentVersion, d.name AS documentName, d.role, d.sourceType, p.printedPageLabel
       FROM sources s JOIN documents d ON d.id = s.documentId
       JOIN pages p ON p.documentId = s.documentId AND p.pageIndex = s.pageIndex
       WHERE s.id = ? AND d.reviewId = ?`).get(String(req.params.sourceId), review.id);
     if (!source) throw new ApiError(404, "SOURCE_NOT_FOUND", "找不到这段原文。");
-    res.json({ ...source, method: "pdf_text", quoteCheck: "matched", contentUrl: `/api/reviews/${review.id}/documents/${source.documentId}/content#page=${source.pageIndex}` });
+    res.json({ ...source, method: source.sourceType === "scan" ? "ocr" : "pdf_text", quoteCheck: "matched", contentUrl: `/api/reviews/${review.id}/documents/${source.documentId}/content#page=${source.pageIndex}` });
   });
 
   app.get("/api/reviews/:id/documents/:docId/content", (req, res) => {
@@ -576,7 +620,7 @@ export function createApp(store: Store) {
       const tooLarge = error.code === "LIMIT_FILE_SIZE";
       res.status(tooLarge ? 413 : 400).json({ error: {
         code: tooLarge ? "FILE_TOO_LARGE" : "INVALID_UPLOAD",
-        message: tooLarge ? "单份 PDF 不能超过 10 MB。" : "请仅上传一份 file 文件，并填写 role。",
+        message: tooLarge ? `单份 PDF 不能超过 ${MAX_FILE_BYTES/1024/1024} MB。` : "请仅上传一份 file 文件，并填写 role。",
         retryable: false, requestId: res.getHeader("X-Request-Id"),
       } });
       return;

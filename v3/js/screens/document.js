@@ -24,6 +24,7 @@
     const remove = h('button', { type: 'button', class: 'btn quiet real-remove', hidden: true, onclick: () => { void removeDocument(); } }, PL.t('刪除這份保單', 'Delete this policy'));
     const retry = h('button', { type: 'button', class: 'btn real-retry', hidden: true, onclick: () => { retry.hidden = true; void start(); } }, PL.t('重試查看', 'Try again'));
     const back = h('button', { type: 'button', class: 'btn quiet', onclick: () => PL.go('home') }, PL.t('返回首頁', 'Back to home'));
+    const extractionNote = h('p', { class: 'real-note' }, PL.t('這裏顯示從 PDF 提取的文字。頁眉、頁腳和表格可能不完整，如有疑問可隨時打開原 PDF 核對。', 'This shows text extracted from your PDF. Headers, footers and tables may be incomplete; open the original PDF whenever needed.'));
 
     const el = h('section', { class: 'screen parse real-reader' },
       h('div', { class: 'paper', 'data-a': '' },
@@ -31,7 +32,7 @@
       h('aside', { class: 'parse-panel real-panel', 'data-a': '' },
         h('p', { class: 'eyebrow' }, PL.t('保單原文', 'Policy wording')),
         title, status, analyzeBtn, controls, original, retry,
-        h('p', { class: 'real-note' }, PL.t('這裏顯示從 PDF 提取的文字。頁眉、頁腳和表格可能不完整，如有疑問可隨時打開原 PDF 核對。', 'This shows text extracted from your PDF. Headers, footers and tables may be incomplete; open the original PDF whenever needed.')),
+        extractionNote,
         remove, back));
 
     function say(message) {
@@ -180,6 +181,9 @@
           if (['queued', 'parsing'].includes(details.status)) await PL.documents.wait(controller.signal, 500);
         } while (['queued', 'parsing'].includes(details.status));
         setRecord({ ...record, name: details.name });
+        if (details.method === 'ocr' || details.sourceType === 'scan') {
+          extractionNote.textContent = PL.t('文字由照片 OCR 識別。請打開原圖 PDF 核對金額、日期及「不保」等關鍵字；看不清的內容不會作為條款依據。', 'Text was recognized from photos using OCR. Check amounts, dates and exclusions against the original photo PDF. Unreadable text is not used as clause evidence.');
+        }
         if (details.status === 'failed') {
           say(errorText(details.errorCode));
           paperContent.replaceChildren(h('p', { class: 'real-paper-message' }, PL.t('暫時沒有可顯示的原文。', 'There is no text to show yet.')));

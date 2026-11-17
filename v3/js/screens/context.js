@@ -44,6 +44,7 @@
       ? h('input', {
         type: 'text',
         class: 'ctx-note-input',
+        maxlength: '800',
         value: init.userNote || '',
         placeholder: PL.t('或者直接寫一句你最擔心的事（例如：我出門旅行一個半月，家裏沒人住，出事賠不賠？）', 'Or type one thing on your mind (e.g. What if my flat is empty for 45 days?)'),
         oninput: (e) => { PL.setState({ userNote: e.target.value }); },
@@ -51,7 +52,8 @@
       })
       : null;
     const noteRow = isReal
-      ? h('div', { class: 'ctx-note-box', 'data-a': '' }, noteInput)
+      ? h('div', { class: 'ctx-note-box', 'data-a': '' }, noteInput,
+        h('div', { class: 'ctx-input-actions' }, h('button', { type: 'button', class: 'cap-btn', onclick: () => PL.voice.open() }, PL.t('錄音補充信息', 'Add information by voice'))))
       : null;
     const actionsWrap = h('div', { class: 'ctx-actions', 'data-a': '' },
       h('button', { type: 'button', class: 'btn primary', onclick: () => PL.go('parse') }, PL.t('開始解讀', 'Read my policy'), h('span', { class: 'arrow' }, '→')),
@@ -160,12 +162,14 @@
         syncView();
       }
       if (isReal && next.materials !== prev.materials) paintMats();
+      if (noteInput && next.userNote !== prev.userNote && noteInput.value !== next.userNote) noteInput.value = next.userNote || '';
     });
 
     return {
       el,
       destroy: () => {
         live = false;
+        PL.voice?.close();
         controller.abort();
         unsub();
       },

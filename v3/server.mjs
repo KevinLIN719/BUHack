@@ -30,6 +30,7 @@ site.use((req, res, next) => {
   next();
 });
 site.get(['/', '/index.html'], (_req, res) => res.sendFile(resolve(frontendDir, 'index.html')));
+site.get(['/scan', '/scan.html'], (_req, res) => res.sendFile(resolve(frontendDir, 'scan.html')));
 site.use('/js', express.static(resolve(frontendDir, 'js'), { dotfiles: 'deny', index: false }));
 site.use('/css', express.static(resolve(frontendDir, 'css'), { dotfiles: 'deny', index: false }));
 site.use((_req, res) => res.status(404).send('Not found'));

@@ -1,5 +1,5 @@
 import { ToolLoopAgent, generateText, streamText, parsePartialJson, isStepCount, Output, tool, type ModelMessage } from "ai";
-import { createDeepSeek } from "@ai-sdk/deepseek";
+import { textModel, textModelConfigured } from "./models.js";
 import { z } from "zod";
 import { Store } from "./store.js";
 import { documentsFor } from "./ingest/documents.js";
@@ -278,16 +278,7 @@ export function alignCitation(
   return { sourceId: "", page: 0, quote: rawQuote.trim(), found: false };
 }
 
-function fastModel() {
-  const provider = createDeepSeek({
-    apiKey: process.env.DEEPSEEK_API_KEY,
-    baseURL: process.env.DEEPSEEK_BASE_URL ?? "https://api.deepseek.com",
-  });
-  // Explicitly avoid reasoner/high-thinking models for fast turnaround
-  const configured = process.env.DEEPSEEK_FAST_MODEL ?? process.env.DEEPSEEK_MODEL ?? "deepseek-chat";
-  const modelName = /reasoner|thinking/i.test(configured) ? "deepseek-chat" : configured;
-  return provider(modelName);
-}
+function fastModel() { return textModel({ fast: true }); }
 
 /**
  * A thinking-mode model rejects `tool_choice` with "Thinking mode does not
@@ -356,7 +347,7 @@ export async function runV3Intake(
   const contract = docs.find(d => d.role === "contract" && ["ready", "partial"].includes(d.status)) ?? docs[0];
   if (!contract) return fallbackIntake("Policy", lang);
 
-  if (!process.env.DEEPSEEK_API_KEY?.trim()) {
+  if (!textModelConfigured()) {
     return fallbackIntake(contract.name, lang);
   }
 
@@ -598,8 +589,8 @@ async function submitStructured<T>(opts: {
 }
 
 function noKeyError(lang: AnswerLanguage, emit: Emit) {
-  if (process.env.DEEPSEEK_API_KEY?.trim()) return false;
-  emit({ type: "error", message: lang === "en" ? "DEEPSEEK_API_KEY is missing in .env. Add it and restart Policy Lens." : "後端還沒填 DEEPSEEK_API_KEY（請在 .env 填好後重啟）。" });
+  if (textModelConfigured()) return false;
+  emit({ type: "error", message: lang === "en" ? "AI credentials are missing. Configure DeepSeek or AI Gateway and retry." : "後端尚未配置 DeepSeek 或 AI Gateway 認證。" });
   return true;
 }
 

@@ -102,6 +102,14 @@
         closeBtn),
       h('p', { class: 'mat-sub' }, PL.t('附表和批單會一起拿來解讀；顧問回覆和宣傳單會逐句對照合同。', 'Schedules and endorsements join the reading; adviser replies and brochures get checked line by line against the contract.')),
       list,
+      h('div', { class: 'mat-input-actions' },
+        h('button', { type: 'button', class: 'cap-btn', onclick: () => PL.capture.open({
+          reviewId: PL.getState().document?.reviewId, role, onImported: async () => {
+            try { await refresh(); status.textContent = PL.t('照片已加入。', 'Photos added.'); status.classList.remove('is-error'); }
+            catch (error) { status.textContent = error.message; status.classList.add('is-error'); }
+          },
+        }) }, PL.t('拍照補充信息', 'Add information with photos')),
+        h('button', { type: 'button', class: 'cap-btn', onclick: () => PL.voice.open() }, PL.t('錄音補充信息', 'Add information by voice'))),
       h('section', { class: 'mat-block', 'data-block': 'pdf' },
         h('h4', {}, PL.t('加 PDF', 'Add a PDF')),
         h('div', { class: 'mat-roles' }, ...roleChips),
@@ -132,7 +140,10 @@
             : h('button', { type: 'button', class: 'mat-x', 'aria-label': PL.t('移除', 'Remove'), onclick: () => { void doRemove(d.id); } }, '×'));
       }));
     }
-    const unsub = PL.subscribe((s, prev) => { if (s.materials !== prev.materials) paintList(); });
+    const unsub = PL.subscribe((s, prev) => {
+      if (s.step !== prev.step) { void close(); return; }
+      if (s.materials !== prev.materials) paintList();
+    });
 
     async function run(label, fn) {
       PL.$$('button, input, textarea', panel).forEach((b) => { if (b !== closeBtn) b.disabled = true; });
@@ -167,7 +178,7 @@
       status.textContent = '';
     }
 
-    const onKey = (e) => { if (e.key === 'Escape') close(); };
+    const onKey = (e) => { if (e.key === 'Escape' && !document.querySelector('dialog[open]')) close(); };
     document.addEventListener('keydown', onKey);
     document.body.append(root);
     paintList();
@@ -186,6 +197,8 @@
     async function close() {
       if (!openSheet) return;
       openSheet = null;
+      PL.voice?.close();
+      PL.capture?.close();
       unsub();
       document.removeEventListener('keydown', onKey);
       if (window.gsap && !PL.reduced) {

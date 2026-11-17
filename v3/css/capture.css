@@ -1,0 +1,71 @@
+/* Phone camera / scan desk. Flat controls share the left-to-right ink fill. */
+.home-scan-entry { margin-top:12px; width:100%; justify-content:space-between; }
+.cap-btn {
+  position:relative; isolation:isolate; overflow:hidden; display:inline-flex; align-items:center; justify-content:center;
+  min-height:42px; padding:9px 15px; gap:8px; border:1px solid var(--line-2); border-radius:5px;
+  color:var(--ink); background:var(--card); font:600 13px/1.45 var(--font); cursor:pointer; transition:color .25s,border-color .25s;
+}
+.cap-btn::before { content:''; position:absolute; z-index:-1; inset:0; background:var(--ink); transform:scaleX(0); transform-origin:left; transition:transform .3s cubic-bezier(.2,.8,.2,1); }
+.cap-btn:is(:hover,:focus-visible):not(:disabled)::before { transform:scaleX(1); }
+.cap-btn:is(:hover,:focus-visible):not(:disabled) { color:#fff; border-color:var(--ink); }
+.cap-btn.is-primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+.cap-btn:disabled { cursor:default; opacity:.45; }
+.cap-dialog { width:min(1120px,calc(100% - 40px)); max-height:calc(100dvh - 40px); padding:28px; border:1px solid var(--line); border-radius:8px; background:var(--paper); color:var(--ink); overflow:auto; }
+.cap-dialog::backdrop { background:rgb(25 22 17 / .55); }
+.cap-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:20px; }
+.cap-heading h2 { margin-top:6px; font-size:clamp(23px,3vw,32px); line-height:1.2; letter-spacing:-.04em; }
+.cap-close { flex:none; min-width:40px; padding:4px; font-size:24px; font-weight:400; }
+.cap-status { min-height:2.8em; padding:14px 0; margin:0; font-size:13px; color:var(--ink-2); overflow-wrap:anywhere; }
+.cap-status.is-error { color:var(--st-excluded,#b5302d); }
+.cap-layout { display:grid; grid-template-columns:minmax(0,1.45fr) minmax(250px,1fr); gap:26px; }
+.cap-camera-panel,.cap-page-panel { min-width:0; }
+.cap-viewfinder { position:relative; width:100%; aspect-ratio:4/3; overflow:hidden; border:1px solid var(--line-2); background:#191b1a; border-radius:5px; }
+.cap-video { width:100%; height:100%; display:block; object-fit:contain; }
+.cap-video-wait { position:absolute; inset:0; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:10px; padding:24px; color:#dadbd4; text-align:center; font-size:13px; }
+.cap-video-wait > span { font-size:42px; font-weight:400; }
+.cap-frame { position:absolute; inset:9% 12%; border:1px solid rgb(255 255 255 / .48); pointer-events:none; }
+.cap-frame::before,.cap-frame::after { content:''; position:absolute; width:22px; height:22px; border-color:#fff; border-style:solid; }
+.cap-frame::before { left:-2px; top:-2px; border-width:2px 0 0 2px; }
+.cap-frame::after { right:-2px; bottom:-2px; border-width:0 2px 2px 0; }
+.cap-camera-actions { display:flex; flex-wrap:wrap; gap:10px; margin:12px 0 18px; }
+.cap-pair { display:flex; align-items:center; gap:18px; padding-top:18px; border-top:1px solid var(--line); }
+.cap-qr { flex:none; width:132px; height:132px; padding:5px; background:#fff; }
+.cap-qr img { width:100%; height:100%; display:block; }
+.cap-pair-copy { min-width:0; flex:1; }
+.cap-pair-copy > p { margin-bottom:9px; font-size:12px; color:var(--ink-2); }
+.cap-link { width:100%; min-width:0; height:35px; padding:7px; border:1px solid var(--line); border-radius:3px; background:var(--card); color:var(--muted); font:11px/1.5 var(--font); }
+.cap-pair-copy > .cap-btn { margin-top:8px; min-height:34px; font-size:12px; }
+.cap-page-panel { display:flex; flex-direction:column; border-left:1px solid var(--line); padding-left:24px; }
+.cap-page-count { font-size:14px; font-weight:600; }
+.cap-empty { padding:24px 0; font-size:13px; color:var(--muted); }
+.cap-pages { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; align-content:start; margin:15px 0; padding:0; list-style:none; max-height:350px; overflow:auto; }
+.cap-page { min-width:0; padding:6px; border:1px solid var(--line); background:#fff; }
+.cap-page > img { display:block; width:100%; aspect-ratio:210/297; object-fit:contain; background:#f7f5ef; font-size:11px; overflow-wrap:anywhere; }
+.cap-page > div { display:flex; align-items:center; justify-content:space-between; gap:6px; padding-top:6px; font:11px/1.4 var(--font); color:var(--muted); }
+.cap-page-delete { min-height:28px; padding:3px 7px; font-size:11px; }
+.cap-note { font-size:12px; line-height:1.65; color:var(--muted); }
+.cap-page-panel > .cap-note { margin-top:auto; margin-bottom:12px; }
+.cap-page-panel > .cap-btn { width:100%; }
+.phone-scan { width:min(680px,100%); margin:auto; padding:20px 18px max(24px,env(safe-area-inset-bottom)); }
+.phone-heading { display:flex; align-items:center; justify-content:space-between; gap:14px; }
+.phone-heading h1 { font-size:24px; line-height:1.2; margin-top:5px; letter-spacing:-.035em; }
+.phone-language { display:flex; gap:4px; }
+.phone-language .cap-btn { min-height:32px; padding:5px 9px; font-size:11px; }
+.phone-language [aria-pressed='true'] { border-color:var(--accent); color:var(--accent); }
+.phone-viewfinder { aspect-ratio:3/4; max-height:60dvh; }
+.phone-camera-placeholder { position:absolute; inset:0; display:grid; place-content:center; padding:50px; text-align:center; font-size:13px; color:#dadbd4; }
+.phone-primary-actions { display:flex; gap:10px; margin-top:14px; }
+.phone-primary-actions .cap-btn { flex:1; min-height:52px; font-size:15px; }
+.phone-secondary-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:10px; }
+.phone-footer { padding-top:18px; margin-top:20px; border-top:1px solid var(--line); }
+.phone-page-count { display:block; margin-bottom:8px; font-size:14px; font-weight:600; }
+@media(max-width:760px) {
+  .cap-dialog { width:calc(100% - 20px); max-height:calc(100dvh - 20px); padding:18px; }
+  .cap-layout { grid-template-columns:1fr; gap:24px; }
+  .cap-page-panel { border-left:0; border-top:1px solid var(--line); padding:20px 0 0; }
+  .cap-pair { gap:12px; }
+  .cap-qr { width:116px; height:116px; }
+  .cap-pages { grid-template-columns:repeat(3,minmax(0,1fr)); max-height:300px; }
+}
+@media(max-width:380px) { .cap-pair { align-items:flex-start; } .cap-qr { width:96px; height:96px; } .cap-pages { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(prefers-reduced-motion:reduce) { .cap-btn,.cap-btn::before { transition:none; } }
